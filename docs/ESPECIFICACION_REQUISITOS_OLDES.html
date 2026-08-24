@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Especificación de requisitos OLDES</title>
+  <style>
+    @page { size: Letter; margin: 18mm 16mm 18mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #1f2937;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 10.3pt;
+      line-height: 1.48;
+    }
+    h1 {
+      margin: 0 0 6px;
+      color: #12396b;
+      font-size: 24pt;
+      line-height: 1.08;
+      letter-spacing: -.4px;
+    }
+    h2 {
+      margin: 7px 0 18px;
+      color: #315a8a;
+      font-size: 15pt;
+      line-height: 1.2;
+    }
+    h2:not(:first-of-type) {
+      margin: 25px 0 9px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #b7c5d8;
+      break-after: avoid;
+    }
+    h3 {
+      margin: 16px 0 6px;
+      color: #12396b;
+      font-size: 11.5pt;
+      break-after: avoid;
+    }
+    p { margin: 5px 0 8px; orphans: 3; widows: 3; }
+    ul, ol { margin: 5px 0 10px 20px; padding: 0; }
+    li { margin: 3px 0; break-inside: avoid; }
+    strong { color: #172b4d; }
+    code {
+      padding: 1px 4px;
+      background: #eef2f7;
+      border-radius: 3px;
+      font-size: 9pt;
+    }
+    blockquote {
+      margin: 10px 0 14px;
+      padding: 9px 12px;
+      border-left: 4px solid #315a8a;
+      background: #f3f6fa;
+      color: #334155;
+    }
+    hr {
+      margin: 17px 0;
+      border: 0;
+      border-top: 2px solid #12396b;
+    }
+    h1 + h2 + p, h1 + h2 + p + p, h1 + h2 + p + p + p, h1 + h2 + p + p + p + p {
+      color: #475569;
+    }
+    body::after {
+      content: "OLDES Rent a Car El Salvador · Especificación de requisitos · 8 de agosto de 2026";
+      position: fixed;
+      right: 0;
+      bottom: -11mm;
+      left: 0;
+      color: #64748b;
+      font-size: 8pt;
+      text-align: center;
+    }
+  </style>
+</head>
+<body><h1>Especificación formal de requisitos</h1>
+<h2>Plataforma web y administrativa OLDES Rent a Car El Salvador</h2>
+<p><strong>Versión:</strong> 1.1</p>
+<p><strong>Fecha:</strong> 12 de agosto de 2026</p>
+<p><strong>Estado:</strong> Consolidación integral actualizada con feedback del cliente tras revisión de la versión 1.0</p>
+<p><strong>Organización:</strong> Operador Logístico de El Salvador, S.A. de C.V. — OLDES Rent a Autos</p>
+<hr>
+<h2>1. Propósito del documento</h2>
+<p>Este documento consolida de forma ordenada y formal todas las necesidades comunicadas por el cliente para la landing page y el sistema administrativo de OLDES Rent a Car.</p>
+<p>Incluye:</p>
+<ul>
+<li>mensajes escritos y correcciones de flujo;</li>
+<li>notas de voz y videos demostrativos;</li>
+<li>fotografías de contratos e inspección física;</li>
+<li>feedback del 12 de agosto de 2026 sobre la especificación 1.0;</li>
+<li>referencia de landing de un colega (JC Car Rentals);</li>
+<li>presupuesto PDF actual (<code>Presupuesto_1009.pdf</code>);</li>
+<li>calendario actual usado como guía visual;</li>
+<li>video del flujo actual de cotización móvil;</li>
+<li>referencia de usabilidad y campos de la plataforma HQ Rentals (prueba gratuita).</li>
+</ul>
+<p>Los videos y plataformas de terceros se consideran <strong>referencias de flujo, facilidad de uso y organización de campos</strong>. <strong>No se solicita copiar exactamente esas herramientas ni su diseño.</strong></p>
+<p>Cuando una indicación posterior corrige una anterior, prevalece la más reciente.</p>
+<hr>
+<h2>2. Confirmación del cliente sobre la versión 1.0</h2>
+<p>El cliente confirmó el 12 de agosto de 2026:</p>
+<blockquote>“Todo lo demás descrito lo veo muy bien según solicitado.”</blockquote>
+<p>Por tanto, se mantienen las reglas, módulos y criterios de la versión 1.0, con las ampliaciones y precisiones de esta versión 1.1.</p>
+<p>Además, el cliente reiteró que la plataforma debe ser <strong>demasiado fácil de usar</strong> y cubrir <strong>todo lo solicitado</strong>.</p>
+<hr>
+<h2>3. Reglas definitivas del negocio</h2>
+<h3>RN-01. Solicitud desde la landing</h3>
+<p>El formulario público debe crear una solicitud de cotización y facilitar el contacto por WhatsApp para brindar atención personalizada.</p>
+<h3>RN-02. Cotización independiente de la reserva</h3>
+<p>Las cotizaciones deben estar relacionadas con el cliente, pero no tienen que estar ligadas obligatoriamente a una reserva.</p>
+<h3>RN-03. Aceptación sin automatización</h3>
+<p>La aceptación de una cotización no debe:</p>
+<ul>
+<li>reservar automáticamente el vehículo;</li>
+<li>bloquear automáticamente el vehículo;</li>
+<li>crear automáticamente una reserva;</li>
+<li>abrir automáticamente un contrato;</li>
+<li>generar automáticamente un número de contrato.</li>
+</ul>
+<h3>RN-04. Reserva manual</h3>
+<p>Después de que el cliente acepte la cotización, el operador creará personalmente la reserva en el calendario e ingresará la información y los costos acordados.</p>
+<h3>RN-05. Contrato al entregar</h3>
+<p>El contrato se generará únicamente cuando se entregue el vehículo. En ese momento se asignará el correlativo. Esto evita mantener contratos abiertos cuando una persona reserva con varios meses de anticipación.</p>
+<h3>RN-06. Operación sin sucursal física</h3>
+<p>Por el momento OLDES no cuenta con ubicación física para atención al público. La landing page no debe mostrar un campo o dirección de sucursal. El servicio funciona mediante entregas a domicilio y entregas o devoluciones en ubicaciones acordadas.</p>
+<h3>RN-07. Cobro por períodos de 24 horas</h3>
+<p>La renta se calcula por períodos de 24 horas. El sistema podrá calcular los días automáticamente a partir de fecha y hora de salida y devolución, manteniendo la posibilidad de ajuste manual autorizado.</p>
+<h3>RN-08. Pago con tarjeta</h3>
+<p>La landing debe informar que se acepta efectivo y tarjeta. Las tarjetas tienen un cargo de transacción del 10 %, por lo que se recomienda el efectivo. En las reservas deben poder registrarse por separado el monto en efectivo y el monto con tarjeta.</p>
+<h3>RN-09. Kilometraje acumulado</h3>
+<p>El kilometraje registrado durante la salida y la devolución debe actualizar el kilometraje actual del vehículo y quedar en su historial.</p>
+<h3>RN-10. Facilidad operativa (nuevo)</h3>
+<p>Una vez que el cliente ya exista en el sistema, el operador debe poder elaborar y enviar una cotización en <strong>máximo 3 minutos</strong>.</p>
+<h3>RN-11. Abonos compartibles (nuevo)</h3>
+<p>Los abonos deben poder compartirse con el cliente de la misma forma que los contratos, como <strong>recibos electrónicos</strong> (PDF y/o enlace compartible por WhatsApp o correo).</p>
+<hr>
+<h2>4. Landing page pública</h2>
+<h3>4.1. Identidad y contacto</h3>
+<ul>
+<li>Marca visible: <strong>OLDES Rent a Car El Salvador</strong>.</li>
+<li>Teléfono y WhatsApp: <strong>+503 7435-0381</strong>.</li>
+<li>No mostrar ubicación física ni campo de sucursal.</li>
+<li>El correo corporativo queda pendiente de decidir entre:</li>
+<li>correo asociado al dominio; o</li>
+<li>una cuenta de Gmail.</li>
+</ul>
+<h3>4.2. Sección “Why choose OLDES Rent a Car El Salvador?”</h3>
+<p>La landing debe presentar estos beneficios:</p>
+<ol>
+<li><strong>Easy Online Booking</strong></li>
+</ol>
+<p>Reserve your vehicle quickly and easily online, anytime.</p>
+<ol>
+<li><strong>Free Airport Pickup &amp; Drop-off</strong></li>
+</ol>
+<p>Available 24/7 at any airport in El Salvador.</p>
+<ol>
+<li><strong>No Deposit Required</strong></li>
+</ol>
+<p>Enjoy your trip with zero deposit required.</p>
+<ol>
+<li><strong>Insurance Included</strong></li>
+</ol>
+<p>Insurance coverage included with every rental.</p>
+<ol>
+<li><strong>24/7 Roadside Assistance</strong></li>
+</ol>
+<p>We're here for you anytime, anywhere.</p>
+<ol>
+<li><strong>Cash &amp; Credit Cards Accepted</strong></li>
+</ol>
+<p>Credit cards have a 10% transaction fee. Cash recommended.</p>
+<h3>4.3. Solicitud de cotización</h3>
+<p>El visitante debe poder indicar los datos necesarios para solicitar una cotización. La solicitud debe:</p>
+<ul>
+<li>llegar o derivarse a WhatsApp para atención personalizada;</li>
+<li>quedar registrada en el sistema como solicitud pendiente;</li>
+<li>no convertirse en una reserva;</li>
+<li>no bloquear disponibilidad;</li>
+<li>permitir que el operador posteriormente cree una cotización formal.</li>
+</ul>
+<h3>4.4. Flota pública — solo tipo de vehículo y costos (actualizado)</h3>
+<p>En la sección pública de vehículos <strong>solo deben mostrarse el tipo de vehículo que se puede alquilar y sus costos</strong>, no un listado administrativo de unidades individuales.</p>
+<p>Referencia de presentación: [JC Car Rentals](https://www.jccarrentalses.com/), sección <strong>Our Vehicle Options &amp; Daily Rates</strong>.</p>
+<p>Cada tarjeta pública debe incluir, como mínimo:</p>
+<ul>
+<li>tipo de vehículo (por ejemplo: Sedan, 2 Row SUV, 3 Row SUV, Pickup, Minivan, u otras categorías definidas por OLDES);</li>
+<li>tarifa diaria;</li>
+<li>atributos comerciales simples (asientos, maletas, A/C, etc.);</li>
+<li>acción para ver detalle o iniciar solicitud de cotización.</li>
+</ul>
+<p>El administrador definirá:</p>
+<ul>
+<li>qué tipos están publicados;</li>
+<li>tarifa diaria por tipo;</li>
+<li>atributos visibles;</li>
+<li>fotografías representativas del tipo.</li>
+</ul>
+<p>La flota real (placas, VIN, unidad específica) permanece en el sistema administrativo y se asigna al crear la reserva o el contrato.</p>
+<hr>
+<h2>5. Clientes</h2>
+<h3>5.1. Perfil centralizado</h3>
+<p>Cada cliente debe tener un perfil único desde el cual se consulten:</p>
+<ul>
+<li>datos personales o empresariales;</li>
+<li>documentos e imágenes;</li>
+<li>cotizaciones;</li>
+<li>reservas;</li>
+<li>rentas y contratos;</li>
+<li>abonos y recibos;</li>
+<li>historial relacionado.</li>
+</ul>
+<h3>5.2. Persona natural</h3>
+<p>Datos solicitados:</p>
+<ul>
+<li>nombre completo;</li>
+<li>número de DUI o pasaporte;</li>
+<li>número de licencia;</li>
+<li>vencimiento de licencia;</li>
+<li>teléfono;</li>
+<li>país de origen o nacionalidad;</li>
+<li>dirección;</li>
+<li>correo electrónico;</li>
+<li>fotografía o imagen del documento/licencia;</li>
+<li>conductor adicional, cuando corresponda.</li>
+</ul>
+<h3>5.3. Empresa</h3>
+<p>El sistema debe diferenciar una persona natural de una empresa. Para una empresa se requieren, según corresponda:</p>
+<ul>
+<li>nombre o razón social a facturar;</li>
+<li>NIT;</li>
+<li>número de registro fiscal/NRC;</li>
+<li>persona de contacto;</li>
+<li>teléfono;</li>
+<li>correo electrónico;</li>
+<li>dirección;</li>
+<li>nombre y firma de quien recibe el vehículo;</li>
+<li>nombre y firma de quien entrega o devuelve el vehículo.</li>
+</ul>
+<h3>5.4. Uso de datos en documentos</h3>
+<p>Al crear cotización, reserva o contrato se debe poder:</p>
+<ul>
+<li>elegir un cliente existente y autocompletar sus datos;</li>
+<li>ingresar un cliente manualmente cuando sea necesario;</li>
+<li>exportar únicamente los datos disponibles;</li>
+<li>incluir la imagen o documento del cliente cuando corresponda;</li>
+<li>evitar bloquear el documento solamente porque un dato opcional no exista.</li>
+</ul>
+<hr>
+<h2>6. Cotizaciones (actualizado con flujo actual del cliente)</h2>
+<h3>6.1. Objetivo de usabilidad</h3>
+<p>La cotización debe ser el módulo más ágil del sistema. Meta operativa del cliente:</p>
+<blockquote>Una vez los datos del cliente estén ingresados, elaborar la cotización en <strong>3 minutos máximo</strong>.</blockquote>
+<h3>6.2. Creación rápida</h3>
+<p>El operador debe crear cotizaciones mediante un formulario amigable. Las cotizaciones:</p>
+<ul>
+<li>pertenecen a un cliente;</li>
+<li>no dependen de una reserva;</li>
+<li>pueden existir antes de conocer o confirmar una reserva;</li>
+<li>deben poder elaborarse en español o inglés;</li>
+<li>se utilizarán mayoritariamente en inglés;</li>
+<li>deben permitir seleccionar artículos/servicios de un catálogo predefinido;</li>
+<li>deben permitir agregar líneas personalizadas;</li>
+<li>deben calcular impuestos, descuentos y totales automáticamente.</li>
+</ul>
+<h3>6.3. Campos observados en el presupuesto actual (<code>Presupuesto_1009</code>)</h3>
+<p>La cotización PDF/formato debe contemplar, como mínimo:</p>
+<ul>
+<li>número de presupuesto / correlativo de cotización;</li>
+<li>fecha de emisión;</li>
+<li>vigencia o “válido hasta”, cuando aplique;</li>
+<li>cliente;</li>
+<li>período cotizado (fecha/hora inicio y fin);</li>
+<li>líneas de detalle:</li>
+<li>tipo de vehículo / servicio;</li>
+<li>descripción (transmisión, A/C, capacidad, etc.);</li>
+<li>cantidad;</li>
+<li>precio;</li>
+<li>importe;</li>
+<li>cargos adicionales (ejemplo: “Entrega y/o fuera de horas laborales”);</li>
+<li>descuento (%), cuando aplique;</li>
+<li>subtotal / total neto;</li>
+<li>impuesto (ejemplo actual: TAX 13 %);</li>
+<li>total en USD;</li>
+<li>texto de bienvenida / presentación;</li>
+<li>condiciones de pago;</li>
+<li>instrucciones de entrega y devolución;</li>
+<li>póliza de seguro y deducibles por tipo de vehículo;</li>
+<li>directrices de conducción;</li>
+<li>datos de contacto OLDES.</li>
+</ul>
+<h3>6.4. Catálogo de artículos y servicios</h3>
+<p>Para lograr velocidad, el sistema debe mantener un catálogo configurable de:</p>
+<ul>
+<li>tipos de vehículo con tarifas;</li>
+<li>servicios adicionales (entrega, fuera de horario, etc.);</li>
+<li>impuestos disponibles (por ejemplo 0 %, 13 % y otros que se definan);</li>
+<li>textos reutilizables de condiciones.</li>
+</ul>
+<p>El operador debe poder:</p>
+<ol>
+<li>elegir cliente;</li>
+<li>elegir período;</li>
+<li>agregar artículos desde catálogo;</li>
+<li>ajustar cantidad/precio/impuesto;</li>
+<li>previsualizar;</li>
+<li>enviar.</li>
+</ol>
+<h3>6.5. Entrega al cliente</h3>
+<p>La cotización terminada debe poder:</p>
+<ul>
+<li>generar un formato profesional;</li>
+<li>exportarse a PDF;</li>
+<li>previsualizarse antes de enviar;</li>
+<li>compartirse por WhatsApp;</li>
+<li>enviarse por correo cuando se defina y configure el correo corporativo.</li>
+</ul>
+<h3>6.6. Aceptación</h3>
+<p>El sistema puede registrar que una cotización fue aceptada, pero esa acción no debe crear automáticamente otros registros operativos. El operador decidirá cuándo crear la reserva manual.</p>
+<h3>6.7. Referencias de usabilidad</h3>
+<ul>
+<li>Video del flujo móvil actual de elaboración de presupuesto (12 de agosto de 2026): creación de cliente, catálogo de artículos/servicios, detalle del presupuesto, impuestos rápidos, términos y previsualización/envío.</li>
+<li>Plataforma HQ Rentals (prueba gratuita del cliente): referencia de campos y gestión. Se tomará como inspiración de facilidad y organización, <strong>sin replicar la herramienta</strong>.</li>
+</ul>
+<hr>
+<h2>7. Reservas y calendario (actualizado)</h2>
+<h3>7.1. Creación manual</h3>
+<p>La reserva será creada personalmente por el operador después de confirmar la aceptación y los detalles con el cliente.</p>
+<h3>7.2. Datos de la reserva</h3>
+<ul>
+<li>cliente;</li>
+<li>vehículo (unidad específica);</li>
+<li>tipo de vehículo;</li>
+<li>fecha y hora de entrega;</li>
+<li>lugar de entrega;</li>
+<li>fecha y hora de devolución;</li>
+<li>lugar de devolución;</li>
+<li>monto acordado en efectivo;</li>
+<li>monto correspondiente al pago con tarjeta;</li>
+<li>costos o información adicional;</li>
+<li>estado de la reserva;</li>
+<li>notas.</li>
+</ul>
+<p>El teléfono no necesita repetirse si ya se obtiene del perfil del cliente.</p>
+<h3>7.3. Calendario — guía visual del cliente</h3>
+<p>El calendario debe inspirarse en el estilo de uso actual del cliente (vista mensual tipo Google Calendar), sin copiar marcas de terceros.</p>
+<p>Debe permitir:</p>
+<ul>
+<li>vista mensual clara;</li>
+<li>botón “Hoy”;</li>
+<li>navegación entre meses;</li>
+<li>selector de vista (mes y, si aporta, semana/día/lista);</li>
+<li>búsqueda;</li>
+<li>actualización / refresco;</li>
+<li>barras horizontales que abarcan varios días;</li>
+<li>etiqueta por evento con, al menos:</li>
+<li>hora (cuando aplique);</li>
+<li>vehículo o tipo/modelo;</li>
+<li>nombre del cliente;</li>
+<li>colores diferenciados por estado, vehículo o tipo de evento;</li>
+<li>manejo de sobrecarga del día con “+ X más”;</li>
+<li>eventos no rentales útiles (feriados, mantenimiento, citas), cuando se carguen.</li>
+</ul>
+<p>El calendario es la herramienta principal para ver disponibilidad y duración de rentas de un vistazo.</p>
+<hr>
+<h2>8. Vehículos y control de flota</h2>
+<h3>8.1. Datos maestros</h3>
+<ul>
+<li>marca;</li>
+<li>modelo;</li>
+<li>año;</li>
+<li>tipo o categoría de vehículo;</li>
+<li>placas;</li>
+<li>color;</li>
+<li>capacidad;</li>
+<li>chasis;</li>
+<li>VIN;</li>
+<li>número de motor;</li>
+<li>tipo de combustible;</li>
+<li>aceite de motor;</li>
+<li>kilometraje actual;</li>
+<li>información de llantas;</li>
+<li>fotografías;</li>
+<li>estado operativo;</li>
+<li>visibilidad comercial del tipo en la landing;</li>
+<li>tarifa asociada al tipo, cuando corresponda.</li>
+</ul>
+<h3>8.2. Perfil del vehículo</h3>
+<p>Cada vehículo debe concentrar:</p>
+<ul>
+<li>datos técnicos;</li>
+<li>fotografías;</li>
+<li>reservas;</li>
+<li>contratos;</li>
+<li>inspecciones;</li>
+<li>kilometraje histórico;</li>
+<li>mantenimientos;</li>
+<li>gastos;</li>
+<li>repuestos;</li>
+<li>cartas u órdenes de taller;</li>
+<li>ingresos producidos;</li>
+<li>balance de rentabilidad.</li>
+</ul>
+<h3>8.3. Interés confirmado del cliente</h3>
+<p>El cliente confirmó interés explícito en el <strong>control y gestión de los vehículos</strong> como capacidad de la plataforma.</p>
+<hr>
+<h2>9. Inspección del vehículo</h2>
+<h3>9.1. Prioridad</h3>
+<p>La inspección es un componente crítico. Las fotografías deben conservar suficiente detalle para comprobar rayones, golpes y piezas faltantes, sin hacer que la plataforma almacene archivos innecesariamente pesados.</p>
+<h3>9.2. Optimización de imágenes</h3>
+<p>El sistema debe:</p>
+<ul>
+<li>conservar una versión de alta calidad como evidencia;</li>
+<li>corregir orientación;</li>
+<li>comprimir de forma controlada sin borrar rayones pequeños;</li>
+<li>generar versiones optimizadas para pantalla y miniaturas;</li>
+<li>evitar cargar la fotografía original en cada vista;</li>
+<li>guardar metadatos de fecha, inspección, vehículo y fase;</li>
+<li>mantener privadas las evidencias del contrato;</li>
+<li>permitir ampliar la imagen para revisar detalles.</li>
+</ul>
+<h3>9.3. Diagrama de daños</h3>
+<p>La inspección debe mostrar un vehículo reconocible y comprensible para el cliente. Puede utilizar 2D o una visualización 3D si mejora la operación, pero no se requiere un modelo exclusivo por cada vehículo.</p>
+<p>Se aceptan plantillas genéricas por carrocería:</p>
+<ul>
+<li>sedán de cuatro puertas y baúl;</li>
+<li>pickup de cuatro puertas y palangana;</li>
+<li>microbús o vehículo alto, cuando corresponda.</li>
+</ul>
+<p>El diagrama debe permitir marcar:</p>
+<ul>
+<li>golpe;</li>
+<li>rayón;</li>
+<li>pieza faltante;</li>
+<li>ubicación exacta;</li>
+<li>descripción;</li>
+<li>severidad;</li>
+<li>fotografías asociadas.</li>
+</ul>
+<p>La referencia física utiliza:</p>
+<ul>
+<li><strong>0 = GOLPE</strong></li>
+<li><strong>+ = RAYÓN</strong></li>
+<li><strong>x = FALTANTE</strong></li>
+</ul>
+<h3>9.4. Vistas</h3>
+<p>El documento de inspección puede utilizar las vistas:</p>
+<ul>
+<li>lateral izquierdo;</li>
+<li>lateral derecho;</li>
+<li>superior;</li>
+<li>frontal;</li>
+<li>trasera.</li>
+</ul>
+<p>La representación debe ser clara; no debe consistir en rectángulos abstractos que el cliente no identifique como un vehículo.</p>
+<h3>9.5. Salida y entrada</h3>
+<p>La inspección debe registrar por separado:</p>
+<ul>
+<li>estado de salida;</li>
+<li>estado de entrada;</li>
+<li>daños preexistentes;</li>
+<li>daños nuevos;</li>
+<li>fotografías de ambas fases;</li>
+<li>combustible de salida y entrada;</li>
+<li>kilometraje de salida y entrada;</li>
+<li>persona que entrega;</li>
+<li>persona que recibe;</li>
+<li>firmas correspondientes.</li>
+</ul>
+<h3>9.6. Combustible y kilometraje</h3>
+<p>Al entregar y recibir el vehículo se debe:</p>
+<ul>
+<li>tomar fotografía del marcador/tablero o indicador de combustible;</li>
+<li>registrar manualmente el kilometraje;</li>
+<li>registrar el nivel de combustible;</li>
+<li>conservar evidencia de ambas fases;</li>
+<li>actualizar el kilometraje maestro del vehículo al finalizar.</li>
+</ul>
+<hr>
+<h2>10. Revisión de accesorios</h2>
+<p>La revisión debe ser visual, rápida y seleccionable mediante iconos o controles tipo check. Debe guardar qué accesorio se entregó y qué accesorio regresó.</p>
+<p>Lista solicitada y observada en los formatos:</p>
+<ul>
+<li>llanta de repuesto;</li>
+<li>mica;</li>
+<li>palanca de mica;</li>
+<li>llave de cruz;</li>
+<li>cono o triángulo;</li>
+<li>extintor;</li>
+<li>cables para corriente;</li>
+<li>limpiaparabrisas;</li>
+<li>cubiertas y demás accesorios configurables.</li>
+</ul>
+<p>El catálogo debe ser configurable para agregar o retirar accesorios sin modificar el contrato manualmente.</p>
+<hr>
+<h2>11. Contratos</h2>
+<h3>11.1. Momento de creación</h3>
+<p>El contrato se crea únicamente al entregar el vehículo. En ese momento se asigna un correlativo consecutivo.</p>
+<h3>11.2. Experiencia de creación</h3>
+<p>El flujo debe ser amigable, por pasos, y funcionar en tablet. Debe admitir:</p>
+<ul>
+<li>seleccionar datos existentes;</li>
+<li>ingresar datos manualmente;</li>
+<li>avanzar y regresar sin perder información;</li>
+<li>revisar todo antes de firmar;</li>
+<li>generar un PDF de varias páginas cuando sea necesario.</li>
+</ul>
+<p>No es obligatorio comprimir todo en una sola página como el formulario físico.</p>
+<h3>11.3. Componente 1 — Arrendatario</h3>
+<ul>
+<li>arrendatario;</li>
+<li>DUI o pasaporte;</li>
+<li>licencia;</li>
+<li>vencimiento;</li>
+<li>teléfono;</li>
+<li>dirección;</li>
+<li>correo electrónico;</li>
+<li>tipo de cliente;</li>
+<li>conductor adicional;</li>
+<li>datos empresariales cuando corresponda.</li>
+</ul>
+<h3>11.4. Componente 2 — Vehículo</h3>
+<ul>
+<li>marca;</li>
+<li>modelo;</li>
+<li>placas;</li>
+<li>tipo;</li>
+<li>combustible;</li>
+<li>salida;</li>
+<li>entrada;</li>
+<li>inspección de daños;</li>
+<li>accesorios;</li>
+<li>combustible;</li>
+<li>kilometraje;</li>
+<li>fotografías.</li>
+</ul>
+<h3>11.5. Componente 3 — Facturación</h3>
+<ul>
+<li>fecha y hora de inicio;</li>
+<li>fecha y hora final;</li>
+<li>período facturado;</li>
+<li>cantidad de días de 24 horas;</li>
+<li>tarifa;</li>
+<li>subtotal;</li>
+<li>cargos adicionales;</li>
+<li>combustible;</li>
+<li>daños o golpes cobrados;</li>
+<li>observaciones;</li>
+<li>documentos anexos;</li>
+<li>abonos;</li>
+<li>saldo pendiente;</li>
+<li>total.</li>
+</ul>
+<h3>11.6. Abonos, saldo y recibos electrónicos (actualizado)</h3>
+<p>El contrato debe aceptar:</p>
+<ul>
+<li>abono inicial;</li>
+<li>abonos durante la renta;</li>
+<li>abono al finalizar;</li>
+<li>monto complementario final;</li>
+<li>saldo calculado;</li>
+<li>estado pagado o pendiente;</li>
+<li>historial con fecha, monto, método y usuario que registró el pago.</li>
+</ul>
+<p><strong>Nuevo requisito confirmado por el cliente:</strong></p>
+<p>Los abonos deben poder compartirse con los clientes <strong>como los contratos</strong>, en forma de <strong>recibos electrónicos</strong>.</p>
+<p>Cada recibo debe poder:</p>
+<ul>
+<li>generarse en PDF;</li>
+<li>previsualizarse;</li>
+<li>compartirse por WhatsApp;</li>
+<li>enviarse por correo;</li>
+<li>quedar ligado al cliente y al contrato;</li>
+<li>conservar número, fecha, monto, concepto, método de pago y saldo restante.</li>
+</ul>
+<p>La estructura visual definitiva del recibo será aportada por el cliente en breve.</p>
+<h3>11.7. Observaciones y anexos</h3>
+<p>Debe existir un espacio amplio para observaciones como:</p>
+<ul>
+<li>condiciones especiales;</li>
+<li>solicitudes del cliente;</li>
+<li>comportamiento de devolución;</li>
+<li>cargos;</li>
+<li>daños;</li>
+<li>acuerdos;</li>
+<li>referencias a facturas, créditos fiscales u otros documentos anexos.</li>
+</ul>
+<h3>11.8. Términos y firma inicial</h3>
+<p>Antes de completar la entrega:</p>
+<ul>
+<li>se mostrarán los términos y condiciones;</li>
+<li>el usuario podrá desplazarse por el texto completo;</li>
+<li>el arrendatario aceptará los términos;</li>
+<li>se capturará firma digital;</li>
+<li>se registrarán fecha, hora e identidad del firmante.</li>
+</ul>
+<p>Los términos legales definitivos deberán ser proporcionados o aprobados por OLDES.</p>
+<h3>11.9. PDF</h3>
+<p>El PDF debe contener toda la información de los componentes, firmas, inspección, accesorios y términos. Puede ocupar varias páginas para mantener legibilidad.</p>
+<hr>
+<h2>12. Cierre de renta y devolución</h2>
+<p>Al cerrar el contrato, el sistema debe solicitar:</p>
+<ol>
+<li>inspección de entrada;</li>
+<li>fotografía de combustible o tablero;</li>
+<li>kilometraje final ingresado manualmente;</li>
+<li>nivel de combustible;</li>
+<li>estado de accesorios;</li>
+<li>daños nuevos;</li>
+<li>cargos adicionales;</li>
+<li>actualización del cuadro de facturación;</li>
+<li>cálculo del saldo faltante;</li>
+<li>monto complementario pagado o pendiente;</li>
+<li>firma digital de renta finalizada;</li>
+<li>nombre de quien entrega y quien recibe, especialmente para empresas.</li>
+</ol>
+<p>Después del cierre:</p>
+<ul>
+<li>el contrato queda finalizado;</li>
+<li>el vehículo cambia al estado correspondiente;</li>
+<li>el kilometraje se actualiza;</li>
+<li>los pagos quedan conciliados;</li>
+<li>el PDF final incluye la información de devolución;</li>
+<li>el historial conserva salida y entrada;</li>
+<li>los recibos de abono quedan disponibles en el expediente.</li>
+</ul>
+<hr>
+<h2>13. Mantenimiento, taller y gastos</h2>
+<p>El sistema debe permitir llevar por vehículo:</p>
+<ul>
+<li>ingreso generado;</li>
+<li>gastos;</li>
+<li>reparaciones;</li>
+<li>repuestos comprados;</li>
+<li>trabajo realizado;</li>
+<li>fecha;</li>
+<li>proveedor o taller;</li>
+<li>kilometraje;</li>
+<li>observaciones;</li>
+<li>comprobantes;</li>
+<li>carta u orden de taller;</li>
+<li>historial completo.</li>
+</ul>
+<p>El objetivo es reemplazar o complementar la hoja de Excel utilizada actualmente y calcular cuánto genera cada vehículo frente a cuánto se gasta en él.</p>
+<hr>
+<h2>14. Pantalla de inicio</h2>
+<p>La pantalla inicial del sistema debe funcionar como resumen operativo. Debe mostrar:</p>
+<ul>
+<li>pendientes del día;</li>
+<li>reservas de hoy;</li>
+<li>reservas de mañana;</li>
+<li>vehículos que deben entregarse;</li>
+<li>vehículos que deben recibirse;</li>
+<li>agenda similar a un resumen de calendario;</li>
+<li>contratos abiertos;</li>
+<li>acceso directo para abrir o cerrar un contrato;</li>
+<li>alertas de contratos que pudieron quedar abiertos por error.</li>
+</ul>
+<p>La intención es evitar entrar diariamente al calendario solo para descubrir las actividades inmediatas.</p>
+<hr>
+<h2>15. Capacidades adicionales que la plataforma puede ofrecer</h2>
+<p>El cliente preguntó qué más aspectos podrían incluirse con base en lo ya manejado o mostrado. Además de lo solicitado, la plataforma puede incorporar, sin desviarse del alcance central:</p>
+<ol>
+<li><strong>Control y gestión de flota</strong> (interés confirmado): estados, disponibilidad, historial por unidad, fotos y rentabilidad.</li>
+<li><strong>Dashboard operativo</strong> del día: entregas, devoluciones, contratos abiertos y pendientes.</li>
+<li><strong>Alertas</strong> de vencimientos, mantenimiento, contratos abiertos y saldos pendientes.</li>
+<li><strong>Gestión de documentos del cliente</strong>: licencia, pasaporte/DUI y foto asociada al expediente.</li>
+<li><strong>Catálogo de tarifas y servicios</strong> para cotizar en minutos.</li>
+<li><strong>Recibos electrónicos de abonos</strong> compartibles.</li>
+<li><strong>Inspección digital con evidencia fotográfica</strong> y marcas de daño.</li>
+<li><strong>Historial financiero por vehículo</strong>: ingresos vs. gastos/taller.</li>
+<li><strong>Roles y permisos</strong>: separar operación diaria de información financiera sensible.</li>
+<li><strong>Exportación y reenvío</strong> de cotizaciones, contratos y recibos.</li>
+</ol>
+<p>Estas capacidades se alinean con lo solicitado y con lo que el cliente indicó haber visto con interés.</p>
+<hr>
+<h2>16. Roles, acceso y privacidad</h2>
+<p>El sistema debe contemplar:</p>
+<ul>
+<li>acceso seguro;</li>
+<li>rol administrador;</li>
+<li>rol empleado;</li>
+<li>permisos por función;</li>
+<li>protección de estadísticas financieras;</li>
+<li>posibilidad de que solo el administrador vea ingresos, gastos, utilidad y rendimiento;</li>
+<li>registro de acciones importantes.</li>
+</ul>
+<p>No se requiere copiar mecanismos de PIN de demos de terceros; debe usarse autenticación segura.</p>
+<hr>
+<h2>17. Reportes y estadísticas</h2>
+<p>Cuando existan datos suficientes, el administrador debe poder consultar:</p>
+<ul>
+<li>ingresos;</li>
+<li>gastos;</li>
+<li>utilidad;</li>
+<li>rendimiento por vehículo;</li>
+<li>vehículo más rentado;</li>
+<li>clientes frecuentes;</li>
+<li>cantidad de vehículos disponibles, reservados, alquilados y en mantenimiento;</li>
+<li>saldos pendientes;</li>
+<li>contratos abiertos;</li>
+<li>historial de gastos y reparaciones;</li>
+<li>cotizaciones emitidas y aceptadas.</li>
+</ul>
+<hr>
+<h2>18. Requisitos no funcionales</h2>
+<h3>RNF-01. Uso en tablet y móvil</h3>
+<p>Los flujos de cotización, entrega, inspección, firma y devolución deben funcionar correctamente en tablet y ser utilizables frente al cliente.</p>
+<h3>RNF-02. Facilidad de uso</h3>
+<p>Los formularios de cotización y contrato deben dividirse en pasos claros, usar catálogos y autocompletar datos para evitar escritura repetitiva. Meta: cotización en ≤ 3 minutos con cliente existente.</p>
+<h3>RNF-03. Calidad de evidencia</h3>
+<p>La optimización de fotografías no debe impedir visualizar rayones, golpes u otros detalles relevantes.</p>
+<h3>RNF-04. Rendimiento</h3>
+<p>La plataforma no debe cargar imágenes originales pesadas en listados; utilizará miniaturas y versiones adaptadas.</p>
+<h3>RNF-05. Seguridad y privacidad</h3>
+<p>Documentos de identidad, contratos, firmas, recibos y fotografías de inspección deben mantenerse privados y accesibles solo para personal autorizado.</p>
+<h3>RNF-06. Trazabilidad</h3>
+<p>Cambios de estado, correlativos, pagos, firmas, inspecciones y cierres deben registrar fecha, hora y usuario responsable.</p>
+<h3>RNF-07. Integridad</h3>
+<p>Los datos históricos de un contrato cerrado no deben cambiar silenciosamente. Las correcciones deben quedar auditadas.</p>
+<h3>RNF-08. Disponibilidad documental</h3>
+<p>Cotizaciones, contratos y recibos de abono deben poder consultarse y descargarse nuevamente en PDF.</p>
+<hr>
+<h2>19. Flujo operativo definitivo</h2>
+<ol>
+<li>El visitante consulta la landing, ve tipos de vehículo y tarifas diarias.</li>
+<li>Envía una solicitud de cotización.</li>
+<li>La solicitud llega al sistema y facilita el contacto por WhatsApp.</li>
+<li>El operador atiende personalmente al cliente.</li>
+<li>Si el cliente no existe, se crea su perfil.</li>
+<li>El operador crea una cotización en español o inglés en pocos minutos.</li>
+<li>La cotización se previsualiza y se comparte por WhatsApp o correo.</li>
+<li>El cliente acepta o rechaza.</li>
+<li>Si acepta, el operador crea manualmente una reserva en el calendario.</li>
+<li>La reserva guarda fechas, horas, ubicaciones, vehículo y costos.</li>
+<li>El contrato todavía no existe.</li>
+<li>Al momento de entregar el vehículo, el operador inicia “Generar contrato / Entregar vehículo”.</li>
+<li>Selecciona o ingresa cliente y vehículo.</li>
+<li>Realiza inspección de salida, accesorios, combustible, fotos y kilometraje.</li>
+<li>Completa facturación y registra abono inicial si existe.</li>
+<li>Emite recibo electrónico del abono cuando corresponda.</li>
+<li>El cliente acepta términos y firma digitalmente.</li>
+<li>El sistema asigna correlativo y genera el contrato PDF.</li>
+<li>Durante la renta se pueden registrar abonos, emitir recibos y agregar observaciones.</li>
+<li>En la devolución se realiza inspección de entrada, fotos, combustible y kilometraje.</li>
+<li>Se calculan cargos, saldo y monto complementario.</li>
+<li>Se captura la firma de renta finalizada.</li>
+<li>Se cierra el contrato y se actualiza el estado y kilometraje del vehículo.</li>
+</ol>
+<hr>
+<h2>20. Exclusiones y aclaraciones expresas</h2>
+<ul>
+<li>No copiar exactamente JC Car Rentals, HQ Rentals ni la app móvil de presupuestos.</li>
+<li>No convertir automáticamente una cotización aceptada en reserva.</li>
+<li>No crear automáticamente un contrato al aceptar una cotización.</li>
+<li>No crear el correlativo con meses de anticipación.</li>
+<li>No mostrar una sucursal física inexistente.</li>
+<li>No publicar en la landing el inventario interno de cada placa; solo tipos y costos.</li>
+<li>No exigir un modelo 3D exclusivo para cada marca y modelo.</li>
+<li>No sacrificar legibilidad para forzar el contrato a una sola página.</li>
+<li>No comprimir fotografías al punto de ocultar rayones.</li>
+</ul>
+<hr>
+<h2>21. Decisiones pendientes de OLDES</h2>
+<ol>
+<li>Correo definitivo: dominio corporativo o Gmail.</li>
+<li>Texto legal final de términos y condiciones.</li>
+<li>Confirmación de campos fiscales exactos para empresas: NIT, NRC y otros.</li>
+<li>Confirmación del catálogo final de accesorios y el significado exacto de “mica / palanca de mica”.</li>
+<li>Política final para documentos anexos y su tiempo de conservación.</li>
+<li>Reglas de autorización para ajustes manuales de días, tarifas y saldos.</li>
+<li>Estructura visual definitiva del recibo electrónico de abonos (el cliente la compartirá en breve).</li>
+<li>Catálogo final de tipos de vehículo y tarifas diarias públicas.</li>
+<li>Confirmación de impuestos a manejar en cotizaciones (ejemplo actual 13 %).</li>
+<li>Textos estándar de entrega/devolución/aeropuerto a reutilizar en cotizaciones.</li>
+</ol>
+<hr>
+<h2>22. Criterios generales de aceptación</h2>
+<p>El producto se considerará alineado con el requerimiento cuando:</p>
+<ul>
+<li>la landing no muestre ubicación física;</li>
+<li>el teléfono correcto sea visible;</li>
+<li>la sección de vehículos muestre tipos y costos, no el inventario interno;</li>
+<li>la solicitud pública genere una solicitud de cotización, no una reserva;</li>
+<li>las cotizaciones estén asociadas al cliente, sean bilingües y se elaboren en ≤ 3 minutos con cliente existente;</li>
+<li>aceptar una cotización no genere reserva ni contrato;</li>
+<li>el operador pueda crear reservas manualmente;</li>
+<li>el calendario permita ver rentas por duración con vehículo y cliente;</li>
+<li>el contrato se genere solo al entregar el vehículo;</li>
+<li>clientes y vehículos autocompleten el contrato;</li>
+<li>se pueda trabajar con persona natural o empresa;</li>
+<li>la inspección permita evidencias claras y fotos optimizadas;</li>
+<li>se registren salida y entrada con combustible, kilometraje y daños;</li>
+<li>los accesorios sean configurables y comparables;</li>
+<li>existan abonos, saldo y monto complementario;</li>
+<li>los abonos puedan compartirse como recibos electrónicos;</li>
+<li>haya firma inicial y firma de finalización;</li>
+<li>el kilometraje actualice el vehículo;</li>
+<li>el dashboard muestre agenda inmediata y contratos abiertos;</li>
+<li>el historial por vehículo incluya taller, gastos e ingresos;</li>
+<li>los documentos puedan exportarse en PDF de forma legible;</li>
+<li>la plataforma se perciba simple y rápida en la operación diaria.</li>
+</ul>
+<hr>
+<h2>23. Fuentes consolidadas</h2>
+<h3>Versión 1.0</h3>
+<ul>
+<li>Mensaje integral de requisitos del 8 de agosto de 2026.</li>
+<li>Ocho audios de WhatsApp del 4 y 8 de agosto de 2026.</li>
+<li>Dos videos de WhatsApp del 4 de agosto de 2026, considerados demostrativos.</li>
+<li>Fotografías del contrato físico OLDES.</li>
+<li>Fotografías de los diagramas de inspección vehicular.</li>
+<li>Correcciones expresas sobre cotización, reserva, contrato, correlativo y ausencia de ubicación física.</li>
+</ul>
+<h3>Versión 1.1 — 12 de agosto de 2026</h3>
+<ul>
+<li>Confirmación escrita: “todo lo demás descrito lo veo muy bien según solicitado”.</li>
+<li>Instrucción de landing: mostrar solo tipo de vehículo y costos.</li>
+<li>Referencia pública: https://www.jccarrentalses.com/</li>
+<li>Requisito 15.6 / abonos: compartir como recibos electrónicos; estructura de recibo pendiente.</li>
+<li>Interés confirmado en control y gestión de vehículos.</li>
+<li>Captura del calendario actual (Agosto 2026) como guía de encabezado y visualización.</li>
+<li>PDF de cotización actual: <code>Presupuesto_1009.pdf</code>.</li>
+<li>Video del flujo de cotización móvil: <code>WhatsApp Video 2026-08-12 at 8.33.25 AM.mp4</code>.</li>
+<li>Referencia de usabilidad HQ Rentals (prueba gratuita del cliente).</li>
+<li>Énfasis reiterado: plataforma demasiado fácil de usar y completa respecto a lo solicitado.</li>
+</ul>
+<hr>
+<p><strong>Fin de la especificación</strong></p></body>
+</html>

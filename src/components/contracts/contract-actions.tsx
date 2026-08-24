@@ -1,0 +1,230 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import {
+  cancelContract,
+  signContract,
+  updateContract,
+} from "@/app/dashboard/contratos/actions";
+import type { ContractDetail } from "@/app/dashboard/contratos/actions";
+import { SignaturePad } from "@/components/contracts/signature-pad";
+import { SubmitButton } from "@/components/forms/submit-button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import type { SignerType } from "@/types/database";
+
+type ContractDetailActionsProps = {
+  contract: ContractDetail;
+  canEdit: boolean;
+  canSign: boolean;
+  canCancel: boolean;
+};
+
+export function ContractDetailActions({
+  contract,
+  canEdit,
+  canSign,
+  canCancel,
+}: ContractDetailActionsProps) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [signerType, setSignerType] = useState<SignerType>("CLIENT");
+  const [signedBy, setSignedBy] = useState("");
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [signing, setSigning] = useState(false);
+
+  const clientSigned = contract.signatures.some((s) => s.signer_type === "CLIENT");
+  const repSigned = contract.signatures.some(
+    (s) => s.signer_type === "REPRESENTATIVE",
+  );
+
+  const editable =
+    canEdit &&
+    contract.status !== "COMPLETED" &&
+    contract.status !== "CANCELLED";
+
+  async function handleUpdate(formData: FormData) {
+    setError(null);
+    const result = await updateContract(contract.id, formData);
+    if (!result.success) setError(result.error);
+    else router.refresh();
+  }
+
+  async function handleSign() {
+    if (!signatureDataUrl || !signedBy.trim()) {
+      setError("Complete el nombre y la firma.");
+      return;
+    }
+
+    setSigning(true);
+    setError(null);
+    setWarning(null);
+
+    const fd = new FormData();
+    fd.set("signerType", signerType);
+    fd.set("signedBy", signedBy);
+    fd.set("signatureDataUrl", signatureDataUrl);
+
+    const result = await signContract(contract.id, fd);
+    setSigning(false);
+
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+
+    if (result.data.warning) setWarning(result.data.warning);
+    setSignatureDataUrl(null);
+    router.refresh();
+  }
+
+  return (
+    <div className="space-y-6">
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      ) : null}
+      {warning ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {warning}
+        </div>
+      ) : null}
+
+      {editable ? (
+        <form action={handleUpdate} className="space-y-4 rounded-xl border border-border bg-surface p-6">
+          <h3 className="font-semibold">Editar términos</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              name="startAt"
+              label="Inicio"
+              type="datetime-local"
+              defaultValue={contract.start_at.slice(0, 16)}
+            />
+            <Input
+              name="endAt"
+              label="Fin"
+              type="datetime-local"
+              defaultValue={contract.end_at.slice(0, 16)}
+            />
+            <Input
+              name="agreedRate"
+              label="Tarifa diaria"
+              type="number"
+              step="0.01"
+              defaultValue={contract.agreed_rate}
+            />
+            <Input
+              name="deposit"
+              label="Depósito"
+              type="number"
+              step="0.01"
+              defaultValue={contract.deposit}
+            />
+            <Input
+              name="insurance"
+              label="Seguro"
+              type="number"
+              step="0.01"
+              defaultValue={contract.insurance}
+            />
+            <Input
+              name="total"
+              label="Total"
+              type="number"
+              step="0.01"
+              defaultValue={contract.total}
+            />
+          </div>
+          <Textarea name="terms" label="Términos" rows={5} defaultValue={contract.terms ?? ""} />
+          <Textarea name="clauses" label="Cláusulas" rows={4} defaultValue={contract.clauses ?? ""} />
+          <Textarea name="notes" label="Notas" rows={3} defaultValue={contract.notes ?? ""} />
+          <SubmitButton>Guardar cambios</SubmitButton>
+        </form>
+      ) : null}
+
+      {canSign && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (
+        <div className="space-y-4 rounded-xl border border-border bg-surface p-6">
+          <h3 className="font-semibold">Firmas</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-border p-3 text-sm">
+              <p className="font-medium">Cliente</p>
+              {clientSigned ? (
+                <p className="text-success">Firmado</p>
+              ) : (
+                <p className="text-muted">Pendiente</p>
+              )}
+            </div>
+            <div className="rounded-lg border border-border p-3 text-sm">
+              <p className="font-medium">Representante</p>
+              {repSigned ? (
+                <p className="text-success">Firmado</p>
+              ) : (
+                <p className="text-muted">Pendiente</p>
+              )}
+            </div>
+          </div>
+
+          {(!clientSigned || !repSigned) ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={signerType === "CLIENT" ? "primary" : "secondary"}
+                  onClick={() => setSignerType("CLIENT")}
+                  disabled={clientSigned}
+                >
+                  Firma cliente
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={signerType === "REPRESENTATIVE" ? "primary" : "secondary"}
+                  onClick={() => setSignerType("REPRESENTATIVE")}
+                  disabled={repSigned}
+                >
+                  Firma representante
+                </Button>
+              </div>
+              <Input
+                label="Nombre del firmante"
+                value={signedBy}
+                onChange={(event) => setSignedBy(event.target.value)}
+              />
+              <SignaturePad
+                onConfirm={setSignatureDataUrl}
+                disabled={signing}
+              />
+              {signatureDataUrl ? (
+                <p className="text-sm text-muted">Firma capturada. Confirme para registrar.</p>
+              ) : null}
+              <Button type="button" onClick={handleSign} loading={signing} disabled={!signatureDataUrl}>
+                Registrar firma
+              </Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      {canCancel && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (
+        <Button
+          type="button"
+          variant="danger"
+          onClick={async () => {
+            if (!confirm("¿Cancelar este contrato?")) return;
+            const result = await cancelContract(contract.id);
+            if (!result.success) setError(result.error);
+            else router.refresh();
+          }}
+        >
+          Cancelar contrato
+        </Button>
+      ) : null}
+    </div>
+  );
+}

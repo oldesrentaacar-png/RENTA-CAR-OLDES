@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Manual de uso — OLDES Rent a Car · WEBBOOST</title>
+  <style>
+    @page { size: Letter; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+      color: #0f172a;
+      background: #fff;
+      font-size: 10.5pt;
+      line-height: 1.45;
+    }
+    :root {
+      --navy: #0A1F5C;
+      --navy2: #061438;
+      --red: #E30613;
+      --cream: #F5F0E6;
+      --sky: #EFF6FF;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --ok: #059669;
+    }
+    .page {
+      width: 8.5in;
+      min-height: 11in;
+      padding: 0.55in 0.6in 0.7in;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+    .page:last-child { page-break-after: auto; }
+    .page::after {
+      content: "WEBBOOST × OLDES  ·  Manual v1.2  ·  Actualizado agosto 2026";
+      position: absolute;
+      left: 0.6in;
+      right: 0.6in;
+      bottom: 0.28in;
+      font-size: 7.5pt;
+      color: #94a3b8;
+      border-top: 1px solid var(--line);
+      padding-top: 6px;
+    }
+
+    /* COVER */
+    .cover {
+      background:
+        radial-gradient(ellipse 80% 55% at 15% 10%, rgba(227,6,19,.22), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 90% 90%, rgba(59,130,246,.18), transparent 50%),
+        linear-gradient(160deg, #061438 0%, #0A1F5C 45%, #12306f 100%);
+      color: #fff;
+      padding: 0.7in 0.7in 0.85in;
+    }
+    .cover::after { color: rgba(255,255,255,.55); border-top-color: rgba(255,255,255,.15); }
+    .badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .pill-red { background: var(--red); color: #fff; }
+    .pill-glass { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); }
+    .pill-warn { background: #fbbf24; color: #1f2937; }
+    .cover-logo {
+      width: 220px;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.35);
+      margin: 18px 0 28px;
+    }
+    .cover h1 {
+      margin: 0 0 12px;
+      font-size: 34pt;
+      line-height: 1.05;
+      letter-spacing: -1px;
+      font-weight: 900;
+    }
+    .cover h1 span { color: #fde047; }
+    .cover-lead {
+      max-width: 5.8in;
+      font-size: 13pt;
+      color: rgba(255,255,255,.88);
+      margin: 0 0 28px;
+      font-weight: 500;
+    }
+    .cover-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .cover-card {
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .cover-card strong { display: block; font-size: 11pt; margin-bottom: 4px; }
+    .cover-card span { font-size: 9pt; color: rgba(255,255,255,.72); }
+    .agency {
+      margin-top: 34px;
+      font-size: 9pt;
+      color: rgba(255,255,255,.65);
+    }
+    .agency b { color: #fff; }
+
+    h2 {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: 18pt;
+      letter-spacing: -.3px;
+    }
+    h3 {
+      margin: 16px 0 6px;
+      color: var(--navy);
+      font-size: 12pt;
+    }
+    p { margin: 6px 0 10px; color: #334155; }
+    .lead { color: var(--muted); font-size: 10.5pt; margin-bottom: 14px; }
+
+    .banner {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      border-left: 5px solid #f59e0b;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 8px 0 18px;
+    }
+    .banner .ico {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: #f59e0b; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; flex-shrink: 0;
+    }
+    .banner strong { color: #9a3412; display: block; margin-bottom: 2px; }
+    .banner p { margin: 0; color: #9a3412; font-size: 9.5pt; }
+
+    .info {
+      background: var(--sky);
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 10px 0 16px;
+      color: #1e3a8a;
+      font-size: 9.5pt;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 12px 0 18px;
+    }
+    .flow-step {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 10px;
+      text-align: center;
+      position: relative;
+    }
+    .flow-step .n {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--navy); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 10pt; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; font-size: 9pt; color: var(--navy); margin-bottom: 3px; }
+    .flow-step span { font-size: 8pt; color: var(--muted); }
+
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 10px 0 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+      break-inside: avoid;
+    }
+    .card .tag {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--red);
+      margin-bottom: 6px;
+    }
+    .card h4 {
+      margin: 0 0 6px;
+      font-size: 11.5pt;
+      color: var(--navy);
+    }
+    .card p, .card li { font-size: 9.3pt; color: #475569; }
+    .card ul { margin: 4px 0 0 16px; padding: 0; }
+    .card li { margin: 3px 0; }
+
+    .step-list { counter-reset: step; margin: 0; padding: 0; list-style: none; }
+    .step-list li {
+      counter-increment: step;
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 10px;
+      margin: 0 0 12px;
+      break-inside: avoid;
+    }
+    .step-list li::before {
+      content: counter(step);
+      width: 28px; height: 28px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--navy), #1d4ed8);
+      color: #fff;
+      font-weight: 800;
+      font-size: 11pt;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-list strong { color: var(--navy); display: block; margin-bottom: 2px; }
+    .step-list span { color: #475569; font-size: 9.5pt; }
+
+    .do-dont {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .do, .dont {
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .do { background: #ecfdf5; border: 1px solid #a7f3d0; }
+    .dont { background: #fef2f2; border: 1px solid #fecaca; }
+    .do h4 { color: #065f46; margin: 0 0 6px; }
+    .dont h4 { color: #991b1b; margin: 0 0 6px; }
+    .do li, .dont li { font-size: 9pt; margin: 3px 0; color: #334155; }
+    .do ul, .dont ul { margin: 0 0 0 16px; padding: 0; }
+
+    .fake-ui {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      margin: 10px 0 16px;
+      background: #f8fafc;
+    }
+    .fake-top {
+      background: var(--navy);
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+    }
+    .fake-body { padding: 12px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 10px; }
+    .fake-box {
+      background: #fff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 8.5pt;
+      color: #475569;
+    }
+    .fake-box b { color: var(--navy); }
+
+    .kicker {
+      font-size: 8pt;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--red);
+      margin: 0 0 4px;
+    }
+
+    .footer-cta {
+      margin-top: 18px;
+      background: linear-gradient(135deg, var(--navy), #1e40af);
+      color: #fff;
+      border-radius: 16px;
+      padding: 16px 18px;
+    }
+    .footer-cta h3 { color: #fff; margin: 0 0 6px; }
+    .footer-cta p { color: rgba(255,255,255,.85); margin: 0; font-size: 9.5pt; }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .mini {
+      background: var(--cream);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+    .mini .emoji { font-size: 18pt; margin-bottom: 4px; }
+    .mini strong { display: block; font-size: 9.5pt; color: var(--navy); }
+    .mini span { font-size: 8pt; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <!-- ===================== COVER ===================== -->
+  <section class="page cover">
+    <div class="badge-row">
+      <span class="pill pill-red">WEBBOOST</span>
+      <span class="pill pill-glass">Manual instructivo</span>
+      <span class="pill pill-warn">Versión 1.2 · Agosto 2026</span>
+    </div>
+
+    <img class="cover-logo" src="../public/brand/oldes-logo.png" alt="OLDES Rent-a-Car" />
+
+    <h1>Guía rápida<br>para usar tu<br><span>plataforma digital</span></h1>
+    <p class="cover-lead">
+      Todo lo que necesitas para entender, operar y aprovechar el sistema de
+      OLDES Rent a Car El Salvador — landing page + panel administrativo —
+      de forma clara, visual y sin complicaciones.
+    </p>
+
+    <div class="cover-grid">
+      <div class="cover-card">
+        <strong>Para quién es</strong>
+        <span>Operadores, administración y el dueño del negocio.</span>
+      </div>
+      <div class="cover-card">
+        <strong>Qué aprenderás</strong>
+        <span>Flujo completo: cotizar → reservar → entregar → cobrar → cerrar.</span>
+      </div>
+      <div class="cover-card">
+        <strong>Estado del producto</strong>
+        <span>Versión 1.2 con devoluciones, reportes, cortesías y mejoras del cliente.</span>
+      </div>
+      <div class="cover-card">
+        <strong>Marca</strong>
+        <span>OLDES Rent a Car El Salvador · +503 7435-0381</span>
+      </div>
+    </div>
+
+    <p class="agency">
+      Documento creado por <b>WEBBOOST</b> para <b>OLDES Rent a Car El Salvador</b>.<br>
+      Agosto 2026 · Uso interno / capacitación del cliente
+    </p>
+  </section>
+
+  <!-- ===================== INTRO ===================== -->
+  <section class="page">
+    <p class="kicker">01 · Introducción</p>
+    <h2>Bienvenido a tu sistema OLDES</h2>
+    <p class="lead">
+      Esta plataforma une tu página pública (para atraer clientes) con un panel
+      administrativo (para operar el negocio día a día).
+    </p>
+
+    <div class="banner">
+      <div class="ico">!</div>
+      <div>
+        <strong>Importante: versión 1.2</strong>
+        <p>
+          Estás usando la <b>Versión 1.2</b> (agosto 2026). Incluye devoluciones compartibles,
+          reportes anuales, cortesías al cierre, subarrendados y mejoras de landing según feedback.
+          Seguimos puliendo usabilidad, machotes de recibo/contrato y el wizard paso a paso.
+        </p>
+      </div>
+    </div>
+
+    <div class="mini-grid">
+      <div class="mini">
+        <div class="emoji">🌐</div>
+        <strong>Landing</strong>
+        <span>Web pública en inglés + ES</span>
+      </div>
+      <div class="mini">
+        <div class="emoji">🧭</div>
+        <strong>Admin</strong>
+        <span>Panel de operación diario</span>
+      </div>
+      <div class="mini">
+        <div class="emoji">📄</div>
+        <strong>Documentos</strong>
+        <span>Cotizaciones, contratos, recibos</span>
+      </div>
+    </div>
+
+    <h3>Las 2 puertas del sistema</h3>
+    <div class="cards">
+      <div class="card">
+        <div class="tag">Público</div>
+        <h4>Landing page</h4>
+        <p>Lo que ve el cliente final:</p>
+        <ul>
+          <li>Tipos de vehículo (sin precios en tarjetas)</li>
+          <li>Beneficios de OLDES y reseñas Google</li>
+          <li>Solicitud de cotización</li>
+          <li>Contacto WhatsApp / teléfono +503</li>
+          <li>Idioma EN por defecto, botón ES</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="tag">Privado</div>
+        <h4>Panel administrativo</h4>
+        <p>Lo que usa tu equipo:</p>
+        <ul>
+          <li>Clientes, cotizaciones y reservas</li>
+          <li>Calendario y flota</li>
+          <li>Contratos, inspección, abonos y devoluciones</li>
+          <li>Dashboard del día y reportes</li>
+          <li>Configuración y machotes PDF</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="info">
+      <b>Regla de oro del negocio:</b> una solicitud o cotización <u>no</u> crea sola una reserva
+      ni un contrato. Tú decides cuándo reservar y el contrato nace solo al entregar el vehículo.
+    </div>
+  </section>
+
+  <!-- ===================== FLOW ===================== -->
+  <section class="page">
+    <p class="kicker">02 · Cómo funciona</p>
+    <h2>El flujo completo en 4 momentos</h2>
+    <p class="lead">Así se conecta la web con la operación real de OLDES.</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="n">1</div>
+        <strong>Solicitud</strong>
+        <span>Cliente pide cotización en la landing o WhatsApp</span>
+      </div>
+      <div class="flow-step">
+        <div class="n">2</div>
+        <strong>Cotización</strong>
+        <span>Operador arma y envía presupuesto en minutos</span>
+      </div>
+      <div class="flow-step">
+        <div class="n">3</div>
+        <strong>Reserva</strong>
+        <span>Si acepta, se crea la reserva manual en calendario</span>
+      </div>
+      <div class="flow-step">
+        <div class="n">4</div>
+        <strong>Contrato</strong>
+        <span>Al entregar: inspección, firma, abonos y PDF</span>
+      </div>
+    </div>
+
+    <div class="fake-ui">
+      <div class="fake-top">
+        <span>OLDES Admin · Vista mental del proceso</span>
+        <span>v1.2</span>
+      </div>
+      <div class="fake-body">
+        <div class="fake-box">
+          <b>Antes de la entrega</b><br>
+          Solicitudes → Cliente → Cotización → Aceptación → Reserva en calendario
+        </div>
+        <div class="fake-box">
+          <b>El día de la renta</b><br>
+          Generar contrato → Inspección salida → Firma → Abono / recibo
+        </div>
+        <div class="fake-box">
+          <b>Durante la renta</b><br>
+          Más abonos, observaciones, seguimiento en calendario
+        </div>
+        <div class="fake-box">
+          <b>Devolución</b><br>
+          Inspección entrada → cargos → saldo → firma final → cierre
+        </div>
+      </div>
+    </div>
+
+    <h3>Qué NO hace automáticamente el sistema</h3>
+    <div class="do-dont">
+      <div class="do">
+        <h4>✓ Sí hace</h4>
+        <ul>
+          <li>Guarda solicitudes y clientes</li>
+          <li>Calcula totales de cotización</li>
+          <li>Genera PDF y links de WhatsApp</li>
+          <li>Muestra disponibilidad en calendario</li>
+          <li>Registra abonos, devoluciones y actualiza saldo</li>
+        </ul>
+      </div>
+      <div class="dont">
+        <h4>✗ No hace solo</h4>
+        <ul>
+          <li>No convierte cotización en reserva</li>
+          <li>No crea contrato con meses de anticipación</li>
+          <li>No bloquea flota sin que tú reserves</li>
+          <li>No publica placas en la web pública</li>
+          <li>No inventa sucursal física</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== LANDING ===================== -->
+  <section class="page">
+    <p class="kicker">03 · Landing page</p>
+    <h2>Cómo usar la web pública</h2>
+    <p class="lead">Pensada para turistas y clientes: inglés primero, español en un clic.</p>
+
+    <ol class="step-list">
+      <li>
+        <div>
+          <strong>Entra a la landing</strong>
+          <span>Verás el logo OLDES, beneficios, tipos de vehículo y el formulario de cotización.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Cambia idioma si hace falta</strong>
+          <span>Botón <b>EN | ES</b> arriba a la derecha. Por defecto está en inglés. La traducción al español es curada (correcta), no automática genérica.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Revisa tipos de vehículo</strong>
+          <span>Se muestran categorías (Sedan, SUV, Pickup…), no placas individuales. Las tarjetas ya no muestran precios; el cliente pide cotización personalizada.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Reseñas en Google</strong>
+          <span>Hay enlace directo a las reseñas de OLDES en Google para generar confianza.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>El visitante solicita cotización</strong>
+          <span>Completa fechas, tipo, nombre y WhatsApp. Eso crea una <b>solicitud pendiente</b> y abre contacto por WhatsApp. No es una reserva.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Contacto</strong>
+          <span>Teléfono / WhatsApp: <b>+503 7435-0381</b>. Entrega a domicilio y aeropuerto.</span>
+        </div>
+      </li>
+    </ol>
+
+    <div class="cards">
+      <div class="card">
+        <div class="tag">Beneficios visibles</div>
+        <h4>Why choose OLDES</h4>
+        <ul>
+          <li>Easy online quoting</li>
+          <li>Free airport pickup &amp; drop-off</li>
+          <li>No deposit required</li>
+          <li>Insurance included</li>
+          <li>24/7 roadside assistance</li>
+          <li>Cash &amp; cards (10% card fee)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="tag">Tip práctico</div>
+        <h4>Publicar en web</h4>
+        <p>
+          En el admin, al publicar un vehículo (ej. Hilux), la web muestra el
+          <b>tipo Pickup</b> con foto. El cliente no verá la placa ni precios fijos.
+          Eso es intencional y pedido por OLDES.
+        </p>
+      </div>
+    </div>
+
+    <div class="info">
+      Si una unidad dice “Publicado” pero no ves la placa en la web: es correcto.
+      Busca el <b>tipo</b> (Pickup, Sedan, etc.).
+    </div>
+  </section>
+
+  <!-- ===================== ADMIN ===================== -->
+  <section class="page">
+    <p class="kicker">04 · Panel admin</p>
+    <h2>Operación diaria paso a paso</h2>
+    <p class="lead">Entra a <b>/login</b> con tu usuario administrador.</p>
+
+    <h3>A. Inicio del día</h3>
+    <ol class="step-list">
+      <li>
+        <div>
+          <strong>Dashboard</strong>
+          <span>Revisa pendientes, reservas de hoy/mañana, entregas, devoluciones y contratos abiertos.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Solicitudes</strong>
+          <span>Atiende lo que llegó desde la landing. Contacta al cliente y crea o vincula su perfil.</span>
+        </div>
+      </li>
+    </ol>
+
+    <h3>B. Cotizar en ≤ 3 minutos</h3>
+    <ol class="step-list">
+      <li>
+        <div>
+          <strong>Clientes</strong>
+          <span>Si ya existe, selecciónalo. Si no, créalo (persona o empresa).</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Nueva cotización</strong>
+          <span>Elige idioma ES/EN, período, artículos del catálogo, impuesto 0% o 13%, descuento. Previsualiza y envía por WhatsApp/PDF.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Lista de cotizaciones</strong>
+          <span>Busca por <b>código o nombre del cliente</b>. Verás columna Cliente en el listado.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Aceptar cotización</strong>
+          <span>Solo marca “Aceptada”. <b>No crea reserva automática.</b> Luego usa “Crear reserva manualmente”.</span>
+        </div>
+      </li>
+    </ol>
+
+    <h3>C. Reservar y ver calendario</h3>
+    <div class="cards">
+      <div class="card">
+        <div class="tag">Reserva</div>
+        <h4>Datos clave</h4>
+        <ul>
+          <li>Cliente + unidad específica</li>
+          <li>Fechas/horas y lugares</li>
+          <li>Monto en efectivo y con tarjeta (separados)</li>
+          <li>Estado y notas</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="tag">Calendario</div>
+        <h4>Vista mensual</h4>
+        <ul>
+          <li>Barras que abarcan varios días</li>
+          <li>Etiqueta: hora · vehículo · cliente</li>
+          <li>Colores por estado</li>
+          <li>Botón Hoy y “+ X más”</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CONTRACT ===================== -->
+  <section class="page">
+    <p class="kicker">05 · Entrega y cierre</p>
+    <h2>Contrato, inspección y abonos</h2>
+    <p class="lead">El contrato se crea únicamente cuando entregas el vehículo.</p>
+
+    <h3>Al entregar</h3>
+    <ol class="step-list">
+      <li>
+        <div>
+          <strong>Generar contrato / Entregar</strong>
+          <span>Desde la reserva. Se asigna el correlativo en ese momento.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Inspección de salida</strong>
+          <span>Fotos, daños en diagrama (pantalla completa en tablet), combustible, km, accesorios, quién entrega/recibe y conductor adicional si aplica.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Abonos y devoluciones</strong>
+          <span>Registra pagos o <b>devoluciones</b> (día menos, cortesía, cancelación parcial). Genera PDF y WhatsApp con código REC o DEV.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Términos y firma</strong>
+          <span>El cliente acepta y firma digitalmente. Luego descarga/comparte el PDF del contrato.</span>
+        </div>
+      </li>
+    </ol>
+
+    <h3>Al devolver / cerrar renta</h3>
+    <ol class="step-list">
+      <li>
+        <div>
+          <strong>Inspección de entrada</strong>
+          <span>Compara daños nuevos, accesorios, foto de tablero/combustible y km final.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Cargos y saldo</strong>
+          <span>Daños, combustible, extras, monto complementario y estado pagado/pendiente.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Cierre con cortesía</strong>
+          <span>Al cerrar renta puedes aplicar horas/días de cortesía (margen configurable) o ajustar manualmente días extra sin falsificar horas.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Firma de cierre</strong>
+          <span>Finaliza el contrato, libera el vehículo y actualiza el kilometraje.</span>
+        </div>
+      </li>
+    </ol>
+
+    <div class="banner">
+      <div class="ico">i</div>
+      <div>
+        <strong>Recibos y devoluciones</strong>
+        <p>
+          Abonos y devoluciones se comparten por PDF y WhatsApp. En Configuración puedes pegar la URL
+          del machote visual (Cloudinary). El PDF distingue “Recibo de abono” vs “Comprobante de devolución”.
+          Listado en <b>Recibos</b> con badge Abono / Devolución.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MODULES + TIPS ===================== -->
+  <section class="page">
+    <p class="kicker">06 · Módulos útiles</p>
+    <h2>Mapa rápido del menú</h2>
+
+    <div class="cards">
+      <div class="card">
+        <div class="tag">Flota</div>
+        <h4>Vehículos</h4>
+        <p>Ficha técnica, fotos, historial, km, mantenimientos. Subarrendados: costo/día, destinatario y reporte de utilidad real.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Clientes</div>
+        <h4>Expediente 360°</h4>
+        <p>Persona o empresa, documentos, cotizaciones, reservas, contratos y historial de abonos/devoluciones.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Finanzas</div>
+        <h4>Ingresos / gastos / recibos</h4>
+        <p>Gastos editables con adjunto de recibo. Recibos y devoluciones. Cifras sensibles solo para administrador.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Reportes</div>
+        <h4>Análisis anual</h4>
+        <p>Comparación por vehículo: días rentados vs ingresos. Reporte de subarrendados y ganancia neta.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Usuarios</div>
+        <h4>Equipo</h4>
+        <p>Editar datos, desactivar accesos y gestionar permisos por rol.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Configuración</div>
+        <h4>Negocio y machotes</h4>
+        <p>Tipos, accesorios, horas de cortesía, términos, URL machote recibo/contrato y datos comerciales (+503).</p>
+      </div>
+    </div>
+
+    <h3>Consejos para que te rinda</h3>
+    <div class="do-dont">
+      <div class="do">
+        <h4>✓ Buenas prácticas</h4>
+        <ul>
+          <li>Mantén clientes completos (menos escritura después)</li>
+          <li>Usa el catálogo al cotizar</li>
+          <li>Revisa el dashboard cada mañana</li>
+          <li>Publica tipos con foto clara</li>
+          <li>Cierra contratos el mismo día de la devolución</li>
+        </ul>
+      </div>
+      <div class="dont">
+        <h4>✗ Evita esto</h4>
+        <ul>
+          <li>Crear contrato “por adelantado”</li>
+          <li>Esperar que “Aceptar” reserve solo</li>
+          <li>Publicar pensando que saldrá la placa</li>
+          <li>Dejar contratos abiertos por error</li>
+          <li>Omitir fotos de inspección</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-cta">
+      <h3>Versión 1.2 — novedades principales</h3>
+      <p>
+        Landing más limpia (sin franja de estadísticas ni sección de tarifas fijas), cotizaciones
+        buscables por cliente, gastos con edición y recibo adjunto, devoluciones compartibles,
+        reportes anuales, subarrendados, cortesías al cierre y configuración de machotes PDF.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== V1.2 GUIDE ===================== -->
+  <section class="page">
+    <p class="kicker">07 · Novedades v1.2</p>
+    <h2>Funciones nuevas paso a paso</h2>
+    <p class="lead">Resumen práctico de lo agregado en la actualización de agosto 2026.</p>
+
+    <h3>Abonos y devoluciones (contrato)</h3>
+    <ol class="step-list">
+      <li>
+        <div>
+          <strong>Abono</strong>
+          <span>En el detalle del contrato → “Registrar abono”. Monto, método, concepto. Genera PDF y botón WhatsApp.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Devolución</strong>
+          <span>Botón “Registrar devolución” (máximo = lo abonado). Para día menos, cortesía o reembolso parcial. Código DEV y PDF propio.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Listado global</strong>
+          <span>Menú <b>Recibos</b>: filtra y descarga PDF. Badge verde Abono / amarillo Devolución.</span>
+        </div>
+      </li>
+    </ol>
+
+    <h3>Gastos, reportes y flota</h3>
+    <div class="cards">
+      <div class="card">
+        <div class="tag">Gastos</div>
+        <h4>Editar / borrar / recibo</h4>
+        <p>Desde la fila del gasto: editar datos, eliminar o adjuntar foto/PDF del comprobante.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Reportes</div>
+        <h4>Comparación anual</h4>
+        <p>Gráfico por vehículo: días rentados vs ingresos. Filtro por año.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Subarrendo</div>
+        <h4>Vehículos de terceros</h4>
+        <p>Marca subarrendado, costo/día y destinatario (ej. Josue). Reporte de utilidad real.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Cierre</div>
+        <h4>Cortesía día extra</h4>
+        <p>Configura horas de margen en Configuración. Al cerrar contrato aplica cortesía o ajuste manual.</p>
+      </div>
+    </div>
+
+    <h3>Configuración → machotes</h3>
+    <div class="info">
+      <b>URL machote recibo</b> y <b>URL machote contrato</b>: sube la imagen a Cloudinary y pega el enlace.
+      El PDF del recibo mostrará tu formato cuando lo configures.
+    </div>
+
+    <h3>Usuarios e inspecciones</h3>
+    <ul style="margin:0 0 0 18px;color:#475569;font-size:9.5pt;">
+      <li><b>Usuarios:</b> editar perfil y desactivar acceso desde el listado.</li>
+      <li><b>Inspección:</b> diagrama de daños en pantalla completa (tablet). Registra quién entrega/recibe.</li>
+      <li><b>Contrato:</b> navegación por pasos (entrega → inspección → pagos → firma).</li>
+    </ul>
+  </section>
+
+  <!-- ===================== CLOSING ===================== -->
+  <section class="page">
+    <p class="kicker">08 · Soporte y acceso</p>
+    <h2>Para empezar a probar hoy</h2>
+
+    <div class="cards">
+      <div class="card">
+        <div class="tag">Landing</div>
+        <h4>Sitio público</h4>
+        <p>Abre el enlace de demo que te compartimos (/landing). Prueba EN/ES, tipos y solicitud de cotización.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Admin</div>
+        <h4>Panel interno</h4>
+        <p>Entra a /login con el usuario que te entregó WEBBOOST. Explora dashboard, cotizaciones y calendario.</p>
+      </div>
+    </div>
+
+    <div class="info">
+      <b>Contacto operativo OLDES:</b> +503 7435-0381 · Entrega a domicilio / aeropuerto.
+    </div>
+
+    <h3>Resumen en una frase</h3>
+    <p>
+      La web atrae y captura solicitudes; el admin te deja cotizar rápido, reservar a mano,
+      entregar con evidencia, cobrar o devolver con comprobantes — sin automatizaciones peligrosas.
+    </p>
+
+    <div class="banner">
+      <div class="ico">1</div>
+      <div>
+        <strong>Versión 1.2 · Actualizado</strong>
+        <p>
+          Manual revisado con las mejoras de agosto 2026. Tu feedback sigue guiando el wizard
+          contrato+inspección y los machotes definitivos que envíes.
+        </p>
+      </div>
+    </div>
+
+    <div style="margin-top:28px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+      <div>
+        <img src="../public/brand/oldes-logo.png" alt="OLDES" style="height:48px;border-radius:8px;" />
+      </div>
+      <div style="text-align:right;color:#64748b;font-size:9pt;">
+        <div style="font-weight:800;color:#0A1F5C;font-size:12pt;">WEBBOOST</div>
+        Manual instructivo · v1.2 · Agosto 2026<br>
+        OLDES Rent a Car El Salvador
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>

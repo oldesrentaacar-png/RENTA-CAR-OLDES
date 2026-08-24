@@ -1,0 +1,62 @@
+import { NextResponse } from "next/server";
+
+import { getContractPdfData } from "@/app/dashboard/contratos/actions";
+import { getCurrentUser } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
+import { isSupabaseConfigured } from "@/lib/env";
+import { renderContractPdf } from "@/lib/pdf/render";
+
+export async function GET(
+  _request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const { id } = await context.params;
+
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json(
+      { success: false, error: { message: "Supabase no configurado." } },
+      { status: 503 },
+    );
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: { message: "No autenticado." } },
+      { status: 401 },
+    );
+  }
+
+  const allowed = await hasPermission(user.id, "contracts.view");
+  if (!allowed) {
+    return NextResponse.json(
+      { success: false, error: { message: "Sin permiso." } },
+      { status: 403 },
+    );
+  }
+
+  const pdfData = await getContractPdfData(id);
+  if (!pdfData) {
+    return NextResponse.json(
+      { success: false, error: { message: "Contrato no encontrado." } },
+      { status: 404 },
+    );
+  }
+
+  try {
+    const buffer = await renderContractPdf(pdfData);
+    return new NextResponse(new Uint8Array(buffer), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="contrato-${pdfData.contractCode}.pdf"`,
+        "Cache-Control": "private, max-age=60",
+      },
+    });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: { message: "Error al generar PDF." } },
+      { status: 500 },
+    );
+  }
+}
