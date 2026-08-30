@@ -68,10 +68,15 @@ export type PublicVehicleTypeResponse = {
   name: string;
   nameEn: string | null;
   description: string | null;
+  descriptionEn: string | null;
+  referenceModels: string | null;
+  referenceModelsEn: string | null;
   dailyRate: number;
   weeklyRate: number | null;
   passengers: number;
   luggage: number;
+  luggageLabel: string | null;
+  luggageLabelEn: string | null;
   doors: number;
   airConditioning: boolean;
   transmission: string | null;

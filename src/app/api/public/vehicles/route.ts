@@ -157,12 +157,17 @@ export async function GET(request: Request) {
           name: entry.name,
           nameEn: null,
           description: entry.description,
+          descriptionEn: null,
+          referenceModels: null,
+          referenceModelsEn: null,
           dailyRate: entry.dailyRate,
           weeklyRate: entry.dailyRate
             ? Math.round(entry.dailyRate * 6 * 100) / 100
             : null,
           passengers: entry.passengers ?? 5,
           luggage: entry.luggage ?? 2,
+          luggageLabel: null,
+          luggageLabelEn: null,
           doors: 4,
           airConditioning: entry.airConditioning,
           transmission: entry.transmission,

@@ -16,9 +16,17 @@ const optionalText = (max: number) =>
 
 export const vehicleTypeSchema = z.object({
   name: z.string().trim().min(1, "Nombre requerido.").max(120),
+  nameEn: optionalText(120),
+  description: optionalText(2000),
+  descriptionEn: optionalText(2000),
+  referenceModels: optionalText(500),
+  referenceModelsEn: optionalText(500),
   dailyRate: moneyField,
   passengers: z.coerce.number().int().min(1).max(99).default(5),
   luggage: z.coerce.number().int().min(0).max(20).default(2),
+  luggageLabel: optionalText(200),
+  luggageLabelEn: optionalText(200),
+  transmission: optionalText(40).default("Automatic"),
   publishedOnWeb: z.boolean().default(false),
   imageUrl: optionalText(2000),
   sortOrder: z.coerce.number().int().min(0).max(9999).default(0),

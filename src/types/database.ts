@@ -338,10 +338,14 @@ export interface VehicleType {
   name_en: string | null;
   description: string | null;
   description_en: string | null;
+  reference_models: string | null;
+  reference_models_en: string | null;
   daily_rate: number;
   weekly_rate: number | null;
   passengers: number;
   luggage: number;
+  luggage_label: string | null;
+  luggage_label_en: string | null;
   doors: number;
   air_conditioning: boolean;
   transmission: string;
