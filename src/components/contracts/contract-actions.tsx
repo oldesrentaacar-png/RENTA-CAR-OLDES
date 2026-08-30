@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   cancelContract,
@@ -14,13 +14,13 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import type { SignerType } from "@/types/database";
 
 type ContractDetailActionsProps = {
   contract: ContractDetail;
   canEdit: boolean;
   canSign: boolean;
   canCancel: boolean;
+  operatorName?: string | null;
 };
 
 export function ContractDetailActions({
@@ -28,12 +28,12 @@ export function ContractDetailActions({
   canEdit,
   canSign,
   canCancel,
+  operatorName,
 }: ContractDetailActionsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
-  const [signerType, setSignerType] = useState<SignerType>("CLIENT");
-  const [signedBy, setSignedBy] = useState("");
+  const [signedBy, setSignedBy] = useState(contract.customerName);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
 
@@ -41,6 +41,17 @@ export function ContractDetailActions({
   const repSigned = contract.signatures.some(
     (s) => s.signer_type === "REPRESENTATIVE",
   );
+  const repName =
+    contract.signatures.find((s) => s.signer_type === "REPRESENTATIVE")
+      ?.signed_by_name ??
+    operatorName ??
+    "Operador en sesión";
+
+  useEffect(() => {
+    if (!clientSigned) {
+      setSignedBy(contract.customerName);
+    }
+  }, [clientSigned, contract.customerName]);
 
   const editable =
     canEdit &&
@@ -56,7 +67,7 @@ export function ContractDetailActions({
 
   async function handleSign() {
     if (!signatureDataUrl || !signedBy.trim()) {
-      setError("Complete el nombre y la firma.");
+      setError("Complete el nombre y la firma del cliente.");
       return;
     }
 
@@ -65,7 +76,7 @@ export function ContractDetailActions({
     setWarning(null);
 
     const fd = new FormData();
-    fd.set("signerType", signerType);
+    fd.set("signerType", "CLIENT");
     fd.set("signedBy", signedBy);
     fd.set("signatureDataUrl", signatureDataUrl);
 
@@ -149,50 +160,34 @@ export function ContractDetailActions({
 
       {canSign && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (
         <div className="space-y-4 rounded-xl border border-border bg-surface p-6">
-          <h3 className="font-semibold">Firmas</h3>
+          <h3 className="font-semibold">Firma del cliente</h3>
+          <p className="text-sm text-muted">
+            Solo se requiere la firma del cliente. El operador ({repName}) se
+            registra automáticamente al guardar la firma del cliente.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-border p-3 text-sm">
               <p className="font-medium">Cliente</p>
               {clientSigned ? (
                 <p className="text-success">Firmado</p>
               ) : (
-                <p className="text-muted">Pendiente</p>
+                <p className="text-muted">Pendiente — requerido</p>
               )}
             </div>
             <div className="rounded-lg border border-border p-3 text-sm">
-              <p className="font-medium">Representante</p>
+              <p className="font-medium">Operador OLDES</p>
               {repSigned ? (
-                <p className="text-success">Firmado</p>
+                <p className="text-success">{repName} · Registrado</p>
               ) : (
-                <p className="text-muted">Pendiente</p>
+                <p className="text-muted">{repName} · Se registrará al firmar</p>
               )}
             </div>
           </div>
 
-          {(!clientSigned || !repSigned) ? (
+          {!clientSigned ? (
             <>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={signerType === "CLIENT" ? "primary" : "secondary"}
-                  onClick={() => setSignerType("CLIENT")}
-                  disabled={clientSigned}
-                >
-                  Firma cliente
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={signerType === "REPRESENTATIVE" ? "primary" : "secondary"}
-                  onClick={() => setSignerType("REPRESENTATIVE")}
-                  disabled={repSigned}
-                >
-                  Firma representante
-                </Button>
-              </div>
               <Input
-                label="Nombre del firmante"
+                label="Nombre del cliente (firmante)"
                 value={signedBy}
                 onChange={(event) => setSignedBy(event.target.value)}
               />
@@ -201,10 +196,17 @@ export function ContractDetailActions({
                 disabled={signing}
               />
               {signatureDataUrl ? (
-                <p className="text-sm text-muted">Firma capturada. Confirme para registrar.</p>
+                <p className="text-sm text-muted">
+                  Firma capturada. Confirme para registrar.
+                </p>
               ) : null}
-              <Button type="button" onClick={handleSign} loading={signing} disabled={!signatureDataUrl}>
-                Registrar firma
+              <Button
+                type="button"
+                onClick={handleSign}
+                loading={signing}
+                disabled={!signatureDataUrl}
+              >
+                Registrar firma del cliente
               </Button>
             </>
           ) : null}

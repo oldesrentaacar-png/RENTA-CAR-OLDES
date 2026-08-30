@@ -36,6 +36,7 @@ import {
 } from "@/lib/contracts/oldes-terms";
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
 import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS } from "@/lib/inspections/defaults";
+import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
 import { resolveBodyStyle } from "@/lib/inspections/vehicle-panel-map";
 import { parseMoneyInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
@@ -51,6 +52,7 @@ import type {
   ContractStatus,
 } from "@/types/database";
 import type { PaginatedResult } from "@/types/api";
+import type { DeliveryStep } from "@/components/contracts/delivery-checklist";
 
 export type ContractDetail = Contract & {
   signatures: ContractSignature[];
@@ -61,13 +63,145 @@ export type ContractDetail = Contract & {
 };
 
 function nextStatusAfterSign(
-  signerType: "CLIENT" | "REPRESENTATIVE",
   hasClient: boolean,
   hasRepresentative: boolean,
 ): ContractStatus {
-  if (hasClient && hasRepresentative) return "COMPLETED";
-  if (signerType === "CLIENT") return "CLIENT_SIGNED";
-  return "REPRESENTATIVE_SIGNED";
+  if (hasClient) return "COMPLETED";
+  if (hasRepresentative) return "REPRESENTATIVE_SIGNED";
+  return "PENDING";
+}
+
+async function ensureRepresentativeSignature(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  contractId: string,
+  userId: string,
+  ipAddress: string | null,
+  userAgent: string | null,
+) {
+  const { data: existing } = await supabase
+    .from("contract_signatures")
+    .select("id")
+    .eq("contract_id", contractId)
+    .eq("signer_type", "REPRESENTATIVE")
+    .maybeSingle();
+
+  if (existing) return;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("first_name, last_name, signature_url")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!profile) return;
+
+  const operator = profile as {
+    first_name: string;
+    last_name: string;
+    signature_url?: string | null;
+  };
+  const operatorName = `${operator.first_name} ${operator.last_name}`.trim();
+  if (!operatorName) return;
+
+  let signaturePath: string | null = null;
+  if (operator.signature_url?.startsWith("data:")) {
+    const upload = await uploadSignatureImage(
+      contractId,
+      "REPRESENTATIVE",
+      operator.signature_url,
+    );
+    signaturePath = upload.storagePath;
+  } else if (operator.signature_url) {
+    signaturePath = operator.signature_url;
+  }
+
+  await supabase.from("contract_signatures").insert({
+    contract_id: contractId,
+    signer_type: "REPRESENTATIVE",
+    signed_by_name: operatorName,
+    signed_by_user_id: userId,
+    signature_path: signaturePath,
+    ip_address: ipAddress,
+    user_agent: userAgent,
+  });
+}
+
+export type DeliveryFlowContext = {
+  contractId: string;
+  steps: DeliveryStep[];
+  currentStepId?: string;
+};
+
+export async function getDeliveryFlowForReservation(
+  reservationId: string,
+  options?: {
+    currentStepId?: string;
+  },
+): Promise<ActionResult<DeliveryFlowContext | null>> {
+  try {
+    await assertPermission("contracts.view");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: contract, error } = await supabase
+      .from("contracts")
+      .select(
+        "id, reservation_id, amount_paid, pdf_path, customers(first_name, last_name), vehicles(brand, model, year, plate)",
+      )
+      .eq("reservation_id", reservationId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) throw mapPostgresError(error);
+    if (!contract) return actionSuccess(null);
+
+    const raw = contract as {
+      id: string;
+      reservation_id: string;
+      amount_paid?: number | null;
+      pdf_path?: string | null;
+      customers:
+        | { first_name: string; last_name: string }
+        | Array<{ first_name: string; last_name: string }>;
+      vehicles:
+        | { brand: string; model: string; year: number; plate: string }
+        | Array<{ brand: string; model: string; year: number; plate: string }>;
+    };
+    const customers = Array.isArray(raw.customers)
+      ? raw.customers[0]
+      : raw.customers;
+    const vehicles = Array.isArray(raw.vehicles) ? raw.vehicles[0] : raw.vehicles;
+    if (!customers || !vehicles) return actionSuccess(null);
+
+    const progress = await getContractDeliveryProgress(raw.id);
+    if (!progress.success) return actionError(progress.error);
+
+    const customerName = `${customers.first_name} ${customers.last_name}`;
+    const vehicleLabel = `${vehicles.brand} ${vehicles.model} ${vehicles.year} (${vehicles.plate})`;
+
+    const steps = buildDeliverySteps({
+      contractId: raw.id,
+      reservationId: raw.reservation_id,
+      customerName,
+      vehicleLabel,
+      checkOutId: progress.data.checkOutId,
+      checkOutChecklistCount: progress.data.checkOutChecklistCount,
+      amountPaid: progress.data.amountPaid,
+      hasClientSignature: progress.data.hasClientSignature,
+      hasRepresentativeSignature: progress.data.hasRepresentativeSignature,
+      hasPdf: progress.data.hasPdf,
+    });
+
+    return actionSuccess({
+      contractId: raw.id,
+      steps,
+      currentStepId: options?.currentStepId,
+    });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
 }
 
 export async function listContracts(
@@ -942,6 +1076,16 @@ export async function signContract(
 
     if (sigError) throw mapPostgresError(sigError);
 
+    if (parsed.data.signerType === "CLIENT") {
+      await ensureRepresentativeSignature(
+        supabase,
+        contractId,
+        user.id,
+        ipAddress,
+        userAgent,
+      );
+    }
+
     const { data: allSignatures } = await supabase
       .from("contract_signatures")
       .select("signer_type")
@@ -955,11 +1099,7 @@ export async function signContract(
 
     const hasClient = signerTypes.has("CLIENT");
     const hasRepresentative = signerTypes.has("REPRESENTATIVE");
-    const newStatus = nextStatusAfterSign(
-      parsed.data.signerType,
-      hasClient,
-      hasRepresentative,
-    );
+    const newStatus = nextStatusAfterSign(hasClient, hasRepresentative);
 
     const { error: updateError } = await supabase
       .from("contracts")
@@ -1194,27 +1334,35 @@ export async function getContractPdfData(contractId: string) {
     }
   }
 
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-  let operatorName: string | null = null;
+  let operatorName: string | null = repSig?.signed_by_name ?? null;
   let operatorSignatureUrl: string | null = null;
-  if (authUser) {
-    const { data: operatorProfile } = await supabase
-      .from("profiles")
-      .select("first_name, last_name, signature_url")
-      .eq("id", authUser.id)
-      .maybeSingle();
-    if (operatorProfile) {
-      const op = operatorProfile as {
-        first_name: string;
-        last_name: string;
-        signature_url?: string | null;
-      };
-      operatorName = `${op.first_name} ${op.last_name}`.trim();
-      if (op.signature_url) {
-        operatorSignatureUrl =
-          (await resolvePrivateFileUrl(op.signature_url)) ?? op.signature_url;
+  if (repSig?.signature_path) {
+    operatorSignatureUrl =
+      (await resolvePrivateFileUrl(repSig.signature_path)) ??
+      repSig.signature_path;
+  }
+
+  if (!operatorName) {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    if (authUser) {
+      const { data: operatorProfile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, signature_url")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      if (operatorProfile) {
+        const op = operatorProfile as {
+          first_name: string;
+          last_name: string;
+          signature_url?: string | null;
+        };
+        operatorName = `${op.first_name} ${op.last_name}`.trim();
+        if (!operatorSignatureUrl && op.signature_url) {
+          operatorSignatureUrl =
+            (await resolvePrivateFileUrl(op.signature_url)) ?? op.signature_url;
+        }
       }
     }
   }

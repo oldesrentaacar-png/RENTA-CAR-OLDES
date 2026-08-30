@@ -50,7 +50,8 @@ export async function GET(
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="contrato-${pdfData.contractCode}.pdf"`,
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        Pragma: "no-cache",
       },
     });
   } catch {

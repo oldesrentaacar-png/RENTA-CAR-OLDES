@@ -66,6 +66,9 @@ export function VehicleForm({ vehicle, vehicleTypes = [] }: VehicleFormProps) {
       "deposit",
       String(parseMoneyInput(formData.get("deposit"), 0)),
     );
+    if (weeklyRate.trim() === "") {
+      formData.delete("weeklyRate");
+    }
 
     const result = isEdit
       ? await updateVehicle(vehicle!.id, formData)

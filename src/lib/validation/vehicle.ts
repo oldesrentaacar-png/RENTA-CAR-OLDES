@@ -5,6 +5,19 @@ const moneyField = z.coerce
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
+function emptyToUndefined(value: unknown) {
+  if (value === "" || value === null || value === undefined) return undefined;
+  return value;
+}
+
+const optionalMoneyField = z.preprocess(emptyToUndefined, moneyField.optional());
+
+const optionalIntField = (min: number, max: number) =>
+  z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(min).max(max).optional(),
+  );
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -29,9 +42,9 @@ export const vehicleSchema = z.object({
   color: optionalText(50),
   transmission: optionalText(50),
   fuelType: optionalText(50),
-  passengers: z.coerce.number().int().min(1).max(99).optional(),
-  doors: z.coerce.number().int().min(1).max(10).optional(),
-  luggage: z.coerce.number().int().min(0).max(20).optional(),
+  passengers: optionalIntField(1, 99),
+  doors: optionalIntField(1, 10),
+  luggage: optionalIntField(0, 20),
   airConditioning: z.boolean().default(true),
   category: optionalText(100),
   vehicleTypeId: z
@@ -42,17 +55,17 @@ export const vehicleSchema = z.object({
     .enum(["OWN", "THIRD_PARTY", "SUBLEASED", "CONSIGNMENT"])
     .default("OWN"),
   dailyRate: moneyField,
-  weeklyRate: moneyField.optional(),
+  weeklyRate: optionalMoneyField,
   deposit: moneyField,
   publicDescription: optionalText(5000),
   ownerName: optionalText(200),
   ownerPhone: optionalText(20),
-  subleaseDailyCost: moneyField.optional(),
+  subleaseDailyCost: optionalMoneyField,
   subleasePayeeName: optionalText(200),
   internalNotes: optionalText(5000),
   engineOil: optionalText(200),
   tireInfo: optionalText(200),
-  currentMileage: z.coerce.number().int().min(0).max(9_999_999).optional(),
+  currentMileage: optionalIntField(0, 9_999_999),
   status: z
     .enum([
       "AVAILABLE",

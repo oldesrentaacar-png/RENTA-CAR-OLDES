@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getContract } from "@/app/dashboard/contratos/actions";
+import {
+  getContract,
+  getDeliveryFlowForReservation,
+} from "@/app/dashboard/contratos/actions";
 import { ContractDetailActions } from "@/components/contracts/contract-actions";
+import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 
 export default async function ContratoSignPage({
@@ -24,6 +29,26 @@ export default async function ContratoSignPage({
 
   const user = configured ? await getCurrentUser() : null;
   const canSign = user ? await hasPermission(user.id, "contracts.sign") : false;
+
+  let operatorName: string | null = null;
+  if (user && configured) {
+    const supabase = await createClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile) {
+      operatorName = `${profile.first_name} ${profile.last_name}`.trim();
+    }
+  }
+
+  const deliveryFlow =
+    configured && contract
+      ? await getDeliveryFlowForReservation(contract.reservation_id, {
+          currentStepId: "firma",
+        })
+      : null;
 
   return (
     <PermissionGuard permission="contracts.sign">
@@ -44,6 +69,13 @@ export default async function ContratoSignPage({
           <SetupBanner />
         ) : contract ? (
           <>
+            {deliveryFlow?.success && deliveryFlow.data ? (
+              <ContractDeliveryNavigator
+                contractId={deliveryFlow.data.contractId}
+                steps={deliveryFlow.data.steps}
+                currentStepId="firma"
+              />
+            ) : null}
             <p className="text-sm text-muted">
               Cliente: {contract.customerName} · Vehículo: {contract.vehicleLabel}
             </p>
@@ -52,6 +84,7 @@ export default async function ContratoSignPage({
               canEdit={false}
               canSign={canSign}
               canCancel={false}
+              operatorName={operatorName}
             />
             <Link
               href={`/dashboard/contratos/${id}`}

@@ -9,7 +9,10 @@ import { listPaymentReceipts } from "@/app/dashboard/recibos/actions";
 import { ContractDetailActions } from "@/components/contracts/contract-actions";
 import { ContractReceiptsSection } from "@/components/contracts/contract-receipts";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
-import type { DeliveryStep } from "@/components/contracts/delivery-checklist";
+import {
+  buildDeliverySteps,
+} from "@/lib/contracts/delivery-steps";
+import { createClient } from "@/lib/supabase/server";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
@@ -20,112 +23,6 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { formatAppDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
-
-function buildDeliverySteps(input: {
-  contractId: string;
-  reservationId: string;
-  customerName: string;
-  vehicleLabel: string;
-  checkOutId: string | null;
-  checkOutChecklistCount: number;
-  amountPaid: number;
-  hasClientSignature: boolean;
-  hasRepresentativeSignature: boolean;
-  hasPdf: boolean;
-}): DeliveryStep[] {
-  const {
-    contractId,
-    reservationId,
-    customerName,
-    vehicleLabel,
-    checkOutId,
-    checkOutChecklistCount,
-    amountPaid,
-    hasClientSignature,
-    hasRepresentativeSignature,
-    hasPdf,
-  } = input;
-
-  const signaturesPartial =
-    hasClientSignature !== hasRepresentativeSignature;
-  const signaturesDone = hasClientSignature && hasRepresentativeSignature;
-
-  return [
-    {
-      id: "cliente-vehiculo",
-      title: "Cliente y vehículo",
-      description: `${customerName} · ${vehicleLabel}`,
-      status: "done",
-    },
-    {
-      id: "inspeccion-salida",
-      title: "Inspección de salida",
-      description: checkOutId
-        ? "Inspección CHECK_OUT registrada."
-        : "Registre la inspección de salida antes de entregar.",
-      status: checkOutId ? "done" : "pending",
-      href: checkOutId
-        ? `/dashboard/inspecciones/${checkOutId}`
-        : `/dashboard/inspecciones/nuevo?reservation_id=${reservationId}&type=CHECK_OUT`,
-      linkLabel: checkOutId ? "Ver inspección" : "Crear inspección",
-    },
-    {
-      id: "accesorios",
-      title: "Accesorios",
-      description: checkOutId
-        ? checkOutChecklistCount > 0
-          ? `${checkOutChecklistCount} ítems en checklist de salida.`
-          : "Inspección sin checklist; complete los accesorios."
-        : "Disponible tras la inspección de salida.",
-      status: !checkOutId
-        ? "pending"
-        : checkOutChecklistCount > 0
-          ? "done"
-          : "partial",
-      href: checkOutId
-        ? `/dashboard/inspecciones/${checkOutId}`
-        : `/dashboard/inspecciones/nuevo?reservation_id=${reservationId}&type=CHECK_OUT`,
-      linkLabel: checkOutId ? "Revisar checklist" : "Crear inspección",
-    },
-    {
-      id: "facturacion",
-      title: "Facturación / abono inicial",
-      description:
-        amountPaid > 0
-          ? `Abonado: ${formatMoney(amountPaid)}`
-          : "Registre el abono inicial en la sección de recibos.",
-      status: amountPaid > 0 ? "done" : "pending",
-      href: `#abonos`,
-      linkLabel: "Ir a abonos",
-    },
-    {
-      id: "firma",
-      title: "Términos y firma",
-      description: signaturesDone
-        ? "Cliente y representante firmados."
-        : signaturesPartial
-          ? "Firma parcial; falta completar."
-          : "Pendiente de aceptación de términos y firma.",
-      status: signaturesDone
-        ? "done"
-        : signaturesPartial
-          ? "partial"
-          : "pending",
-      href: `/dashboard/contratos/${contractId}/sign`,
-      linkLabel: signaturesDone ? "Ver firmas" : "Firmar",
-    },
-    {
-      id: "pdf",
-      title: "PDF generado",
-      description: hasPdf
-        ? "PDF almacenado en el contrato."
-        : "El PDF se genera bajo demanda (siempre disponible).",
-      status: "done",
-      href: `/api/contracts/${contractId}/pdf`,
-      linkLabel: "Ver PDF",
-    },
-  ];
-}
 
 export default async function ContratoDetailPage({
   params,
@@ -149,6 +46,19 @@ export default async function ContratoDetailPage({
         hasPermission(user.id, "finance.view"),
       ])
     : [false, false, false, false, false];
+
+  let operatorName: string | null = null;
+  if (user && configured) {
+    const supabase = await createClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile) {
+      operatorName = `${profile.first_name} ${profile.last_name}`.trim();
+    }
+  }
 
   const receiptsResult =
     configured && contract && canFinanceView
@@ -365,6 +275,7 @@ export default async function ContratoDetailPage({
               canEdit={canEdit}
               canSign={canSign}
               canCancel={canCancel}
+              operatorName={operatorName}
             />
           </>
         ) : null}

@@ -396,7 +396,12 @@ export async function createVehicle(
     });
 
     if (!parsed.success) {
-      return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
+      const message =
+        parsed.error.issues
+          .map((issue) => issue.message)
+          .filter(Boolean)
+          .join(" ") || "Datos inválidos.";
+      return actionError(message);
     }
 
     const slug = slugifyVehicle(
