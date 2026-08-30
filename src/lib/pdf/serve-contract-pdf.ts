@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
 import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
+import { prepareContractPdfImages } from "@/lib/pdf/pdf-images";
 import { renderContractPdf } from "@/lib/pdf/render";
 
 export async function serveContractPdfResponse(
@@ -42,7 +43,8 @@ export async function serveContractPdfResponse(
   }
 
   try {
-    const buffer = await renderContractPdf(pdfData);
+    const ready = await prepareContractPdfImages(pdfData);
+    const buffer = await renderContractPdf(ready);
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
