@@ -72,6 +72,30 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
   font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
   color:#fde047;margin:0 0 .75rem;
 }
+.hero-headline{
+  font-size:clamp(1.45rem,4.2vw,2.15rem);font-weight:900;line-height:1.15;
+  letter-spacing:-.02em;color:#fde047;margin:0 0 1rem;max-width:32rem;
+}
+.hero-lead{
+  margin:0 0 1.35rem;color:rgba(255,255,255,.88);font-size:.92rem;
+  max-width:30rem;line-height:1.5;
+}
+.hero-actions{display:flex;flex-direction:column;gap:.65rem;max-width:280px}
+.hero-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.55rem;
+  width:100%;padding:.9rem 1.25rem;border-radius:.75rem;
+  font-weight:800;font-size:.88rem;text-decoration:none;
+  letter-spacing:.04em;text-transform:uppercase;transition:all .2s;
+}
+.hero-btn-primary{
+  background:var(--red);color:#fff;border:2px solid var(--red);
+  box-shadow:0 6px 20px rgba(227,6,19,.35);
+}
+.hero-btn-primary:hover{background:var(--red2);border-color:var(--red2);transform:translateY(-1px)}
+.hero-btn-ghost{
+  background:transparent;color:#fff;border:2px solid rgba(255,255,255,.55);
+}
+.hero-btn-ghost:hover{background:rgba(255,255,255,.1);border-color:#fff}
 .faq-item{border:1px solid #e5e7eb;border-radius:.875rem;background:#fff;overflow:hidden}
 .faq-q{width:100%;text-align:left;background:transparent;border:none;padding:1rem 1.15rem;font:inherit;font-weight:800;color:#0f172a;cursor:pointer;display:flex;justify-content:space-between;gap:1rem;align-items:center}
 .faq-a{display:none;padding:0 1.15rem 1rem;color:#6b7280;font-size:.9rem;line-height:1.55}
@@ -505,22 +529,22 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 <section id="inicio" class="hero">
   <div style="max-width:1280px;margin:0 auto;padding:2.5rem 1.25rem 3rem;display:flex;flex-direction:column;gap:1.75rem;width:100%;">
     <div class="hero-panel" style="color:#fff;">
-      <p class="hero-slogan" data-i18n="hero_slogan">Operador logístico · siempre entregando lo mejor</p>
+      <p class="hero-slogan" data-i18n="hero_brand">OLDES Rent a Car · El Salvador</p>
       <a href="#reseñas" class="google-badge" aria-label="Google reviews">
         <span class="g-stars" aria-hidden="true">★★★★★</span>
         <span class="g-score">4.9</span>
         <span data-i18n="hero_google_badge">on Google</span>
       </a>
-      <h1 style="font-size:clamp(2rem,5.5vw,3.35rem);font-weight:900;line-height:1.05;letter-spacing:-.03em;margin:0 0 1rem;" data-i18n-html="hero_title">
-        OLDES<br><span style="color:#fde047;">Rent a Car</span>
-      </h1>
-      <p style="margin:0 0 1.25rem;color:rgba(255,255,255,.82);font-size:.95rem;max-width:28rem;line-height:1.45;" data-i18n="hero_lead">El Salvador · entrega a domicilio y aeropuerto</p>
-      <div style="display:flex;flex-wrap:wrap;gap:.75rem;">
-        <a href="#flota" style="display:inline-flex;align-items:center;gap:.5rem;background:var(--red);color:#fff;padding:.875rem 1.35rem;border-radius:.75rem;font-weight:800;font-size:.9rem;text-decoration:none;box-shadow:0 6px 20px rgba(227,6,19,.4);">
-          <i data-lucide="car" style="width:18px;height:18px;"></i> <span data-i18n="cta_view">View options</span>
+      <h1 class="hero-headline" data-i18n="hero_headline">Reserva en minutos, maneja sin límites: la forma más fácil de rentar auto en El Salvador.</h1>
+      <p class="hero-lead" data-i18n="hero_lead">Sin depósitos descabellados, con seguro incluido y asistencia vial 24/7 para que manejes por todo el país con total tranquilidad.</p>
+      <div class="hero-actions">
+        <a href="#flota" class="hero-btn hero-btn-primary">
+          <i data-lucide="car" style="width:18px;height:18px;"></i>
+          <span data-i18n="cta_catalog">Ver catálogo</span>
         </a>
-        <a href="#reservar" style="display:inline-flex;align-items:center;gap:.5rem;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;padding:.875rem 1.35rem;border-radius:.75rem;font-weight:800;font-size:.9rem;text-decoration:none;">
-          <i data-lucide="calendar" style="width:18px;height:18px;"></i> <span data-i18n="cta_quote">Request a quote</span>
+        <a href="#" data-wa-hero class="hero-btn hero-btn-ghost" target="_blank" rel="noopener">
+          <i data-lucide="message-circle" style="width:18px;height:18px;"></i>
+          <span data-i18n="cta_whatsapp">Chatea por WhatsApp</span>
         </a>
       </div>
     </div>
@@ -1104,10 +1128,13 @@ const I18N={
     nav_rates:"Rates",
     nav_contact:"Contact",
     call_label:"Call: +503 7435-0381",
-    hero_slogan:"Logistics operator · always delivering the best",
+    hero_brand:"OLDES Rent a Car · El Salvador",
     hero_google_badge:"on Google",
-    hero_title:'OLDES<br><span style="color:#fde047;">Rent a Car</span>',
-    hero_lead:"El Salvador · home & airport delivery",
+    hero_headline:"Book in minutes, drive without limits: the easiest way to rent a car in El Salvador.",
+    hero_lead:"No outrageous deposits, insurance included, and 24/7 roadside assistance so you can drive anywhere in the country with total peace of mind.",
+    cta_catalog:"View catalog",
+    cta_whatsapp:"Chat on WhatsApp",
+    wa_hero_chat:"Hi, I'd like to get a quote for a car for my travel dates.",
     cta_view:"View options",
     cta_quote:"Request a quote",
     badge_insurance:"Insurance included",
@@ -1215,10 +1242,13 @@ const I18N={
     nav_rates:"Tarifas",
     nav_contact:"Contacto",
     call_label:"Llamar: +503 7435-0381",
-    hero_slogan:"Operador logístico · siempre entregando lo mejor",
+    hero_brand:"OLDES Rent a Car · El Salvador",
     hero_google_badge:"en Google",
-    hero_title:'OLDES<br><span style="color:#fde047;">Rent a Car</span>',
-    hero_lead:"El Salvador · entrega a domicilio y aeropuerto",
+    hero_headline:"Reserva en minutos, maneja sin límites: la forma más fácil de rentar auto en El Salvador.",
+    hero_lead:"Sin depósitos descabellados, con seguro incluido y asistencia vial 24/7 para que manejes por todo el país con total tranquilidad.",
+    cta_catalog:"Ver catálogo",
+    cta_whatsapp:"Chatea por WhatsApp",
+    wa_hero_chat:"Hola, quisiera cotizar un auto para mis fechas de viaje.",
     cta_view:"Ver opciones",
     cta_quote:"Solicitar cotización",
     badge_insurance:"Seguro incluido",
@@ -1360,6 +1390,8 @@ function applyLang(lang){
   });
   const waHref=`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(t("wa_prefill"))}`;
   document.querySelectorAll("[data-wa-prefill]").forEach(a=>{a.href=waHref;});
+  const waHeroHref=`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(t("wa_hero_chat"))}`;
+  document.querySelectorAll("[data-wa-hero]").forEach(a=>{a.href=waHeroHref;});
   const btnText=document.getElementById("btn-text");
   if(btnText&&!document.getElementById("reserve-btn")?.disabled)btnText.textContent=t("btn_submit");
   if(vehicleTypes.length){
