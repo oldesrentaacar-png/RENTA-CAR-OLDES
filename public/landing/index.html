@@ -282,8 +282,6 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 #car-grid.fleet-grid{display:grid;grid-template-columns:1fr;gap:1.25rem}
 @media(min-width:640px){#car-grid.fleet-grid{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:992px){#car-grid.fleet-grid{grid-template-columns:repeat(3,1fr)}}
-.fleet-guarantee{margin-top:1.75rem;padding:1rem 1.25rem;border-radius:.875rem;background:#f0f4ff;border:1px solid #c7d2fe;color:#334155;font-size:.85rem;line-height:1.6;text-align:center;max-width:920px;margin-left:auto;margin-right:auto}
-
 /* ── CAR CARDS ── */
 .car-card{background:#fff;border-radius:1.25rem;border:1px solid #e5e7eb;overflow:hidden;transition:transform .25s,box-shadow .25s;display:flex;flex-direction:column;height:100%}
 .car-card:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(10,31,92,.12)}
@@ -778,7 +776,6 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
         <p style="color:#6b7280;font-size:.9rem;max-width:640px;margin:.75rem auto 0;line-height:1.55;" data-i18n="fleet_sub">Transparent rates with insurance included. Select a category and get an instant quote with no hidden fees.</p>
       </div>
       <div id="car-grid" class="fleet-grid"></div>
-      <p class="fleet-guarantee" data-i18n="fleet_guarantee">Category Guarantee: Photos are illustrative. When booking, we guarantee the selected category (or a higher one) with the same space and comfort features.</p>
     </section>
 
     <!-- RESEÑAS -->
@@ -1238,7 +1235,6 @@ const I18N={
     why6_desc:"Everything backed by a formal rental agreement — no fine print or surprises at pickup.",
     fleet_title:"Our Available Fleet",
     fleet_sub:"Transparent rates with insurance included. Select a category and get an instant quote with no hidden fees.",
-    fleet_guarantee:"Category Guarantee: Photos are illustrative. When booking, we guarantee the selected category (or a higher one) with the same space and comfort features.",
     cta_select_fleet:"Select & quote",
     daily_price:"Daily Rate",
     trans_auto:"Automatic",
@@ -1363,7 +1359,6 @@ const I18N={
     why6_desc:"todo respaldado por un contrato formal de arrendamiento, sin letras pequeñas ni sorpresas al entregar.",
     fleet_title:"Nuestra Flota Disponible",
     fleet_sub:"Tarifas transparentes con seguro incluido. Selecciona una categoría y cotiza al instante sin cargos ocultos.",
-    fleet_guarantee:"Garantía de Categoría: Las fotos son ilustrativas. Al reservar, garantizamos la categoría seleccionada (o una superior) con las mismas prestaciones de espacio y comodidad.",
     cta_select_fleet:"Seleccionar y cotizar",
     daily_price:"Precio Diario",
     trans_auto:"Automática",
