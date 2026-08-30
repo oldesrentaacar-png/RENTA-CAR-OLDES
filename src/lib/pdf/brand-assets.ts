@@ -14,14 +14,21 @@ export async function getBrandLogoDataUrl(): Promise<string | null> {
     return cachedLogoDataUrl;
   }
 
-  try {
-    const logoPath = path.join(process.cwd(), "public", "brand", "oldes-logo.png");
+    try {
+    const logoPath = path.join(process.cwd(), "public", "brand", "oldes-logo.svg");
     const buffer = await readFile(logoPath);
-    cachedLogoDataUrl = `data:image/png;base64,${buffer.toString("base64")}`;
+    cachedLogoDataUrl = `data:image/svg+xml;base64,${buffer.toString("base64")}`;
     return cachedLogoDataUrl;
   } catch {
-    cachedLogoDataUrl = null;
-    return null;
+    try {
+      const logoPath = path.join(process.cwd(), "public", "brand", "oldes-logo.png");
+      const buffer = await readFile(logoPath);
+      cachedLogoDataUrl = `data:image/png;base64,${buffer.toString("base64")}`;
+      return cachedLogoDataUrl;
+    } catch {
+      cachedLogoDataUrl = null;
+      return null;
+    }
   }
 }
 

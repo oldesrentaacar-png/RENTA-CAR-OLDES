@@ -44,7 +44,18 @@ export const reservationSchema = reservationFields.refine(
   },
 );
 
-export const reservationUpdateSchema = reservationFields.partial();
+export const reservationUpdateSchema = reservationFields
+  .partial()
+  .refine(
+    (data) => {
+      if (!data.startAt || !data.endAt) return true;
+      return new Date(data.endAt) > new Date(data.startAt);
+    },
+    {
+      message: "La fecha de fin debe ser posterior a la de inicio.",
+      path: ["endAt"],
+    },
+  );
 
 export const reservationCancelSchema = z.object({
   reason: optionalText(500),

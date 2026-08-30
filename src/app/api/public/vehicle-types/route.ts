@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { buildCorsHeaders } from "@/lib/security/origin";
 import {
   buildRateLimitKey,
   checkRateLimit,
@@ -15,6 +16,8 @@ import type { PublicVehicleTypeResponse } from "@/types/api";
  * Landing must not show unit inventory (plates / brand-model units).
  */
 export async function GET(request: Request) {
+  const origin = request.headers.get("origin");
+  const corsHeaders = buildCorsHeaders(origin);
   const ip = getClientIp(request.headers);
   const rateKey = buildRateLimitKey(ip, "public-vehicle-types");
   const rate = checkRateLimit(rateKey, { limit: 60, windowMs: 60_000 });
@@ -117,11 +120,11 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json(apiSuccess(data));
+    return NextResponse.json(apiSuccess(data), { headers: corsHeaders });
   } catch {
     return NextResponse.json(
       apiError("Error interno del servidor.", { code: "INTERNAL_ERROR" }),
-      { status: 500 },
+      { status: 500, headers: corsHeaders },
     );
   }
 }
@@ -130,12 +133,6 @@ export async function OPTIONS(request: Request) {
   const origin = request.headers.get("origin");
   return new NextResponse(null, {
     status: 204,
-    headers: origin
-      ? {
-          "Access-Control-Allow-Origin": origin,
-          "Access-Control-Allow-Methods": "GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        }
-      : {},
+    headers: buildCorsHeaders(origin),
   });
 }

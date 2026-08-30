@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>OLDES Rent a Car El Salvador</title>
-<link rel="icon" href="oldes-logo.png" type="image/png"/>
+<link rel="icon" href="oldes-logo.svg" type="image/png"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -568,9 +568,9 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 <nav id="navbar">
   <div style="max-width:1280px;margin:0 auto;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:64px;">
     <a href="#inicio" style="display:flex;align-items:center;gap:.625rem;text-decoration:none;">
-      <img src="oldes-logo.png" alt="OLDES Rent a Car El Salvador" class="brand-logo" />
+      <img src="oldes-logo.svg" alt="OLDES Rent a Car El Salvador" class="brand-logo" />
     </a>
-    <div style="display:none;" class="md:flex items-center gap-7" id="nav-links-desktop">
+    <div class="hidden md:flex items-center gap-7" id="nav-links-desktop">
       <a href="#inicio" class="nav-link" data-i18n="nav_home">Home</a>
       <a href="#por-que" class="nav-link" data-i18n="nav_why">Why OLDES</a>
       <a href="#flota" class="nav-link" data-i18n="nav_vehicles">Vehicles</a>
@@ -582,10 +582,10 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
         <button type="button" class="lang-btn on" data-set-lang="en" onclick="setLang('en')">EN</button>
         <button type="button" class="lang-btn" data-set-lang="es" onclick="setLang('es')">ES</button>
       </div>
-      <a href="tel:+50374350381" style="display:none;align-items:center;gap:.5rem;background:var(--red);color:#fff;padding:.5rem 1rem;border-radius:.625rem;font-size:.83rem;font-weight:800;text-decoration:none;transition:background .2s;" class="sm:inline-flex">
+      <a href="tel:+50374350381" class="hidden sm:inline-flex items-center gap-2 bg-[var(--red)] text-white px-4 py-2 rounded-[.625rem] text-[.83rem] font-extrabold no-underline transition-colors hover:opacity-90">
         <i data-lucide="phone" style="width:15px;height:15px;"></i> +503 7435-0381
       </a>
-      <button id="hamburger" onclick="openMobileNav()" style="padding:.5rem;border-radius:.625rem;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;" class="md:hidden">
+      <button id="hamburger" onclick="openMobileNav()" class="md:hidden p-2 rounded-[.625rem] border-none bg-transparent cursor-pointer flex items-center justify-center">
         <i data-lucide="menu" style="width:22px;height:22px;color:#4b5563;"></i>
       </button>
     </div>
@@ -598,7 +598,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
   <div style="background:var(--blue);padding:1.25rem 1.25rem 1.5rem;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.25rem;">
       <div style="display:flex;align-items:center;gap:.625rem;">
-        <img src="oldes-logo.png" alt="OLDES Rent a Car El Salvador" class="brand-logo" style="box-shadow:0 2px 12px rgba(0,0,0,.25);" />
+        <img src="oldes-logo.svg" alt="OLDES Rent a Car El Salvador" class="brand-logo" style="box-shadow:0 2px 12px rgba(0,0,0,.25);" />
       </div>
       <button onclick="closeMobileNav()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;">
         <i data-lucide="x" style="width:18px;height:18px;"></i>
@@ -840,7 +840,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2.5rem;margin-bottom:2.5rem;">
       <div>
         <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:.875rem;">
-          <img src="oldes-logo.png" alt="OLDES Rent a Car El Salvador" class="brand-logo-footer" />
+          <img src="oldes-logo.svg" alt="OLDES Rent a Car El Salvador" class="brand-logo-footer" />
         </div>
         <p style="font-size:.83rem;line-height:1.6;" data-i18n-html="footer_about"><strong style="color:#fff;">OLDES Rent a Car El Salvador</strong> — Home &amp; airport delivery. Modern fleet, fair prices.</p>
       </div>
@@ -928,7 +928,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
     <!-- TOP BAR -->
     <div id="adm-bar">
       <div style="display:flex;align-items:center;gap:.75rem;">
-        <img src="oldes-logo.png" alt="OLDES Rent-a-Car" class="brand-logo-sm" />
+        <img src="oldes-logo.svg" alt="OLDES Rent-a-Car" class="brand-logo-sm" />
         <div>
           <div style="color:var(--text);font-weight:900;font-size:.9rem;line-height:1;">Admin Panel</div>
           <div id="adm-email-lbl" style="color:var(--muted);font-size:.68rem;line-height:1;margin-top:.15rem;"></div>
@@ -1230,7 +1230,7 @@ const I18N={
     phone_area_hint:"Include country/area code so we can reach you.",
     ph_fullname:"YOUR FULL NAME",
     ph_email:"your@email.com",
-    ph_phone:"telefono/Phone",
+    ph_phone:"Teléfono",
     daily_rate_label:"Daily Rate",
     err_required:"Required.",
     err_name_full:"Please enter your first and last name.",
@@ -1359,7 +1359,7 @@ const I18N={
     phone_area_hint:"Incluye código de país/área para poder contactarte.",
     ph_fullname:"TU NOMBRE COMPLETO",
     ph_email:"tu@correo.com",
-    ph_phone:"telefono/Phone",
+    ph_phone:"Teléfono",
     daily_rate_label:"Tarifa diaria",
     err_required:"Requerido.",
     err_name_full:"Ingresa nombre y apellido.",
@@ -1383,11 +1383,11 @@ const I18N={
     why3_title:"Entregas a domicilio y Aeropuerto",
     why3_desc:"Llevamos el vehículo hasta la puerta de tu casa, hotel o a tu llegada al aeropuerto.",
     why4_title:"Seguro y asistencia vial 24/7",
-    why4_desc:"tranquilo por todo El Salvador con cobertura y auxilio en carretera en todo momento.",
+    why4_desc:"Maneja tranquilo por todo El Salvador con cobertura y auxilio en carretera las 24 horas.",
     why5_title:"Formas de pago flexibles",
     why5_desc:"Aceptamos efectivo, tarjetas de débito y crédito para mayor comodidad.",
     why6_title:"Contrato claro y transparente",
-    why6_desc:"todo respaldado por un contrato formal de arrendamiento, sin letras pequeñas ni sorpresas al entregar.",
+    why6_desc:"Todo respaldado por un contrato formal de arrendamiento, sin letras pequeñas ni sorpresas al entregar.",
     fleet_title:"Nuestra Flota Disponible",
     fleet_sub:"Tarifas transparentes con seguro incluido. Selecciona una categoría y cotiza al instante sin cargos ocultos.",
     cta_select_fleet:"Seleccionar y cotizar",
@@ -1457,7 +1457,7 @@ let currentLang=(()=>{
     const saved=localStorage.getItem(LANG_KEY);
     if(saved==="en"||saved==="es")return saved;
   }catch(_){}
-  return"en";
+  return"es";
 })();
 
 function t(key,...args){
@@ -1546,7 +1546,7 @@ function applyLang(lang){
     renderVehicleTypeSelect();
   }
   renderReviews();
-  if(window.lucide)lucide.createIcons();
+  if(window.lucide)refreshIcons();
 }
 
 window.setLang=function(lang){applyLang(lang);};
@@ -1695,6 +1695,21 @@ function getImgs(v){
   return[FALLBACK];
 }
 
+function escapeHtml(value){
+  return String(value??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
+function refreshIcons(){
+  if(window.lucide&&typeof window.lucide.createIcons==="function"){
+    window.lucide.createIcons();
+  }
+}
+
 /* ── PUBLIC SITE — types + rates only ── */
 function renderPublicCars(){
   const grid=document.getElementById("car-grid");
@@ -1705,10 +1720,11 @@ function renderPublicCars(){
   }
   grid.innerHTML=vehicleTypes.map(v=>{
     const imgs=getImgs(v);
-    const display=typeDisplayName(v);
-    const ref=typeReference(v);
-    const safeSlug=(v.slug||"").replace(/'/g,"\\'");
-    const imgSrc=imgs[0]||FALLBACK;
+    const display=escapeHtml(typeDisplayName(v));
+    const ref=escapeHtml(typeReference(v));
+    const desc=escapeHtml(typeDescription(v));
+    const safeSlug=escapeHtml(v.slug||"");
+    const imgSrc=escapeHtml(imgs[0]||FALLBACK);
     return`<article class="car-card">
       <div class="car-img">
         <img src="${imgSrc}" alt="${display}" onerror="this.src='${FALLBACK}'" loading="lazy"/>
@@ -1716,11 +1732,11 @@ function renderPublicCars(){
       <div class="fleet-card-body">
         <h3 class="fleet-type-name">${display}</h3>
         ${ref?`<p class="fleet-reference">${ref}</p>`:""}
-        <p class="fleet-desc">${typeDescription(v)}</p>
+        <p class="fleet-desc">${desc}</p>
         <div class="fleet-specs">
-          <div class="fleet-spec"><i data-lucide="settings-2"></i><span>${transmissionLabel(v)}</span></div>
+          <div class="fleet-spec"><i data-lucide="settings-2"></i><span>${escapeHtml(transmissionLabel(v))}</span></div>
           <div class="fleet-spec"><i data-lucide="users"></i><span>${v.pasajeros} ${t("seats")}</span></div>
-          <div class="fleet-spec"><i data-lucide="briefcase"></i><span>${luggageSpec(v)}</span></div>
+          <div class="fleet-spec"><i data-lucide="briefcase"></i><span>${escapeHtml(luggageSpec(v))}</span></div>
         </div>
         <div class="fleet-price">
           <div class="fleet-price-label">${t("daily_price")}</div>
@@ -1732,7 +1748,7 @@ function renderPublicCars(){
       </div>
     </article>`;
   }).join("");
-  lucide.createIcons();
+  refreshIcons();
 }
 
 window.slideImg=function(){};
@@ -1910,7 +1926,7 @@ window.closeMobileNav=function(){
 };
 
 applyLang(currentLang);
-lucide.createIcons();
+refreshIcons();
 </script>
 </body>
 </html>

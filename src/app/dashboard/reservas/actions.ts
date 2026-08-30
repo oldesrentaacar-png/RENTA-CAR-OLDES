@@ -473,6 +473,22 @@ export async function cancelReservation(
     }
 
     const supabase = await createClient();
+
+    const { data: activeContract } = await supabase
+      .from("contracts")
+      .select("id, code, status")
+      .eq("reservation_id", id)
+      .neq("status", "CANCELLED")
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (activeContract) {
+      const code = (activeContract as { code: string }).code;
+      return actionError(
+        `No se puede cancelar: existe el contrato ${code}. Cancele el contrato primero.`,
+      );
+    }
+
     const { error } = await supabase
       .from("reservations")
       .update({ status: "CANCELLED" })

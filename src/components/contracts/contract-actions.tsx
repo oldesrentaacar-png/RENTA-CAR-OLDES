@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   cancelContract,
@@ -46,12 +46,6 @@ export function ContractDetailActions({
       ?.signed_by_name ??
     operatorName ??
     "Operador en sesión";
-
-  useEffect(() => {
-    if (!clientSigned) {
-      setSignedBy(contract.customerName);
-    }
-  }, [clientSigned, contract.customerName]);
 
   const editable =
     canEdit &&

@@ -312,6 +312,21 @@ export async function createInspection(
     }
 
     const supabase = await createClient();
+
+    const { data: existingInspection } = await supabase
+      .from("inspections")
+      .select("id, code")
+      .eq("reservation_id", parsed.data.reservationId)
+      .eq("type", parsed.data.type)
+      .maybeSingle();
+
+    if (existingInspection) {
+      const code = (existingInspection as { code: string }).code;
+      return actionError(
+        `Ya existe una inspección ${parsed.data.type === "CHECK_IN" ? "de entrada" : "de salida"} (${code}) para esta reserva.`,
+      );
+    }
+
     const { data, error } = await supabase
       .from("inspections")
       .insert({

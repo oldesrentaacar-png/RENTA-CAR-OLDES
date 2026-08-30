@@ -74,12 +74,20 @@ export default async function InspeccionDetailPage({
                 Continuar entrega
               </Link>
             ) : inspection ? (
-              <Link
-                href={`/dashboard/inspecciones/${id}/comparar?reservation_id=${inspection.reservation_id}`}
-                className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"
-              >
-                Comparar salida/entrada
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/dashboard/contratos/nuevo?reservation_id=${inspection.reservation_id}`}
+                  className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand/90"
+                >
+                  Crear contrato
+                </Link>
+                <Link
+                  href={`/dashboard/inspecciones/${id}/comparar?reservation_id=${inspection.reservation_id}`}
+                  className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"
+                >
+                  Comparar salida/entrada
+                </Link>
+              </div>
             ) : null
           }
         />

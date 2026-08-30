@@ -54,7 +54,7 @@ export const vehicleSchema = z.object({
   ownershipType: z
     .enum(["OWN", "THIRD_PARTY", "SUBLEASED", "CONSIGNMENT"])
     .default("OWN"),
-  dailyRate: moneyField,
+  dailyRate: moneyField.refine((v) => v >= 0.01, "Tarifa diaria requerida (mínimo $0.01)."),
   weeklyRate: optionalMoneyField,
   deposit: moneyField,
   publicDescription: optionalText(5000),

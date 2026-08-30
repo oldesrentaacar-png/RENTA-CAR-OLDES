@@ -275,10 +275,28 @@ export async function getContract(
     if (!data) return actionError("Contrato no encontrado.");
 
     const row = data as ContractRow & {
-      customers: { first_name: string; last_name: string };
-      vehicles: { brand: string; model: string; year: number; plate: string };
-      reservations: { code: string };
+      customers:
+        | { first_name: string; last_name: string }
+        | Array<{ first_name: string; last_name: string }>;
+      vehicles:
+        | { brand: string; model: string; year: number; plate: string }
+        | Array<{ brand: string; model: string; year: number; plate: string }>;
+      reservations: { code: string } | Array<{ code: string }>;
     };
+
+    const customers = Array.isArray(row.customers)
+      ? row.customers[0]
+      : row.customers;
+    const vehicles = Array.isArray(row.vehicles) ? row.vehicles[0] : row.vehicles;
+    const reservations = Array.isArray(row.reservations)
+      ? row.reservations[0]
+      : row.reservations;
+
+    if (!customers || !vehicles || !reservations) {
+      return actionError(
+        "Datos incompletos del contrato (cliente, vehículo o reserva).",
+      );
+    }
 
     const { data: signatures, error: sigError } = await supabase
       .from("contract_signatures")
@@ -294,10 +312,10 @@ export async function getContract(
       signatures: ((signatures ?? []) as ContractSignatureRow[]).map(
         mapContractSignatureRow,
       ),
-      customerName: `${row.customers.first_name} ${row.customers.last_name}`,
-      vehicleLabel: `${row.vehicles.brand} ${row.vehicles.model} ${row.vehicles.year}`,
-      plate: row.vehicles.plate,
-      reservationCode: row.reservations.code,
+      customerName: `${customers.first_name} ${customers.last_name}`,
+      vehicleLabel: `${vehicles.brand} ${vehicles.model} ${vehicles.year}`,
+      plate: vehicles.plate,
+      reservationCode: reservations.code,
     });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -396,6 +414,21 @@ export async function createContract(
 
     if (resError) throw mapPostgresError(resError);
     if (!reservation) return actionError("Reserva no encontrada.");
+
+    const { data: existingContract } = await supabase
+      .from("contracts")
+      .select("id, code")
+      .eq("reservation_id", parsed.data.reservationId)
+      .neq("status", "CANCELLED")
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingContract) {
+      const code = (existingContract as { code: string }).code;
+      return actionError(
+        `Ya existe un contrato (${code}) para esta reserva. Ábralo desde Contratos.`,
+      );
+    }
 
     const r = mapReservationRow(reservation as ReservationRow);
 
@@ -502,8 +535,8 @@ export async function updateContract(
     if (deposit) row.deposit = Number(deposit);
     if (insurance) row.insurance = Number(insurance);
     if (total) row.total = Number(total);
-    if (startAt) row.start_at = String(startAt);
-    if (endAt) row.end_at = String(endAt);
+    if (startAt) row.start_at = normalizeFormDateTimeToIso(startAt);
+    if (endAt) row.end_at = normalizeFormDateTimeToIso(endAt);
 
     const { error } = await supabase
       .from("contracts")
@@ -864,15 +897,21 @@ export async function closeContract(
 
     const { data: checkInInspection } = await supabase
       .from("inspections")
-      .select("inspection_date")
+      .select("id, inspection_date")
       .eq("reservation_id", contract.reservation_id)
       .eq("type", "CHECK_IN")
       .order("inspection_date", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    const checkInDate = (checkInInspection as { inspection_date?: string } | null)
-      ?.inspection_date;
+    if (!checkInInspection) {
+      return actionError(
+        "Debe registrar la inspección de entrada (CHECK_IN) antes de cerrar el contrato.",
+      );
+    }
+
+    const checkInDate = (checkInInspection as { inspection_date?: string })
+      .inspection_date;
 
     const actualReturnAt =
       actualReturnRaw && String(actualReturnRaw).trim() !== ""

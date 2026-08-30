@@ -9,10 +9,6 @@ const optionalText = (max: number) =>
     .or(z.literal(""))
     .transform((value) => (value === "" ? undefined : value));
 
-const optionalUuid = z
-  .union([z.string().uuid(), z.literal("")])
-  .optional()
-  .transform((value) => (value === "" || value === undefined ? undefined : value));
 
 export const inspectionSchema = z.object({
   reservationId: z.string().uuid("Reserva inválida."),

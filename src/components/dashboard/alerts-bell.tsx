@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
@@ -15,7 +14,6 @@ import { cn } from "@/lib/utils";
 import type { Alert } from "@/types/database";
 
 export function AlertsBell() {
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [total, setTotal] = useState(0);
@@ -34,10 +32,6 @@ export function AlertsBell() {
   useEffect(() => {
     loadAlerts();
   }, []);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   const handleMarkRead = (id: string) => {
     startTransition(async () => {

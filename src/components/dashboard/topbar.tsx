@@ -2,7 +2,7 @@
 
 import { ChevronDown, LogOut, Menu, User } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { logoutAction } from "@/app/login/actions";
 import { usePermissions } from "@/components/auth/permission-provider";
@@ -68,11 +68,6 @@ export function Topbar() {
   const displayName = profile
     ? `${profile.first_name} ${profile.last_name}`.trim()
     : "Usuario";
-
-  useEffect(() => {
-    setMenuOpen(false);
-    setMobileNavOpen(false);
-  }, [pathname]);
 
   const handleLogout = () => {
     startTransition(async () => {

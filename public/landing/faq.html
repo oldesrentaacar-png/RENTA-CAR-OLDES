@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>Preguntas frecuentes — OLDES Rent a Car El Salvador</title>
-<link rel="icon" href="oldes-logo.png" type="image/png"/>
+<link rel="icon" href="oldes-logo.svg" type="image/png"/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -55,6 +55,8 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 .wa-float-label{font-size:.78rem;font-weight:800;line-height:1.1;white-space:nowrap}
 .brand-logo{height:52px;width:auto;border-radius:8px;display:block;object-fit:contain}
 @media(min-width:768px){.nav-desktop{display:flex!important;align-items:center;gap:1.75rem}}
+.nav-call{display:none;align-items:center;gap:.5rem;background:var(--red);color:#fff;padding:.5rem 1rem;border-radius:.625rem;font-size:.83rem;font-weight:800;text-decoration:none}
+@media(min-width:640px){.nav-call{display:inline-flex}}
 </style>
 </head>
 <body>
@@ -64,9 +66,9 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 <nav id="navbar">
   <div style="max-width:1280px;margin:0 auto;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:64px;">
     <a href="/landing/index.html#inicio" style="display:flex;align-items:center;text-decoration:none;">
-      <img src="oldes-logo.png" alt="OLDES Rent a Car" class="brand-logo"/>
+      <img src="oldes-logo.svg" alt="OLDES Rent a Car" class="brand-logo"/>
     </a>
-    <div class="nav-desktop" style="display:none;">
+    <div class="nav-desktop">
       <a href="/landing/index.html#inicio" class="nav-link" data-i18n="nav_home">Inicio</a>
       <a href="/landing/index.html#flota" class="nav-link" data-i18n="nav_vehicles">Vehículos</a>
       <a href="/landing/index.html#reservar" class="nav-link" data-i18n="nav_quote">Cotizar</a>
@@ -77,7 +79,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
         <button type="button" class="lang-btn" data-set-lang="en" onclick="setLang('en')">EN</button>
         <button type="button" class="lang-btn on" data-set-lang="es" onclick="setLang('es')">ES</button>
       </div>
-      <a href="tel:+50374350381" style="display:none;align-items:center;gap:.5rem;background:var(--red);color:#fff;padding:.5rem 1rem;border-radius:.625rem;font-size:.83rem;font-weight:800;text-decoration:none;" class="sm:inline-flex">+503 7435-0381</a>
+      <a href="tel:+50374350381" class="nav-call">+503 7435-0381</a>
     </div>
   </div>
 </nav>

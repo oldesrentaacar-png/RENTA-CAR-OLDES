@@ -632,6 +632,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           <View style={styles.companyBlock}>
             <View style={styles.brandRow}>
               {props.logoDataUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
                 <Image src={props.logoDataUrl} style={styles.logo} />
               ) : null}
               <View>

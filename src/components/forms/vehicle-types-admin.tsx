@@ -21,10 +21,8 @@ type VehicleTypesAdminProps = {
 
 function FleetTypeFields({
   item,
-  prefix = "",
 }: {
   item?: VehicleType;
-  prefix?: string;
 }) {
   return (
     <>

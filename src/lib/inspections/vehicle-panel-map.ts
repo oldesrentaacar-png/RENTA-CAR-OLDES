@@ -166,8 +166,8 @@ export function resolveBodyStyle(
   return "SEDAN";
 }
 
-export function bodyStyleTitle(_style: VehicleBodyStyle): string {
-  return "CARRO SEDAN";
+export function bodyStyleTitle(style: VehicleBodyStyle): string {
+  return style === "PICKUP" ? "PICKUP" : "CARRO SEDAN";
 }
 
 /** Subtítulo del tipo (baúl vs palangana). */

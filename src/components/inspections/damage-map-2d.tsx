@@ -7,7 +7,6 @@ import {
   VehiclePanelSilhouette,
   PANEL_VIEWBOX,
 } from "@/components/inspections/vehicle-panel-silhouette";
-import { Button } from "@/components/ui/button";
 import { CHECKLIST_STATUS_LABELS } from "@/lib/inspections/defaults";
 import {
   PANEL_DAMAGE_LEGEND,
