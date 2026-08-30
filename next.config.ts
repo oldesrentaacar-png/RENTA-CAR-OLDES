@@ -31,6 +31,10 @@ const nextConfig: NextConfig = {
         source: "/oldes-logo.svg",
         destination: "/landing/oldes-logo.svg",
       },
+      {
+        source: "/oldes-logo.png",
+        destination: "/landing/oldes-logo.png",
+      },
     ];
   },
 };
