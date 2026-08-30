@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { isDocumentHref } from "@/components/contracts/contract-pdf-link";
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -86,12 +88,23 @@ export function DeliveryChecklist({
                 <p className="mt-1 pl-8 text-sm text-muted">{step.description}</p>
               </div>
               {step.href && step.linkLabel ? (
-                <Link
-                  href={step.href}
-                  className="shrink-0 text-sm font-medium text-brand hover:underline"
-                >
-                  {step.linkLabel}
-                </Link>
+                isDocumentHref(step.href) ? (
+                  <a
+                    href={step.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-sm font-medium text-brand hover:underline"
+                  >
+                    {step.linkLabel}
+                  </a>
+                ) : (
+                  <Link
+                    href={step.href}
+                    className="shrink-0 text-sm font-medium text-brand hover:underline"
+                  >
+                    {step.linkLabel}
+                  </Link>
+                )
               ) : null}
             </li>
           ))}

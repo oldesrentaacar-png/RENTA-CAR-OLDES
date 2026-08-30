@@ -7,6 +7,7 @@ import {
 } from "@/app/dashboard/contratos/actions";
 import { listPaymentReceipts } from "@/app/dashboard/recibos/actions";
 import { ContractDetailActions } from "@/components/contracts/contract-actions";
+import { ContractPdfLink } from "@/components/contracts/contract-pdf-link";
 import { ContractReceiptsSection } from "@/components/contracts/contract-receipts";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
 import {
@@ -23,7 +24,6 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { formatAppDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
-import { contractPdfHref } from "@/lib/pdf/contract-pdf-meta";
 
 export default async function ContratoDetailPage({
   params,
@@ -129,14 +129,10 @@ export default async function ContratoDetailPage({
                     Cerrar renta
                   </Link>
                 ) : null}
-                <a
-                  href={contractPdfHref(id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <ContractPdfLink
+                  contractId={id}
                   className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"
-                >
-                  Ver PDF
-                </a>
+                />
                 {canSign &&
                 contract.status !== "COMPLETED" &&
                 contract.status !== "CANCELLED" ? (

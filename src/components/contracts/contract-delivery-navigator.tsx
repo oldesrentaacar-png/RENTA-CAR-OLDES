@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { DeliveryStep } from "@/components/contracts/delivery-checklist";
+import { isDocumentHref } from "@/components/contracts/contract-pdf-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -58,12 +59,23 @@ export function ContractDeliveryNavigator({
               </span>
               <p className="mt-1 text-muted">{step.description}</p>
               {step.href && step.linkLabel ? (
-                <Link
-                  href={step.href}
-                  className="mt-2 inline-block text-sm font-medium text-brand hover:underline"
-                >
-                  {step.linkLabel}
-                </Link>
+                isDocumentHref(step.href) ? (
+                  <a
+                    href={step.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-sm font-medium text-brand hover:underline"
+                  >
+                    {step.linkLabel}
+                  </a>
+                ) : (
+                  <Link
+                    href={step.href}
+                    className="mt-2 inline-block text-sm font-medium text-brand hover:underline"
+                  >
+                    {step.linkLabel}
+                  </Link>
+                )
               ) : null}
             </li>
           ))}
