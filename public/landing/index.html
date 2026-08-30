@@ -64,6 +64,8 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;object-position:center 55%;
   z-index:0;
+  image-rendering:auto;
+  transform:translateZ(0);
 }
 .hero-overlay{
   position:absolute;inset:0;z-index:1;pointer-events:none;
@@ -550,7 +552,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 
 <!-- HERO -->
 <section id="inicio" class="hero">
-  <img class="hero-bg" src="/landing/hero-beach-suv.png" alt="" aria-hidden="true" decoding="async" fetchpriority="high"/>
+  <img class="hero-bg" src="/landing/hero-beach-suv.png?v=2" alt="" aria-hidden="true" decoding="async" fetchpriority="high"/>
   <div class="hero-overlay" aria-hidden="true"></div>
   <div class="hero-inner">
     <div class="hero-copy hero-panel">
