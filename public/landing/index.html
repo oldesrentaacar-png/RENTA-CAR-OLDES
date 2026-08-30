@@ -222,7 +222,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 /* ── WHY SECTION ── */
 .why-section{
   background:linear-gradient(180deg,#f0f4fa 0%,#fff 55%);
-  margin:0 -1.25rem;padding:2.75rem 1.25rem 3rem;
+  padding:2.75rem 1.25rem 3rem;
   border-top:1px solid #e8edf5;border-bottom:1px solid #e8edf5;
 }
 .why-head{text-align:center;margin-bottom:1.75rem;max-width:720px;margin-left:auto;margin-right:auto}
@@ -263,14 +263,19 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
   .why-card h3{font-size:.85rem}
   .why-card p{font-size:.78rem}
 }
-@media(min-width:900px){
-  .why-grid{grid-template-columns:repeat(3,1fr)}
-}
-@media(min-width:1180px){
-  .why-grid{grid-template-columns:repeat(6,1fr);gap:.7rem}
-  .why-card{padding:.95rem .75rem 1rem}
-  .why-card h3{font-size:.76rem}
-  .why-card p{font-size:.72rem;line-height:1.42}
+@media(min-width:992px){
+  .why-section{padding:2.75rem 1.5rem 3rem}
+  .why-grid{
+    display:grid;
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:.65rem;
+    max-width:min(1560px,100%);
+  }
+  .why-card{padding:.9rem .7rem 1rem;min-height:168px}
+  .why-card h3{font-size:.74rem;line-height:1.32}
+  .why-card p{font-size:.7rem;line-height:1.4}
+  .why-icon{width:34px;height:34px;margin-bottom:.55rem}
+  .why-icon i{width:16px;height:16px}
 }
 
 /* ── CAR CARDS ── */
@@ -702,50 +707,50 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
   </div>
 </section>
 
+<!-- WHY CHOOSE OLDES — full width on desktop for 6-column row -->
+<section id="por-que" class="why-section">
+  <div class="why-head">
+    <h2 class="sec-title" data-i18n-html="why_title"><em>OLDES</em> Rent a Car El Salvador</h2>
+    <div class="divider"></div>
+    <p class="why-sub" data-i18n="why_sub">Everything you need to drive with total peace of mind.</p>
+  </div>
+  <div class="why-grid">
+    <article class="why-card">
+      <div class="why-icon"><i data-lucide="calendar-check"></i></div>
+      <h3 data-i18n="why1_title">Simple online booking</h3>
+      <p data-i18n="why1_desc">Book your vehicle quickly and easily online, anytime.</p>
+    </article>
+    <article class="why-card">
+      <div class="why-icon"><i data-lucide="wallet"></i></div>
+      <h3 data-i18n="why2_title">No deposits or card holds</h3>
+      <p data-i18n="why2_desc">Rent without excessive deposits or freezing your card limit.</p>
+    </article>
+    <article class="why-card">
+      <div class="why-icon"><i data-lucide="truck"></i></div>
+      <h3 data-i18n="why3_title">Entregas a domicilio y Aeropuerto</h3>
+      <p data-i18n="why3_desc">We deliver to your home, hotel, or airport on arrival.</p>
+    </article>
+    <article class="why-card">
+      <div class="why-icon"><i data-lucide="shield-check"></i></div>
+      <h3 data-i18n="why4_title">Insurance &amp; 24/7 roadside help</h3>
+      <p data-i18n="why4_desc">Drive anywhere in El Salvador with coverage and roadside assistance.</p>
+    </article>
+    <article class="why-card">
+      <div class="why-icon"><i data-lucide="credit-card"></i></div>
+      <h3 data-i18n="why5_title">Flexible payment options</h3>
+      <p data-i18n="why5_desc">We accept cash, debit and credit cards for your convenience.</p>
+    </article>
+    <article class="why-card">
+      <div class="why-icon"><i data-lucide="file-text"></i></div>
+      <h3 data-i18n="why6_title">Clear, transparent contract</h3>
+      <p data-i18n="why6_desc">Everything backed by a formal rental agreement — no fine print or surprises at pickup.</p>
+    </article>
+  </div>
+</section>
+
 <!-- MAIN CONTENT -->
 <div style="max-width:1280px;margin:0 auto;padding:3.5rem 1.25rem;">
   <div style="display:flex;flex-direction:column;gap:3rem;">
-
-    <!-- WHY CHOOSE OLDES -->
-    <section id="por-que" class="why-section">
-      <div class="why-head">
-        <h2 class="sec-title" data-i18n-html="why_title"><em>OLDES</em> Rent a Car El Salvador</h2>
-        <div class="divider"></div>
-        <p class="why-sub" data-i18n="why_sub">Everything you need to drive with total peace of mind.</p>
-      </div>
-      <div class="why-grid">
-        <article class="why-card">
-          <div class="why-icon"><i data-lucide="calendar-check"></i></div>
-          <h3 data-i18n="why1_title">Simple online booking</h3>
-          <p data-i18n="why1_desc">Book your vehicle quickly and easily online, anytime.</p>
-        </article>
-        <article class="why-card">
-          <div class="why-icon"><i data-lucide="wallet"></i></div>
-          <h3 data-i18n="why2_title">No deposits or card holds</h3>
-          <p data-i18n="why2_desc">Rent without excessive deposits or freezing your card limit.</p>
-        </article>
-        <article class="why-card">
-          <div class="why-icon"><i data-lucide="truck"></i></div>
-          <h3 data-i18n="why3_title">Entregas a domicilio y Aeropuerto</h3>
-          <p data-i18n="why3_desc">We deliver to your home, hotel, or airport on arrival.</p>
-        </article>
-        <article class="why-card">
-          <div class="why-icon"><i data-lucide="shield-check"></i></div>
-          <h3 data-i18n="why4_title">Insurance &amp; 24/7 roadside help</h3>
-          <p data-i18n="why4_desc">Drive anywhere in El Salvador with coverage and roadside assistance.</p>
-        </article>
-        <article class="why-card">
-          <div class="why-icon"><i data-lucide="credit-card"></i></div>
-          <h3 data-i18n="why5_title">Flexible payment options</h3>
-          <p data-i18n="why5_desc">We accept cash, debit and credit cards for your convenience.</p>
-        </article>
-        <article class="why-card">
-          <div class="why-icon"><i data-lucide="file-text"></i></div>
-          <h3 data-i18n="why6_title">Clear, transparent contract</h3>
-          <p data-i18n="why6_desc">Everything backed by a formal rental agreement — no fine print or surprises at pickup.</p>
-        </article>
-      </div>
-    </section>
 
     <!-- FLOTA / VEHICLE OPTIONS -->
     <section id="flota">
