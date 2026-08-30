@@ -562,7 +562,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
       <a href="#por-que" class="nav-link" data-i18n="nav_why">Why OLDES</a>
       <a href="#flota" class="nav-link" data-i18n="nav_vehicles">Vehicles</a>
       <a href="#reservar" class="nav-link" data-i18n="nav_quote">Get a Quote</a>
-      <a href="#contacto" class="nav-link" data-i18n="nav_contact">Contact</a>
+      <a href="faq.html" class="nav-link" data-i18n="nav_faq">FAQ</a>
     </div>
     <div style="display:flex;align-items:center;gap:.625rem;">
       <div class="lang-switch" aria-label="Language / Idioma" title="English / Español">
@@ -613,8 +613,8 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
     <a href="#reservar" class="mnav-link" onclick="closeMobileNav()">
       <span class="mnav-icon"><i data-lucide="calendar" style="width:18px;height:18px;color:var(--blue);"></i></span><span data-i18n="nav_quote_long">Request a quote</span>
     </a>
-    <a href="#contacto" class="mnav-link" onclick="closeMobileNav()">
-      <span class="mnav-icon"><i data-lucide="plane" style="width:18px;height:18px;color:var(--blue);"></i></span><span data-i18n="nav_contact">Contact</span>
+    <a href="faq.html" class="mnav-link" onclick="closeMobileNav()">
+      <span class="mnav-icon"><i data-lucide="help-circle" style="width:18px;height:18px;color:var(--blue);"></i></span><span data-i18n="nav_faq">FAQ</span>
     </a>
     <div style="height:1px;background:#e5e7eb;margin:.5rem .875rem;"></div>
     <p style="font-size:.65rem;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.12em;padding:.5rem .875rem .25rem;" data-i18n="actions_section">Actions</p>
@@ -819,52 +819,6 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
       </div>
     </section>
 
-    <!-- FAQ (editable: array FAQ_ITEMS en el script abajo) -->
-    <section id="faq">
-      <div style="text-align:center;margin-bottom:1.5rem;">
-        <p class="sec-tag" data-i18n="faq_tag">FAQ</p>
-        <h2 class="sec-title" style="font-size:clamp(1.25rem,3.2vw,1.75rem);" data-i18n="faq_title">Frequently asked questions</h2>
-        <div class="divider" style="margin:0 auto;"></div>
-        <p style="color:#6b7280;font-size:.9rem;max-width:520px;margin:.75rem auto 0;" data-i18n="faq_sub">Quick answers. OLDES can update these texts anytime.</p>
-      </div>
-      <div id="faq-list" style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:.75rem;"></div>
-    </section>
-
-    <!-- CONTACTO -->
-    <section id="contacto">
-      <div style="text-align:center;margin-bottom:1.5rem;">
-        <p class="sec-tag" data-i18n="contact_tag">We're here to help</p>
-        <h2 class="sec-title" data-i18n="contact_title">CONTACT</h2>
-        <div class="divider" style="margin:0 auto;"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
-        <div style="background:#fff;border-radius:1.25rem;padding:1.5rem;border:1px solid #e5e7eb;text-align:center;">
-          <div style="width:48px;height:48px;background:#eff6ff;border-radius:.875rem;display:flex;align-items:center;justify-content:center;margin:0 auto .875rem;">
-            <i data-lucide="phone" style="width:22px;height:22px;color:var(--blue);"></i>
-          </div>
-          <h4 style="font-weight:800;margin-bottom:.35rem;" data-i18n="contact_call_title">Call us</h4>
-          <p style="color:#6b7280;font-size:.85rem;">+503 7435-0381</p>
-          <a href="tel:+50374350381" style="display:inline-block;margin-top:.75rem;font-size:.85rem;font-weight:800;color:var(--blue);text-decoration:none;" data-i18n="contact_call_cta">Call now →</a>
-        </div>
-        <div style="background:#fff;border-radius:1.25rem;padding:1.5rem;border:1px solid #e5e7eb;text-align:center;">
-          <div style="width:48px;height:48px;background:#f0fdf4;border-radius:.875rem;display:flex;align-items:center;justify-content:center;margin:0 auto .875rem;">
-            <i data-lucide="message-circle" style="width:22px;height:22px;color:#16a34a;"></i>
-          </div>
-          <h4 style="font-weight:800;margin-bottom:.35rem;">WhatsApp</h4>
-          <p style="color:#6b7280;font-size:.85rem;" data-i18n="contact_wa_sub">Fast replies</p>
-          <a href="#" data-wa-prefill target="_blank" rel="noopener" style="display:inline-block;margin-top:.75rem;font-size:.85rem;font-weight:800;color:#16a34a;text-decoration:none;" data-i18n="contact_wa_cta">Message now →</a>
-        </div>
-        <div style="background:#fff;border-radius:1.25rem;padding:1.5rem;border:1px solid #e5e7eb;text-align:center;">
-          <div style="width:48px;height:48px;background:#fff5f5;border-radius:.875rem;display:flex;align-items:center;justify-content:center;margin:0 auto .875rem;">
-            <i data-lucide="plane" style="width:22px;height:22px;color:var(--red);"></i>
-          </div>
-          <h4 style="font-weight:800;margin-bottom:.35rem;" data-i18n="contact_delivery_title">Delivery &amp; airport</h4>
-          <p style="color:#6b7280;font-size:.85rem;" data-i18n="contact_delivery_desc">Home delivery and airport pickup/return across El Salvador.</p>
-          <a href="#reservar" style="display:inline-block;margin-top:.75rem;font-size:.85rem;font-weight:800;color:var(--red);text-decoration:none;" data-i18n="contact_delivery_cta">Arrange delivery →</a>
-        </div>
-      </div>
-    </section>
-
   </div>
 </div>
 
@@ -886,7 +840,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
           <li><a href="#flota" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_vehicles_long">Vehicle options</a></li>
           <li><a href="#reservar" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_quote_long">Request a quote</a></li>
           <li><a href="#reseñas" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_reviews">Reviews</a></li>
-          <li><a href="#faq" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_faq">FAQ</a></li>
+          <li><a href="faq.html" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_faq">FAQ</a></li>
         </ul>
       </div>
       <div>
@@ -1560,7 +1514,6 @@ function applyLang(lang){
     renderPublicCars();
     renderVehicleTypeSelect();
   }
-  renderFaq();
   renderReviews();
   if(window.lucide)lucide.createIcons();
 }
@@ -1570,57 +1523,6 @@ window.setLang=function(lang){applyLang(lang);};
 /** Public vehicle TYPES only — never unit inventory (plates/brand/model). */
 let vehicleTypes=[],categories=[],pendingTypeSlug=null;
 const FALLBACK="https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=600";
-
-/** FAQ editable — el cliente puede pedir cambiar textos aquí (EN/ES). */
-const FAQ_ITEMS=[
-  {
-    q:{en:"Do you have a physical branch?",es:"¿Tienen sucursal física?"},
-    a:{en:"We deliver to your home or the airport across El Salvador. Coordinate by WhatsApp or phone.",es:"Entregamos a domicilio o en aeropuerto en El Salvador. Coordina por WhatsApp o teléfono."},
-  },
-  {
-    q:{en:"Is insurance included?",es:"¿El seguro está incluido?"},
-    a:{en:"Yes. Insurance is included with every rental.",es:"Sí. El seguro está incluido en cada renta."},
-  },
-  {
-    q:{en:"Do I need a deposit?",es:"¿Necesito depósito?"},
-    a:{en:"No deposit is required.",es:"No se requiere depósito."},
-  },
-  {
-    q:{en:"How do I get a quote?",es:"¿Cómo solicito una cotización?"},
-    a:{en:"Use the form on this page or write us on WhatsApp (+503 7435-0381). We'll confirm availability and price.",es:"Usa el formulario de esta página o escríbenos por WhatsApp (+503 7435-0381). Confirmamos disponibilidad y precio."},
-  },
-  {
-    q:{en:"What payment methods do you accept?",es:"¿Qué formas de pago aceptan?"},
-    a:{en:"Cash and cards. Cards may include a 10% fee; cash is recommended.",es:"Efectivo y tarjetas. Las tarjetas pueden tener un cargo del 10%; se recomienda efectivo."},
-  },
-];
-
-function renderFaq(){
-  const root=document.getElementById("faq-list");
-  if(!root)return;
-  root.innerHTML=FAQ_ITEMS.map((item,i)=>{
-    const q=item.q[currentLang]||item.q.en;
-    const a=item.a[currentLang]||item.a.en;
-    return`<div class="faq-item" id="faq-${i}">
-      <button type="button" class="faq-q" onclick="toggleFaq(${i})" aria-expanded="false">
-        <span>${q}</span>
-        <span aria-hidden="true" style="font-size:1.25rem;line-height:1;color:var(--blue);">+</span>
-      </button>
-      <div class="faq-a">${a}</div>
-    </div>`;
-  }).join("");
-}
-window.toggleFaq=function(i){
-  const el=document.getElementById("faq-"+i);
-  if(!el)return;
-  const open=el.classList.toggle("open");
-  const btn=el.querySelector(".faq-q");
-  if(btn){
-    btn.setAttribute("aria-expanded",open?"true":"false");
-    const mark=btn.querySelector("span:last-child");
-    if(mark)mark.textContent=open?"−":"+";
-  }
-};
 
 /** Reseñas reales de Google — editable (texto EN/ES). */
 const REVIEW_ITEMS=[

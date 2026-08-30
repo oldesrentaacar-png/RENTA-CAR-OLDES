@@ -6,7 +6,9 @@ ALTER TABLE public.vehicle_types
   ADD COLUMN IF NOT EXISTS luggage_label text,
   ADD COLUMN IF NOT EXISTS luggage_label_en text;
 
-CREATE OR REPLACE VIEW public.public_vehicle_types AS
+DROP VIEW IF EXISTS public.public_vehicle_types;
+
+CREATE VIEW public.public_vehicle_types AS
 SELECT
   vt.id,
   vt.slug,
@@ -37,6 +39,11 @@ WHERE vt.published_on_web = true
 UPDATE public.vehicle_types
 SET published_on_web = false, is_active = false
 WHERE slug ILIKE '%crossover%';
+
+-- Hide legacy slug variants superseded by canonical fleet slugs
+UPDATE public.vehicle_types
+SET published_on_web = false, is_active = false, updated_at = now()
+WHERE slug IN ('suv-2-filas', 'suv-3-filas');
 
 INSERT INTO public.vehicle_types (
   slug, name, name_en, description, description_en,

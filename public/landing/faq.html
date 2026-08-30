@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Preguntas frecuentes — OLDES Rent a Car El Salvador</title>
+<link rel="icon" href="oldes-logo.png" type="image/png"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#0A1F5C;--red:#E30613;--green:#22c55e;font-family:'Plus Jakarta Sans',sans-serif}
+html,body{scroll-behavior:smooth}
+body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif}
+.topbar{background:var(--blue);color:#fff;font-size:.8rem;padding:.6rem 0;overflow:hidden;white-space:nowrap}
+.topbar-inner{display:inline-block;animation:marquee 32s linear infinite}
+@keyframes marquee{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+#navbar{background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:50}
+.nav-link{color:#374151;font-weight:600;font-size:.875rem;text-decoration:none;padding:.4rem 0;transition:color .2s}
+.nav-link:hover,.nav-link.on{color:var(--blue)}
+.lang-switch{display:inline-flex;border:1.5px solid #e5e7eb;border-radius:999px;overflow:hidden}
+.lang-btn{border:none;background:transparent;padding:.35rem .65rem;font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;color:#6b7280}
+.lang-btn.on{background:var(--blue);color:#fff}
+.sec-tag{font-size:.72rem;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.35rem}
+.sec-title{font-weight:900;color:#0f172a;letter-spacing:-.02em}
+.divider{width:48px;height:3px;background:var(--red);border-radius:2px;margin-top:.65rem}
+.faq-layout{display:grid;grid-template-columns:1fr;gap:1.5rem;align-items:start}
+@media(min-width:992px){.faq-layout{grid-template-columns:1fr 340px;gap:2rem}}
+.faq-item{border:1px solid #e5e7eb;border-radius:.875rem;background:#fff;overflow:hidden}
+.faq-q{width:100%;text-align:left;background:transparent;border:none;padding:1rem 1.15rem;font:inherit;font-weight:800;color:#0f172a;cursor:pointer;display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}
+.faq-a{display:none;padding:0 1.15rem 1rem;color:#6b7280;font-size:.9rem;line-height:1.6}
+.faq-item.open .faq-a{display:block}
+.faq-item.open .faq-q{color:var(--blue)}
+.faq-sidebar{display:flex;flex-direction:column;gap:1rem}
+@media(min-width:992px){.faq-sidebar{position:sticky;top:88px}}
+.help-card{background:#fff;border:1px solid #e5e7eb;border-radius:1.25rem;padding:1.75rem 1.5rem;text-align:center;box-shadow:0 4px 24px rgba(10,31,92,.06)}
+.help-icon{width:56px;height:56px;border-radius:50%;border:2px solid var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;color:var(--green);font-size:1.5rem;font-weight:900}
+.help-card h3{font-size:1.15rem;font-weight:900;color:var(--blue);margin-bottom:.5rem;line-height:1.3}
+.help-card p{color:#6b7280;font-size:.88rem;line-height:1.55;margin-bottom:1.25rem}
+.wa-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;width:100%;background:var(--green);color:#fff;border:none;padding:.85rem 1.25rem;border-radius:.75rem;font-family:inherit;font-size:.9rem;font-weight:800;text-decoration:none;transition:background .2s}
+.wa-btn:hover{background:#16a34a}
+.info-card{background:#fff;border:1px solid #e5e7eb;border-radius:1.25rem;padding:1.5rem;box-shadow:0 4px 24px rgba(10,31,92,.06)}
+.info-card h3{font-size:1rem;font-weight:900;color:#0f172a;margin-bottom:1rem;padding-bottom:.65rem;border-bottom:1px solid #f1f5f9}
+.info-block{margin-bottom:1rem}
+.info-block:last-child{margin-bottom:0}
+.info-block h4{font-size:.78rem;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.45rem}
+.info-row{font-size:.85rem;color:#475569;line-height:1.55;margin-bottom:.2rem}
+.info-row strong{color:#0f172a}
+.back-link{display:inline-flex;align-items:center;gap:.35rem;color:var(--blue);font-weight:800;font-size:.85rem;text-decoration:none;margin-bottom:1.25rem}
+.back-link:hover{text-decoration:underline}
+.wa-float{position:fixed;bottom:1.5rem;right:1.5rem;width:56px;height:56px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(37,211,102,.45);z-index:40;text-decoration:none}
+.brand-logo{height:52px;width:auto;border-radius:8px;display:block;object-fit:contain}
+@media(min-width:768px){.nav-desktop{display:flex!important;align-items:center;gap:1.75rem}}
+</style>
+</head>
+<body>
+
+<div class="topbar"><span class="topbar-inner px-8" data-i18n="marquee">🚗 OLDES Rent a Car El Salvador · Entrega a domicilio y aeropuerto · Seguro incluido · 📞 +503 7435-0381</span></div>
+
+<nav id="navbar">
+  <div style="max-width:1280px;margin:0 auto;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:64px;">
+    <a href="index.html#inicio" style="display:flex;align-items:center;text-decoration:none;">
+      <img src="oldes-logo.png" alt="OLDES Rent a Car" class="brand-logo"/>
+    </a>
+    <div class="nav-desktop" style="display:none;">
+      <a href="index.html#inicio" class="nav-link" data-i18n="nav_home">Inicio</a>
+      <a href="index.html#flota" class="nav-link" data-i18n="nav_vehicles">Vehículos</a>
+      <a href="index.html#reservar" class="nav-link" data-i18n="nav_quote">Cotizar</a>
+      <a href="faq.html" class="nav-link on" data-i18n="nav_faq">Preguntas</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:.625rem;">
+      <div class="lang-switch">
+        <button type="button" class="lang-btn" data-set-lang="en" onclick="setLang('en')">EN</button>
+        <button type="button" class="lang-btn on" data-set-lang="es" onclick="setLang('es')">ES</button>
+      </div>
+      <a href="tel:+50374350381" style="display:none;align-items:center;gap:.5rem;background:var(--red);color:#fff;padding:.5rem 1rem;border-radius:.625rem;font-size:.83rem;font-weight:800;text-decoration:none;" class="sm:inline-flex">
+        +503 7435-0381
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main style="max-width:1280px;margin:0 auto;padding:2.5rem 1.25rem 4rem;">
+  <a href="index.html" class="back-link"><span aria-hidden="true">←</span> <span data-i18n="back_home">Volver al inicio</span></a>
+
+  <div style="text-align:center;margin-bottom:2rem;">
+    <p class="sec-tag" data-i18n="faq_tag">Preguntas frecuentes</p>
+    <h1 class="sec-title" style="font-size:clamp(1.35rem,3.2vw,1.85rem);" data-i18n="faq_title">Preguntas frecuentes</h1>
+    <div class="divider" style="margin:0 auto;"></div>
+    <p style="color:#6b7280;font-size:.9rem;max-width:640px;margin:.75rem auto 0;line-height:1.55;" data-i18n="faq_sub">Respuestas claras sobre requisitos, reservas, pagos y políticas de alquiler.</p>
+  </div>
+
+  <div class="faq-layout">
+    <div id="faq-list" style="display:flex;flex-direction:column;gap:.75rem;"></div>
+
+    <aside class="faq-sidebar">
+      <div class="help-card">
+        <div class="help-icon" aria-hidden="true">?</div>
+        <h3 data-i18n="help_title">¿Aún tienes preguntas?</h3>
+        <p data-i18n="help_sub">Nuestro Asistente Virtual y equipo de atención están disponibles 24/7 para resolver tus preguntas al instante.</p>
+        <a href="#" id="wa-help" class="wa-btn" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          <span data-i18n="help_wa">Chatea en WhatsApp</span>
+        </a>
+      </div>
+
+      <div class="info-card">
+        <h3 data-i18n="info_title">Información del contacto</h3>
+        <div class="info-block">
+          <h4 data-i18n="info_immediate">Atención Inmediata</h4>
+          <p class="info-row"><strong data-i18n="info_phone_label">Teléfono / WhatsApp:</strong> +503 7435-0381</p>
+          <p class="info-row"><strong data-i18n="info_email_label">Correo:</strong> <a href="mailto:soporte@oldesrentacar.com" style="color:var(--blue);">soporte@oldesrentacar.com</a></p>
+        </div>
+        <div class="info-block">
+          <h4 data-i18n="info_coverage">Cobertura y Entregas</h4>
+          <p class="info-row"><strong data-i18n="info_coverage_label">Cobertura:</strong> <span data-i18n="info_coverage_val">Todo El Salvador</span></p>
+          <p class="info-row"><strong data-i18n="info_mode_label">Modalidad:</strong> <span data-i18n="info_mode_val">Servicio 100% a domicilio y entregas en el Aeropuerto Internacional (AILP).</span></p>
+        </div>
+        <div class="info-block">
+          <h4 data-i18n="info_hours">Horario de Respuesta</h4>
+          <p class="info-row"><strong data-i18n="info_chat_label">Chat en línea:</strong> <span data-i18n="info_chat_val">24 horas / 7 días a la semana</span></p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer style="background:#111827;color:#9ca3af;padding:2rem 1.25rem;text-align:center;font-size:.8rem;">
+  <p data-i18n="footer_copy">© 2026 OLDES Rent a Car El Salvador — Todos los derechos reservados.</p>
+  <p style="margin-top:.5rem;"><a href="index.html" style="color:#6b7280;text-decoration:none;" data-i18n="back_home">Volver al inicio</a></p>
+</footer>
+
+<a href="#" id="wa-float" class="wa-float" aria-label="WhatsApp" target="_blank" rel="noopener">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+</a>
+
+<script>
+const CFG={whatsapp:"50374350381"};
+const LANG_KEY="oldes_landing_lang";
+
+const FAQ_ITEMS=[
+  {q:{es:"¿Cuáles son los requisitos para rentar un vehículo?",en:"What are the requirements to rent a vehicle?"},a:{es:"Para alquilar con nosotros necesitas contar con tu Documento Único de Identidad (DUI) o Pasaporte vigente, una Licencia de Conducir válida (nacional o extranjera) con al menos 1 o 2 años de antigüedad, y ser mayor de 21 años.",en:"You need a valid DUI (national ID) or passport, a valid driver's license (local or foreign) with at least 1–2 years of history, and you must be 21 or older."}},
+  {q:{es:"¿Qué se necesita para hacer una reservación?",en:"What is needed to make a reservation?"},a:{es:"Puedes reservar en línea o por WhatsApp proporcionando tus fechas de entrega/devolución, números de vuelos, la categoría de vehículo elegida, tus datos de contacto, la copia de tu licencia y pasaporte. En algunos casos solicitamos un anticipo mínimo para asegurar la disponibilidad del auto.",en:"Book online or via WhatsApp with pickup/return dates, flight numbers, vehicle category, contact details, and copies of your license and passport. A small deposit may be requested in some cases to secure availability."}},
+  {q:{es:"¿Cuál es el tiempo o periodo mínimo de renta?",en:"What is the minimum rental period?"},a:{es:"El periodo mínimo de alquiler suele ser de 72 horas (3 días). Si devuelves el vehículo después del plazo de 72 horas sin previo aviso, se aplicará el cobro de un día adicional o una tarifa por hora extra.",en:"The minimum rental period is usually 72 hours (3 days). Late returns without notice may incur an extra day or hourly fee."}},
+  {q:{es:"¿Aceptan pago en tarjeta de crédito o solo efectivo?",en:"Do you accept credit cards or cash only?"},a:{es:"Aceptamos pagos con tarjeta de crédito, tarjeta de débito y efectivo. Además, contamos con opciones de alquiler donde no retendremos depósitos excesivos ni bloqueos de montos altos en tu tarjeta. Solo que con pagos con tarjetas no se pueden hacer descuentos.",en:"We accept credit cards, debit cards, and cash. We also offer options without excessive deposits or large card holds. Discounts are not available when paying by card."}},
+  {q:{es:"¿Se requiere un depósito de garantía?",en:"Is a security deposit required?"},a:{es:"En la mayoría de los casos no solicitamos depósito de garantía. Únicamente en situaciones específicas o tras una evaluación de perfil de riesgo podríamos requerir un monto de garantía mínimo y reembolsable, el cual se devuelve en su totalidad al finalizar el contrato.",en:"In most cases no deposit is required. Only in specific situations or after a risk assessment might we require a minimal refundable deposit, returned in full at contract end."}},
+  {q:{es:"¿Puedo pedir la entrega o devolución del vehículo en el aeropuerto?",en:"Can I request airport pickup or drop-off?"},a:{es:"¡Sí! Contamos con servicio de entrega y recepción directa en el Aeropuerto Internacional o en tu domicilio/hotel en San Salvador para que no te preocupes por el transporte a tu llegada.",en:"Yes! We offer direct delivery and pickup at the international airport or at your home/hotel in San Salvador."}},
+  {q:{es:"¿El alquiler incluye seguro y asistencia en carretera?",en:"Does the rental include insurance and roadside assistance?"},a:{es:"Sí, todos nuestros autos cuentan con cobertura de seguro básico y asistencia vial para tu tranquilidad. Como en cualquier póliza de alquiler, aplica un deducible en caso de accidentes o siniestros, cuyo monto y condiciones se te explicarán de forma transparente en tu cotización y contrato de arrendamiento.",en:"Yes, all vehicles include basic insurance and roadside assistance. As with any rental policy, a deductible applies in case of accidents; amount and terms are explained clearly in your quote and contract."}},
+  {q:{es:"¿Cuál es la política de combustible?",en:"What is the fuel policy?"},a:{es:"Aplicamos la política de \"Lleno a Lleno\" o \"Igual a Igual\". Recibes el vehículo con cierto nivel de combustible y debes entregarlo con la misma cantidad para evitar cargos adicionales de reabastecimiento.",en:"We use a \"Full-to-Full\" or \"Same-to-Same\" policy. Return the vehicle with the same fuel level to avoid refueling charges."}},
+  {q:{es:"¿Hay límite de kilometraje durante mi viaje?",en:"Is there a mileage limit during my trip?"},a:{es:"Nuestras tarifas estándar incluyen kilometraje libre dentro del país, permitiéndote recorrer todo El Salvador sin preocuparte por distancias o cobros por kilómetro recorrido.",en:"Standard rates include unlimited mileage within the country, so you can travel all of El Salvador without per-kilometer charges."}},
+  {q:{es:"¿Existen cobros o costos adicionales?",en:"Are there additional charges?"},a:{es:"No tenemos cobros ocultos. Nuestras tarifas incluyen seguro básico y kilometraje libre. Los únicos cargos adicionales aplican si solicitas servicios opcionales (como silla para bebé, conductor extra), entregas/devoluciones fuera de horario laboral, o en caso de requerirse la cobertura del deducible del seguro ante un accidente. Todo se te desglosa claramente desde tu cotización inicial.",en:"No hidden fees. Rates include basic insurance and unlimited mileage. Extra charges only apply for optional services (baby seat, extra driver), after-hours delivery/return, or insurance deductible coverage after an accident. Everything is itemized clearly from your initial quote."}},
+];
+
+const I18N={
+  en:{
+    marquee:"🚗 OLDES Rent a Car El Salvador · Home & airport delivery · Insurance included · 📞 +503 7435-0381",
+    nav_home:"Home",nav_vehicles:"Vehicles",nav_quote:"Get a Quote",nav_faq:"FAQ",
+    back_home:"Back to home",faq_tag:"FAQ",faq_title:"Frequently asked questions",
+    faq_sub:"Clear answers about requirements, bookings, payments, and rental policies.",
+    help_title:"Still have questions?",help_sub:"Our Virtual Assistant and support team are available 24/7 to answer your questions instantly.",
+    help_wa:"Chat on WhatsApp",info_title:"Contact information",
+    info_immediate:"Immediate Support",info_phone_label:"Phone / WhatsApp:",info_email_label:"Email:",
+    info_coverage:"Coverage & Delivery",info_coverage_label:"Coverage:",info_coverage_val:"All of El Salvador",
+    info_mode_label:"Service:",info_mode_val:"100% home delivery and airport drop-off at AILP.",
+    info_hours:"Response Hours",info_chat_label:"Online chat:",info_chat_val:"24 hours / 7 days a week",
+    footer_copy:"© 2026 OLDES Rent a Car El Salvador — All rights reserved.",
+    wa_prefill:"Hi, I have a question about renting a vehicle — OLDES Rent a Car El Salvador",
+  },
+  es:{
+    marquee:"🚗 OLDES Rent a Car El Salvador · Entrega a domicilio y aeropuerto · Seguro incluido · 📞 +503 7435-0381",
+    nav_home:"Inicio",nav_vehicles:"Vehículos",nav_quote:"Cotizar",nav_faq:"Preguntas",
+    back_home:"Volver al inicio",faq_tag:"Preguntas frecuentes",faq_title:"Preguntas frecuentes",
+    faq_sub:"Respuestas claras sobre requisitos, reservas, pagos y políticas de alquiler.",
+    help_title:"¿Aún tienes preguntas?",help_sub:"Nuestro Asistente Virtual y equipo de atención están disponibles 24/7 para resolver tus preguntas al instante.",
+    help_wa:"Chatea en WhatsApp",info_title:"Información del contacto",
+    info_immediate:"Atención Inmediata",info_phone_label:"Teléfono / WhatsApp:",info_email_label:"Correo:",
+    info_coverage:"Cobertura y Entregas",info_coverage_label:"Cobertura:",info_coverage_val:"Todo El Salvador",
+    info_mode_label:"Modalidad:",info_mode_val:"Servicio 100% a domicilio y entregas en el Aeropuerto Internacional (AILP).",
+    info_hours:"Horario de Respuesta",info_chat_label:"Chat en línea:",info_chat_val:"24 horas / 7 días a la semana",
+    footer_copy:"© 2026 OLDES Rent a Car El Salvador — Todos los derechos reservados.",
+    wa_prefill:"Hola, tengo una pregunta sobre el alquiler de vehículos — OLDES Rent a Car El Salvador",
+  },
+};
+
+let currentLang=(()=>{try{const s=localStorage.getItem(LANG_KEY);if(s==="en"||s==="es")return s;}catch(_){}return"es";})();
+
+function t(k){return(I18N[currentLang]||I18N.es)[k]||k;}
+
+function renderFaq(){
+  document.getElementById("faq-list").innerHTML=FAQ_ITEMS.map((item,i)=>{
+    const q=item.q[currentLang]||item.q.es;
+    const a=item.a[currentLang]||item.a.es;
+    return`<div class="faq-item" id="faq-${i}">
+      <button type="button" class="faq-q" onclick="toggleFaq(${i})" aria-expanded="false">
+        <span>${q}</span>
+        <span aria-hidden="true" style="font-size:1.25rem;line-height:1;color:var(--blue);flex-shrink:0;">+</span>
+      </button>
+      <div class="faq-a">${a}</div>
+    </div>`;
+  }).join("");
+}
+
+window.toggleFaq=function(i){
+  const el=document.getElementById("faq-"+i);
+  if(!el)return;
+  const open=el.classList.toggle("open");
+  const btn=el.querySelector(".faq-q");
+  if(btn){
+    btn.setAttribute("aria-expanded",open?"true":"false");
+    const mark=btn.querySelector("span:last-child");
+    if(mark)mark.textContent=open?"−":"+";
+  }
+};
+
+function applyLang(lang){
+  currentLang=lang==="en"?"en":"es";
+  try{localStorage.setItem(LANG_KEY,currentLang);}catch(_){}
+  document.documentElement.lang=currentLang;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k=el.getAttribute("data-i18n");
+    if(k)el.textContent=t(k);
+  });
+  document.querySelectorAll("[data-set-lang]").forEach(btn=>{
+    btn.classList.toggle("on",btn.getAttribute("data-set-lang")===currentLang);
+  });
+  const wa=`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(t("wa_prefill"))}`;
+  document.getElementById("wa-help").href=wa;
+  document.getElementById("wa-float").href=wa;
+  renderFaq();
+}
+
+window.setLang=applyLang;
+applyLang(currentLang);
+if(window.lucide)lucide.createIcons();
+</script>
+</body>
+</html>
