@@ -221,61 +221,67 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 
 /* ── WHY SECTION ── */
 .why-section{
-  background:linear-gradient(180deg,#f0f4fa 0%,#fff 55%);
-  padding:2.75rem 1.25rem 3rem;
+  background:linear-gradient(180deg,#f8fafc 0%,#fff 100%);
+  padding:3rem 1.25rem 3.25rem;
   border-top:1px solid #e8edf5;border-bottom:1px solid #e8edf5;
 }
-.why-head{text-align:center;margin-bottom:1.75rem;max-width:720px;margin-left:auto;margin-right:auto}
-.why-head .sec-title{color:var(--blue);font-size:clamp(1.35rem,2.8vw,1.95rem);margin:0}
-.why-head .sec-title em{font-style:normal;color:var(--red)}
-.why-head .why-sub{color:#64748b;font-size:.92rem;margin:.65rem 0 0;line-height:1.5}
-.why-head .divider{margin:.85rem auto 0;background:linear-gradient(90deg,var(--blue),var(--red));width:64px;height:4px}
+.why-head{text-align:center;margin-bottom:2rem;max-width:760px;margin-left:auto;margin-right:auto}
+.why-head .sec-title{color:var(--blue);font-size:clamp(1.4rem,3vw,2rem);margin:0;line-height:1.2}
+.why-head .sec-title em{font-style:normal;color:#facc15;text-shadow:0 1px 0 rgba(10,31,92,.06)}
+.why-head .why-sub{color:#64748b;font-size:.95rem;margin:.75rem 0 0;line-height:1.55;max-width:560px;margin-left:auto;margin-right:auto}
+.why-head .divider{margin:.9rem auto 0;background:linear-gradient(90deg,var(--blue),#facc15);width:72px;height:4px;border-radius:999px}
 .why-grid{
-  display:grid;gap:.75rem;
+  display:grid;gap:1rem;
   grid-template-columns:1fr;
   max-width:1400px;margin:0 auto;
 }
 .why-card{
-  background:#fff;border:1px solid #dbe3ef;border-radius:.875rem;
-  padding:1rem .9rem 1.05rem;display:flex;flex-direction:column;height:100%;
-  box-shadow:0 4px 18px rgba(10,31,92,.05);
-  transition:transform .2s,box-shadow .2s,border-color .2s;
+  background:#fff;border:1px solid #e2e8f0;border-radius:1rem;
+  padding:1.15rem 1rem 1.2rem;display:flex;flex-direction:column;height:100%;
+  box-shadow:0 6px 22px rgba(10,31,92,.06);
+  transition:transform .22s,box-shadow .22s,border-color .22s;
   position:relative;overflow:hidden;
 }
 .why-card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,var(--blue),var(--red));
+  content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--blue),#facc15);
+  opacity:.85;
 }
-.why-card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(10,31,92,.11);border-color:#c7d4e8}
+.why-card:hover{transform:translateY(-4px);box-shadow:0 16px 36px rgba(10,31,92,.12);border-color:#cbd5e1}
 .why-icon{
-  width:38px;height:38px;border-radius:.625rem;
-  background:var(--blue);display:flex;align-items:center;justify-content:center;
-  margin-bottom:.65rem;flex-shrink:0;
+  width:44px;height:44px;border-radius:.75rem;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:.75rem;flex-shrink:0;
 }
-.why-icon i{width:18px;height:18px;color:#fff}
+.why-icon svg,.why-icon i{width:22px;height:22px;stroke:currentColor;color:currentColor;stroke-width:2.2px}
+.why-card:nth-child(1) .why-icon{background:#eff6ff;color:#1d4ed8}
+.why-card:nth-child(2) .why-icon{background:#fef9c3;color:#ca8a04}
+.why-card:nth-child(3) .why-icon{background:#fef2f2;color:#dc2626}
+.why-card:nth-child(4) .why-icon{background:#ecfdf5;color:#059669}
+.why-card:nth-child(5) .why-icon{background:#f5f3ff;color:#7c3aed}
+.why-card:nth-child(6) .why-icon{background:#f0f9ff;color:#0369a1}
 .why-card h3{
-  font-weight:900;font-size:.8rem;line-height:1.35;color:var(--blue);
-  margin:0 0 .4rem;letter-spacing:-.01em;
+  font-weight:800;font-size:.88rem;line-height:1.35;color:#0f172a;
+  margin:0 0 .45rem;letter-spacing:-.01em;
 }
-.why-card p{color:#64748b;font-size:.74rem;line-height:1.48;margin:0;flex:1}
+.why-card p{color:#64748b;font-size:.8rem;line-height:1.52;margin:0;flex:1}
 @media(min-width:640px){
-  .why-grid{grid-template-columns:repeat(2,1fr);gap:.875rem}
-  .why-card h3{font-size:.85rem}
-  .why-card p{font-size:.78rem}
+  .why-grid{grid-template-columns:repeat(2,1fr);gap:1rem}
+  .why-card h3{font-size:.92rem}
+  .why-card p{font-size:.82rem}
 }
 @media(min-width:992px){
-  .why-section{padding:2.75rem 1.5rem 3rem}
+  .why-section{padding:3.25rem 1.5rem 3.5rem}
   .why-grid{
-    display:grid;
     grid-template-columns:repeat(6,minmax(0,1fr));
-    gap:.65rem;
+    gap:.85rem;
     max-width:min(1560px,100%);
   }
-  .why-card{padding:.9rem .7rem 1rem;min-height:168px}
-  .why-card h3{font-size:.74rem;line-height:1.32}
-  .why-card p{font-size:.7rem;line-height:1.4}
-  .why-icon{width:34px;height:34px;margin-bottom:.55rem}
-  .why-icon i{width:16px;height:16px}
+  .why-card{padding:1.05rem .85rem 1.15rem;min-height:178px}
+  .why-card h3{font-size:.78rem;line-height:1.32}
+  .why-card p{font-size:.72rem;line-height:1.45}
+  .why-icon{width:40px;height:40px;margin-bottom:.65rem}
+  .why-icon svg,.why-icon i{width:20px;height:20px}
 }
 
 /* ── FLEET GRID (2 rows × 3 cols on desktop) ── */
@@ -741,32 +747,32 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
   </div>
   <div class="why-grid">
     <article class="why-card">
-      <div class="why-icon"><i data-lucide="calendar-check"></i></div>
+      <div class="why-icon" aria-hidden="true"><i data-lucide="calendar-check"></i></div>
       <h3 data-i18n="why1_title">Simple online booking</h3>
       <p data-i18n="why1_desc">Book your vehicle quickly and easily online, anytime.</p>
     </article>
     <article class="why-card">
-      <div class="why-icon"><i data-lucide="wallet"></i></div>
+      <div class="why-icon" aria-hidden="true"><i data-lucide="wallet"></i></div>
       <h3 data-i18n="why2_title">No deposits or card holds</h3>
       <p data-i18n="why2_desc">Rent without excessive deposits or freezing your card limit.</p>
     </article>
     <article class="why-card">
-      <div class="why-icon"><i data-lucide="truck"></i></div>
+      <div class="why-icon" aria-hidden="true"><i data-lucide="truck"></i></div>
       <h3 data-i18n="why3_title">Entregas a domicilio y Aeropuerto</h3>
       <p data-i18n="why3_desc">We deliver to your home, hotel, or airport on arrival.</p>
     </article>
     <article class="why-card">
-      <div class="why-icon"><i data-lucide="shield-check"></i></div>
+      <div class="why-icon" aria-hidden="true"><i data-lucide="shield-check"></i></div>
       <h3 data-i18n="why4_title">Insurance &amp; 24/7 roadside help</h3>
       <p data-i18n="why4_desc">Drive anywhere in El Salvador with coverage and roadside assistance.</p>
     </article>
     <article class="why-card">
-      <div class="why-icon"><i data-lucide="credit-card"></i></div>
+      <div class="why-icon" aria-hidden="true"><i data-lucide="credit-card"></i></div>
       <h3 data-i18n="why5_title">Flexible payment options</h3>
       <p data-i18n="why5_desc">We accept cash, debit and credit cards for your convenience.</p>
     </article>
     <article class="why-card">
-      <div class="why-icon"><i data-lucide="file-text"></i></div>
+      <div class="why-icon" aria-hidden="true"><i data-lucide="file-check"></i></div>
       <h3 data-i18n="why6_title">Clear, transparent contract</h3>
       <p data-i18n="why6_desc">Everything backed by a formal rental agreement — no fine print or surprises at pickup.</p>
     </article>
