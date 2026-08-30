@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>Preguntas frecuentes — OLDES Rent a Car El Salvador</title>
 <link rel="icon" href="oldes-logo.png" type="image/png"/>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -26,11 +25,9 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 .divider{width:48px;height:3px;background:var(--red);border-radius:2px;margin-top:.65rem}
 .faq-layout{display:grid;grid-template-columns:1fr;gap:1.5rem;align-items:start}
 @media(min-width:992px){.faq-layout{grid-template-columns:1fr 340px;gap:2rem}}
-.faq-item{border:1px solid #e5e7eb;border-radius:.875rem;background:#fff;overflow:hidden}
-.faq-q{width:100%;text-align:left;background:transparent;border:none;padding:1rem 1.15rem;font:inherit;font-weight:800;color:#0f172a;cursor:pointer;display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}
-.faq-a{display:none;padding:0 1.15rem 1rem;color:#6b7280;font-size:.9rem;line-height:1.6}
-.faq-item.open .faq-a{display:block}
-.faq-item.open .faq-q{color:var(--blue)}
+.faq-item{border:1px solid #e5e7eb;border-radius:.875rem;background:#fff;padding:1rem 1.15rem 1.1rem}
+.faq-q{font:inherit;font-weight:800;color:#0f172a;font-size:.95rem;line-height:1.45;margin-bottom:.55rem}
+.faq-a{color:#6b7280;font-size:.9rem;line-height:1.65}
 .faq-sidebar{display:flex;flex-direction:column;gap:1rem}
 @media(min-width:992px){.faq-sidebar{position:sticky;top:88px}}
 .help-card{background:#fff;border:1px solid #e5e7eb;border-radius:1.25rem;padding:1.75rem 1.5rem;text-align:center;box-shadow:0 4px 24px rgba(10,31,92,.06)}
@@ -59,29 +56,27 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 
 <nav id="navbar">
   <div style="max-width:1280px;margin:0 auto;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:64px;">
-    <a href="index.html#inicio" style="display:flex;align-items:center;text-decoration:none;">
+    <a href="/landing/index.html#inicio" style="display:flex;align-items:center;text-decoration:none;">
       <img src="oldes-logo.png" alt="OLDES Rent a Car" class="brand-logo"/>
     </a>
     <div class="nav-desktop" style="display:none;">
-      <a href="index.html#inicio" class="nav-link" data-i18n="nav_home">Inicio</a>
-      <a href="index.html#flota" class="nav-link" data-i18n="nav_vehicles">Vehículos</a>
-      <a href="index.html#reservar" class="nav-link" data-i18n="nav_quote">Cotizar</a>
-      <a href="faq.html" class="nav-link on" data-i18n="nav_faq">Preguntas</a>
+      <a href="/landing/index.html#inicio" class="nav-link" data-i18n="nav_home">Inicio</a>
+      <a href="/landing/index.html#flota" class="nav-link" data-i18n="nav_vehicles">Vehículos</a>
+      <a href="/landing/index.html#reservar" class="nav-link" data-i18n="nav_quote">Cotizar</a>
+      <a href="/landing/faq.html" class="nav-link on" data-i18n="nav_faq">Preguntas</a>
     </div>
     <div style="display:flex;align-items:center;gap:.625rem;">
       <div class="lang-switch">
         <button type="button" class="lang-btn" data-set-lang="en" onclick="setLang('en')">EN</button>
         <button type="button" class="lang-btn on" data-set-lang="es" onclick="setLang('es')">ES</button>
       </div>
-      <a href="tel:+50374350381" style="display:none;align-items:center;gap:.5rem;background:var(--red);color:#fff;padding:.5rem 1rem;border-radius:.625rem;font-size:.83rem;font-weight:800;text-decoration:none;" class="sm:inline-flex">
-        +503 7435-0381
-      </a>
+      <a href="tel:+50374350381" style="display:none;align-items:center;gap:.5rem;background:var(--red);color:#fff;padding:.5rem 1rem;border-radius:.625rem;font-size:.83rem;font-weight:800;text-decoration:none;" class="sm:inline-flex">+503 7435-0381</a>
     </div>
   </div>
 </nav>
 
 <main style="max-width:1280px;margin:0 auto;padding:2.5rem 1.25rem 4rem;">
-  <a href="index.html" class="back-link"><span aria-hidden="true">←</span> <span data-i18n="back_home">Volver al inicio</span></a>
+  <a href="/landing/index.html" class="back-link"><span aria-hidden="true">←</span> <span data-i18n="back_home">Volver al inicio</span></a>
 
   <div style="text-align:center;margin-bottom:2rem;">
     <p class="sec-tag" data-i18n="faq_tag">Preguntas frecuentes</p>
@@ -91,14 +86,66 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
   </div>
 
   <div class="faq-layout">
-    <div id="faq-list" style="display:flex;flex-direction:column;gap:.75rem;"></div>
+    <div id="faq-list" style="display:flex;flex-direction:column;gap:.75rem;">
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q1">¿Cuáles son los requisitos para rentar un vehículo?</h2>
+        <p class="faq-a" data-i18n="a1">Para alquilar con nosotros necesitas contar con tu Documento Único de Identidad (DUI) o Pasaporte vigente, una Licencia de Conducir válida (nacional o extranjera) con al menos 1 o 2 años de antigüedad, y ser mayor de 21 años.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q2">¿Qué se necesita para hacer una reservación?</h2>
+        <p class="faq-a" data-i18n="a2">Puedes reservar en línea o por WhatsApp proporcionando tus fechas de entrega/devolución, números de vuelos, la categoría de vehículo elegida, tus datos de contacto, la copia de tu licencia y pasaporte. En algunos casos solicitamos un anticipo mínimo para asegurar la disponibilidad del auto.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q3">¿Cuál es el tiempo o periodo mínimo de renta?</h2>
+        <p class="faq-a" data-i18n="a3">El periodo mínimo de alquiler suele ser de 72 horas (3 días). Si devuelves el vehículo después del plazo de 72 horas sin previo aviso, se aplicará el cobro de un día adicional o una tarifa por hora extra.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q4">¿Aceptan pago en tarjeta de crédito o solo efectivo?</h2>
+        <p class="faq-a" data-i18n="a4">Aceptamos pagos con tarjeta de crédito, tarjeta de débito y efectivo. Además, contamos con opciones de alquiler donde no retendremos depósitos excesivos ni bloqueos de montos altos en tu tarjeta. Solo que con pagos con tarjetas no se pueden hacer descuentos.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q5">¿Se requiere un depósito de garantía?</h2>
+        <p class="faq-a" data-i18n="a5">En la mayoría de los casos no solicitamos depósito de garantía. Únicamente en situaciones específicas o tras una evaluación de perfil de riesgo podríamos requerir un monto de garantía mínimo y reembolsable, el cual se devuelve en su totalidad al finalizar el contrato.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q6">¿Puedo pedir la entrega o devolución del vehículo en el aeropuerto?</h2>
+        <p class="faq-a" data-i18n="a6">¡Sí! Contamos con servicio de entrega y recepción directa en el Aeropuerto Internacional o en tu domicilio/hotel en San Salvador para que no te preocupes por el transporte a tu llegada.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q7">¿El alquiler incluye seguro y asistencia en carretera?</h2>
+        <p class="faq-a" data-i18n="a7">Sí, todos nuestros autos cuentan con cobertura de seguro básico y asistencia vial para tu tranquilidad. Como en cualquier póliza de alquiler, aplica un deducible en caso de accidentes o siniestros, cuyo monto y condiciones se te explicarán de forma transparente en tu cotización y contrato de arrendamiento.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q8">¿Cuál es la política de combustible?</h2>
+        <p class="faq-a" data-i18n="a8">Aplicamos la política de "Lleno a Lleno" o "Igual a Igual". Recibes el vehículo con cierto nivel de combustible y debes entregarlo con la misma cantidad para evitar cargos adicionales de reabastecimiento.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q9">¿Hay límite de kilometraje durante mi viaje?</h2>
+        <p class="faq-a" data-i18n="a9">Nuestras tarifas estándar incluyen kilometraje libre dentro del país, permitiéndote recorrer todo El Salvador sin preocuparte por distancias o cobros por kilómetro recorrido.</p>
+      </article>
+
+      <article class="faq-item">
+        <h2 class="faq-q" data-i18n="q10">¿Existen cobros o costos adicionales?</h2>
+        <p class="faq-a" data-i18n="a10">No tenemos cobros ocultos. Nuestras tarifas incluyen seguro básico y kilometraje libre. Los únicos cargos adicionales aplican si solicitas servicios opcionales (como silla para bebé, conductor extra), entregas/devoluciones fuera de horario laboral, o en caso de requerirse la cobertura del deducible del seguro ante un accidente. Todo se te desglosa claramente desde tu cotización inicial.</p>
+      </article>
+
+    </div>
 
     <aside class="faq-sidebar">
       <div class="help-card">
         <div class="help-icon" aria-hidden="true">?</div>
         <h3 data-i18n="help_title">¿Aún tienes preguntas?</h3>
         <p data-i18n="help_sub">Nuestro Asistente Virtual y equipo de atención están disponibles 24/7 para resolver tus preguntas al instante.</p>
-        <a href="#" id="wa-help" class="wa-btn" target="_blank" rel="noopener">
+        <a href="https://wa.me/50374350381" id="wa-help" class="wa-btn" target="_blank" rel="noopener">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           <span data-i18n="help_wa">Chatea en WhatsApp</span>
         </a>
@@ -127,29 +174,16 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 
 <footer style="background:#111827;color:#9ca3af;padding:2rem 1.25rem;text-align:center;font-size:.8rem;">
   <p data-i18n="footer_copy">© 2026 OLDES Rent a Car El Salvador — Todos los derechos reservados.</p>
-  <p style="margin-top:.5rem;"><a href="index.html" style="color:#6b7280;text-decoration:none;" data-i18n="back_home">Volver al inicio</a></p>
+  <p style="margin-top:.5rem;"><a href="/landing/index.html" style="color:#6b7280;text-decoration:none;" data-i18n="back_home">Volver al inicio</a></p>
 </footer>
 
-<a href="#" id="wa-float" class="wa-float" aria-label="WhatsApp" target="_blank" rel="noopener">
+<a href="https://wa.me/50374350381" id="wa-float" class="wa-float" aria-label="WhatsApp" target="_blank" rel="noopener">
   <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
 </a>
 
 <script>
 const CFG={whatsapp:"50374350381"};
 const LANG_KEY="oldes_landing_lang";
-
-const FAQ_ITEMS=[
-  {q:{es:"¿Cuáles son los requisitos para rentar un vehículo?",en:"What are the requirements to rent a vehicle?"},a:{es:"Para alquilar con nosotros necesitas contar con tu Documento Único de Identidad (DUI) o Pasaporte vigente, una Licencia de Conducir válida (nacional o extranjera) con al menos 1 o 2 años de antigüedad, y ser mayor de 21 años.",en:"You need a valid DUI (national ID) or passport, a valid driver's license (local or foreign) with at least 1–2 years of history, and you must be 21 or older."}},
-  {q:{es:"¿Qué se necesita para hacer una reservación?",en:"What is needed to make a reservation?"},a:{es:"Puedes reservar en línea o por WhatsApp proporcionando tus fechas de entrega/devolución, números de vuelos, la categoría de vehículo elegida, tus datos de contacto, la copia de tu licencia y pasaporte. En algunos casos solicitamos un anticipo mínimo para asegurar la disponibilidad del auto.",en:"Book online or via WhatsApp with pickup/return dates, flight numbers, vehicle category, contact details, and copies of your license and passport. A small deposit may be requested in some cases to secure availability."}},
-  {q:{es:"¿Cuál es el tiempo o periodo mínimo de renta?",en:"What is the minimum rental period?"},a:{es:"El periodo mínimo de alquiler suele ser de 72 horas (3 días). Si devuelves el vehículo después del plazo de 72 horas sin previo aviso, se aplicará el cobro de un día adicional o una tarifa por hora extra.",en:"The minimum rental period is usually 72 hours (3 days). Late returns without notice may incur an extra day or hourly fee."}},
-  {q:{es:"¿Aceptan pago en tarjeta de crédito o solo efectivo?",en:"Do you accept credit cards or cash only?"},a:{es:"Aceptamos pagos con tarjeta de crédito, tarjeta de débito y efectivo. Además, contamos con opciones de alquiler donde no retendremos depósitos excesivos ni bloqueos de montos altos en tu tarjeta. Solo que con pagos con tarjetas no se pueden hacer descuentos.",en:"We accept credit cards, debit cards, and cash. We also offer options without excessive deposits or large card holds. Discounts are not available when paying by card."}},
-  {q:{es:"¿Se requiere un depósito de garantía?",en:"Is a security deposit required?"},a:{es:"En la mayoría de los casos no solicitamos depósito de garantía. Únicamente en situaciones específicas o tras una evaluación de perfil de riesgo podríamos requerir un monto de garantía mínimo y reembolsable, el cual se devuelve en su totalidad al finalizar el contrato.",en:"In most cases no deposit is required. Only in specific situations or after a risk assessment might we require a minimal refundable deposit, returned in full at contract end."}},
-  {q:{es:"¿Puedo pedir la entrega o devolución del vehículo en el aeropuerto?",en:"Can I request airport pickup or drop-off?"},a:{es:"¡Sí! Contamos con servicio de entrega y recepción directa en el Aeropuerto Internacional o en tu domicilio/hotel en San Salvador para que no te preocupes por el transporte a tu llegada.",en:"Yes! We offer direct delivery and pickup at the international airport or at your home/hotel in San Salvador."}},
-  {q:{es:"¿El alquiler incluye seguro y asistencia en carretera?",en:"Does the rental include insurance and roadside assistance?"},a:{es:"Sí, todos nuestros autos cuentan con cobertura de seguro básico y asistencia vial para tu tranquilidad. Como en cualquier póliza de alquiler, aplica un deducible en caso de accidentes o siniestros, cuyo monto y condiciones se te explicarán de forma transparente en tu cotización y contrato de arrendamiento.",en:"Yes, all vehicles include basic insurance and roadside assistance. As with any rental policy, a deductible applies in case of accidents; amount and terms are explained clearly in your quote and contract."}},
-  {q:{es:"¿Cuál es la política de combustible?",en:"What is the fuel policy?"},a:{es:"Aplicamos la política de \"Lleno a Lleno\" o \"Igual a Igual\". Recibes el vehículo con cierto nivel de combustible y debes entregarlo con la misma cantidad para evitar cargos adicionales de reabastecimiento.",en:"We use a \"Full-to-Full\" or \"Same-to-Same\" policy. Return the vehicle with the same fuel level to avoid refueling charges."}},
-  {q:{es:"¿Hay límite de kilometraje durante mi viaje?",en:"Is there a mileage limit during my trip?"},a:{es:"Nuestras tarifas estándar incluyen kilometraje libre dentro del país, permitiéndote recorrer todo El Salvador sin preocuparte por distancias o cobros por kilómetro recorrido.",en:"Standard rates include unlimited mileage within the country, so you can travel all of El Salvador without per-kilometer charges."}},
-  {q:{es:"¿Existen cobros o costos adicionales?",en:"Are there additional charges?"},a:{es:"No tenemos cobros ocultos. Nuestras tarifas incluyen seguro básico y kilometraje libre. Los únicos cargos adicionales aplican si solicitas servicios opcionales (como silla para bebé, conductor extra), entregas/devoluciones fuera de horario laboral, o en caso de requerirse la cobertura del deducible del seguro ante un accidente. Todo se te desglosa claramente desde tu cotización inicial.",en:"No hidden fees. Rates include basic insurance and unlimited mileage. Extra charges only apply for optional services (baby seat, extra driver), after-hours delivery/return, or insurance deductible coverage after an accident. Everything is itemized clearly from your initial quote."}},
-];
 
 const I18N={
   en:{
@@ -165,6 +199,26 @@ const I18N={
     info_hours:"Response Hours",info_chat_label:"Online chat:",info_chat_val:"24 hours / 7 days a week",
     footer_copy:"© 2026 OLDES Rent a Car El Salvador — All rights reserved.",
     wa_prefill:"Hi, I have a question about renting a vehicle — OLDES Rent a Car El Salvador",
+    q1:"What are the requirements to rent a vehicle?",
+    a1:"You need a valid DUI (national ID) or passport, a valid driver's license (local or foreign) with at least 1–2 years of history, and you must be 21 or older.",
+    q2:"What is needed to make a reservation?",
+    a2:"Book online or via WhatsApp with pickup/return dates, flight numbers, vehicle category, contact details, and copies of your license and passport. A small deposit may be requested in some cases to secure availability.",
+    q3:"What is the minimum rental period?",
+    a3:"The minimum rental period is usually 72 hours (3 days). Late returns without notice may incur an extra day or hourly fee.",
+    q4:"Do you accept credit cards or cash only?",
+    a4:"We accept credit cards, debit cards, and cash. We also offer options without excessive deposits or large card holds. Discounts are not available when paying by card.",
+    q5:"Is a security deposit required?",
+    a5:"In most cases no deposit is required. Only in specific situations or after a risk assessment might we require a minimal refundable deposit, returned in full at contract end.",
+    q6:"Can I request airport pickup or drop-off?",
+    a6:"Yes! We offer direct delivery and pickup at the international airport or at your home/hotel in San Salvador.",
+    q7:"Does the rental include insurance and roadside assistance?",
+    a7:"Yes, all vehicles include basic insurance and roadside assistance. As with any rental policy, a deductible applies in case of accidents; amount and terms are explained clearly in your quote and contract.",
+    q8:"What is the fuel policy?",
+    a8:"We use a Full-to-Full or Same-to-Same policy. Return the vehicle with the same fuel level to avoid refueling charges.",
+    q9:"Is there a mileage limit during my trip?",
+    a9:"Standard rates include unlimited mileage within the country, so you can travel all of El Salvador without per-kilometer charges.",
+    q10:"Are there additional charges?",
+    a10:"No hidden fees. Rates include basic insurance and unlimited mileage. Extra charges only apply for optional services (baby seat, extra driver), after-hours delivery/return, or insurance deductible coverage after an accident. Everything is itemized clearly from your initial quote.",
   },
   es:{
     marquee:"🚗 OLDES Rent a Car El Salvador · Entrega a domicilio y aeropuerto · Seguro incluido · 📞 +503 7435-0381",
@@ -179,38 +233,32 @@ const I18N={
     info_hours:"Horario de Respuesta",info_chat_label:"Chat en línea:",info_chat_val:"24 horas / 7 días a la semana",
     footer_copy:"© 2026 OLDES Rent a Car El Salvador — Todos los derechos reservados.",
     wa_prefill:"Hola, tengo una pregunta sobre el alquiler de vehículos — OLDES Rent a Car El Salvador",
+    q1:"¿Cuáles son los requisitos para rentar un vehículo?",
+    a1:"Para alquilar con nosotros necesitas contar con tu Documento Único de Identidad (DUI) o Pasaporte vigente, una Licencia de Conducir válida (nacional o extranjera) con al menos 1 o 2 años de antigüedad, y ser mayor de 21 años.",
+    q2:"¿Qué se necesita para hacer una reservación?",
+    a2:"Puedes reservar en línea o por WhatsApp proporcionando tus fechas de entrega/devolución, números de vuelos, la categoría de vehículo elegida, tus datos de contacto, la copia de tu licencia y pasaporte. En algunos casos solicitamos un anticipo mínimo para asegurar la disponibilidad del auto.",
+    q3:"¿Cuál es el tiempo o periodo mínimo de renta?",
+    a3:"El periodo mínimo de alquiler suele ser de 72 horas (3 días). Si devuelves el vehículo después del plazo de 72 horas sin previo aviso, se aplicará el cobro de un día adicional o una tarifa por hora extra.",
+    q4:"¿Aceptan pago en tarjeta de crédito o solo efectivo?",
+    a4:"Aceptamos pagos con tarjeta de crédito, tarjeta de débito y efectivo. Además, contamos con opciones de alquiler donde no retendremos depósitos excesivos ni bloqueos de montos altos en tu tarjeta. Solo que con pagos con tarjetas no se pueden hacer descuentos.",
+    q5:"¿Se requiere un depósito de garantía?",
+    a5:"En la mayoría de los casos no solicitamos depósito de garantía. Únicamente en situaciones específicas o tras una evaluación de perfil de riesgo podríamos requerir un monto de garantía mínimo y reembolsable, el cual se devuelve en su totalidad al finalizar el contrato.",
+    q6:"¿Puedo pedir la entrega o devolución del vehículo en el aeropuerto?",
+    a6:"¡Sí! Contamos con servicio de entrega y recepción directa en el Aeropuerto Internacional o en tu domicilio/hotel en San Salvador para que no te preocupes por el transporte a tu llegada.",
+    q7:"¿El alquiler incluye seguro y asistencia en carretera?",
+    a7:"Sí, todos nuestros autos cuentan con cobertura de seguro básico y asistencia vial para tu tranquilidad. Como en cualquier póliza de alquiler, aplica un deducible en caso de accidentes o siniestros, cuyo monto y condiciones se te explicarán de forma transparente en tu cotización y contrato de arrendamiento.",
+    q8:"¿Cuál es la política de combustible?",
+    a8:"Aplicamos la política de \"Lleno a Lleno\" o \"Igual a Igual\". Recibes el vehículo con cierto nivel de combustible y debes entregarlo con la misma cantidad para evitar cargos adicionales de reabastecimiento.",
+    q9:"¿Hay límite de kilometraje durante mi viaje?",
+    a9:"Nuestras tarifas estándar incluyen kilometraje libre dentro del país, permitiéndote recorrer todo El Salvador sin preocuparte por distancias o cobros por kilómetro recorrido.",
+    q10:"¿Existen cobros o costos adicionales?",
+    a10:"No tenemos cobros ocultos. Nuestras tarifas incluyen seguro básico y kilometraje libre. Los únicos cargos adicionales aplican si solicitas servicios opcionales (como silla para bebé, conductor extra), entregas/devoluciones fuera de horario laboral, o en caso de requerirse la cobertura del deducible del seguro ante un accidente. Todo se te desglosa claramente desde tu cotización inicial.",
   },
 };
 
 let currentLang=(()=>{try{const s=localStorage.getItem(LANG_KEY);if(s==="en"||s==="es")return s;}catch(_){}return"es";})();
 
 function t(k){return(I18N[currentLang]||I18N.es)[k]||k;}
-
-function renderFaq(){
-  document.getElementById("faq-list").innerHTML=FAQ_ITEMS.map((item,i)=>{
-    const q=item.q[currentLang]||item.q.es;
-    const a=item.a[currentLang]||item.a.es;
-    return`<div class="faq-item" id="faq-${i}">
-      <button type="button" class="faq-q" onclick="toggleFaq(${i})" aria-expanded="false">
-        <span>${q}</span>
-        <span aria-hidden="true" style="font-size:1.25rem;line-height:1;color:var(--blue);flex-shrink:0;">+</span>
-      </button>
-      <div class="faq-a">${a}</div>
-    </div>`;
-  }).join("");
-}
-
-window.toggleFaq=function(i){
-  const el=document.getElementById("faq-"+i);
-  if(!el)return;
-  const open=el.classList.toggle("open");
-  const btn=el.querySelector(".faq-q");
-  if(btn){
-    btn.setAttribute("aria-expanded",open?"true":"false");
-    const mark=btn.querySelector("span:last-child");
-    if(mark)mark.textContent=open?"−":"+";
-  }
-};
 
 function applyLang(lang){
   currentLang=lang==="en"?"en":"es";
@@ -226,12 +274,10 @@ function applyLang(lang){
   const wa=`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(t("wa_prefill"))}`;
   document.getElementById("wa-help").href=wa;
   document.getElementById("wa-float").href=wa;
-  renderFaq();
 }
 
 window.setLang=applyLang;
 applyLang(currentLang);
-if(window.lucide)lucide.createIcons();
 </script>
 </body>
 </html>
