@@ -77,6 +77,80 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 .faq-a{display:none;padding:0 1.15rem 1rem;color:#6b7280;font-size:.9rem;line-height:1.55}
 .faq-item.open .faq-a{display:block}
 .faq-item.open .faq-q{color:var(--blue)}
+
+/* ── GOOGLE REVIEWS ── */
+.google-badge{
+  display:inline-flex;align-items:center;gap:.5rem;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+  color:#fff;padding:.45rem .85rem;border-radius:999px;
+  font-size:.78rem;font-weight:800;text-decoration:none;
+  margin-bottom:1rem;transition:background .2s,border-color .2s;
+}
+.google-badge:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.35)}
+.google-badge .g-stars{color:#fbbf24;letter-spacing:.04em;font-size:.82rem}
+.google-badge .g-score{font-weight:900}
+.hero-trust{
+  margin-top:.85rem;padding-top:.85rem;border-top:1px solid rgba(255,255,255,.15);
+  font-size:.78rem;line-height:1.45;color:rgba(255,255,255,.88);
+}
+.hero-trust a{color:#fde047;font-weight:800;text-decoration:none}
+.hero-trust a:hover{text-decoration:underline}
+.reviews-summary{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem 1.5rem;
+  margin-bottom:1.75rem;
+}
+.reviews-score{font-size:clamp(2.5rem,6vw,3.25rem);font-weight:900;color:#0f172a;line-height:1}
+.reviews-stars{color:#f59e0b;font-size:1.15rem;letter-spacing:.06em}
+.reviews-count{color:#6b7280;font-size:.9rem;font-weight:600}
+.reviews-carousel-wrap{position:relative;margin:0 -1.25rem;padding:0 1.25rem}
+.reviews-track{
+  display:flex;gap:1rem;overflow-x:auto;scroll-snap-type:x mandatory;
+  scroll-behavior:smooth;padding:.5rem 0 1rem;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.reviews-track::-webkit-scrollbar{display:none}
+.review-card{
+  flex:0 0 min(320px,85vw);scroll-snap-align:center;
+  background:#fff;border:1px solid #e5e7eb;border-radius:1.125rem;
+  padding:1.25rem 1.35rem;box-shadow:0 8px 30px rgba(10,31,92,.08);
+  display:flex;flex-direction:column;gap:.75rem;min-height:220px;
+}
+.review-head{display:flex;align-items:center;gap:.75rem}
+.review-avatar{
+  width:44px;height:44px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:.95rem;color:#fff;
+}
+.review-meta{flex:1;min-width:0}
+.review-name{font-weight:800;font-size:.9rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.review-when{font-size:.72rem;color:#9ca3af;margin-top:.1rem}
+.review-card-stars{color:#f59e0b;font-size:.82rem;letter-spacing:.04em;flex-shrink:0}
+.review-text{color:#4b5563;font-size:.875rem;line-height:1.55;flex:1}
+.review-foot{display:flex;align-items:center;gap:.35rem;margin-top:auto}
+.review-google-g{width:18px;height:18px;flex-shrink:0}
+.reviews-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:38px;height:38px;border-radius:50%;border:1px solid #e5e7eb;
+  background:#fff;color:var(--blue);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 16px rgba(0,0,0,.08);z-index:2;transition:all .2s;
+}
+.reviews-nav:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.reviews-nav.prev{left:.25rem}
+.reviews-nav.next{right:.25rem}
+@media(min-width:768px){
+  .review-card{flex:0 0 calc(33.333% - .67rem)}
+  .reviews-carousel-wrap{margin:0;padding:0 2.75rem}
+}
+.google-review-btn{
+  display:inline-flex;align-items:center;gap:.65rem;
+  background:var(--blue);color:#fff;padding:.9rem 1.5rem;border-radius:.875rem;
+  font-weight:800;font-size:.9rem;text-decoration:none;
+  box-shadow:0 8px 24px rgba(10,31,92,.18);transition:transform .2s,box-shadow .2s;
+}
+.google-review-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(10,31,92,.22)}
+.google-review-btn svg{flex-shrink:0}
+
 @media(min-width:900px){
   .hero{align-items:center}
   .hero-panel{padding:1.75rem 1.75rem 2rem}
@@ -432,6 +506,11 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
   <div style="max-width:1280px;margin:0 auto;padding:2.5rem 1.25rem 3rem;display:flex;flex-direction:column;gap:1.75rem;width:100%;">
     <div class="hero-panel" style="color:#fff;">
       <p class="hero-slogan" data-i18n="hero_slogan">Operador logístico · siempre entregando lo mejor</p>
+      <a href="#reseñas" class="google-badge" aria-label="Google reviews">
+        <span class="g-stars" aria-hidden="true">★★★★★</span>
+        <span class="g-score">4.9</span>
+        <span data-i18n="hero_google_badge">on Google</span>
+      </a>
       <h1 style="font-size:clamp(2rem,5.5vw,3.35rem);font-weight:900;line-height:1.05;letter-spacing:-.03em;margin:0 0 1rem;" data-i18n-html="hero_title">
         OLDES<br><span style="color:#fde047;">Rent a Car</span>
       </h1>
@@ -499,6 +578,10 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
           <span id="btn-text" data-i18n="btn_submit">REQUEST A QUOTE</span>
           <div class="spin" id="btn-spinner" style="display:none;"></div>
         </button>
+        <p class="hero-trust" style="color:#374151;border-top-color:#e5e7eb;margin-top:0;padding-top:.75rem;text-align:center;">
+          <span data-i18n="form_trust">The rental company with the best customer service in El Salvador.</span>
+          <a href="#reseñas" data-i18n="form_trust_link">Read our real reviews</a>
+        </p>
         <p style="text-align:center;font-size:.7rem;color:#9ca3af;" data-i18n="form_note">This is a quote request, not a reservation. We'll contact you on WhatsApp.</p>
       </form>
     </div>
@@ -580,12 +663,34 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
         <p class="sec-tag" data-i18n="reviews_tag">Customer reviews</p>
         <h2 class="sec-title" style="font-size:clamp(1.25rem,3.2vw,1.75rem);" data-i18n="reviews_title">What our clients say</h2>
         <div class="divider" style="margin:0 auto;"></div>
-        <p style="color:#6b7280;font-size:.9rem;max-width:520px;margin:.75rem auto 0;" data-i18n="reviews_sub">Read verified reviews from OLDES Rent a Car customers on Google.</p>
+        <p style="color:#6b7280;font-size:.9rem;max-width:560px;margin:.75rem auto 0;" data-i18n="reviews_sub">Real reviews from OLDES Rent a Car customers on Google.</p>
       </div>
-      <div style="text-align:center;">
-        <a href="https://www.google.com/search?q=OLDES+RENTA+AUTO+SV+reviews" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:.5rem;background:var(--blue);color:#fff;padding:.875rem 1.5rem;border-radius:.75rem;font-weight:800;font-size:.9rem;text-decoration:none;">
-          <i data-lucide="star" style="width:18px;height:18px;"></i>
-          <span data-i18n="reviews_cta">View Google reviews</span>
+
+      <div class="reviews-summary">
+        <div style="text-align:center;">
+          <div class="reviews-score">4.9</div>
+          <div class="reviews-stars" aria-label="5 stars">★★★★★</div>
+        </div>
+        <div style="text-align:center;">
+          <div class="reviews-count" data-i18n="reviews_count">33+ verified Google reviews</div>
+          <div style="font-size:.82rem;color:#9ca3af;margin-top:.25rem;" data-i18n="reviews_best">Best customer service among car rentals in El Salvador</div>
+        </div>
+      </div>
+
+      <div class="reviews-carousel-wrap">
+        <button type="button" class="reviews-nav prev" id="reviews-prev" aria-label="Previous review">
+          <i data-lucide="chevron-left" style="width:20px;height:20px;"></i>
+        </button>
+        <div class="reviews-track" id="reviews-track" role="list"></div>
+        <button type="button" class="reviews-nav next" id="reviews-next" aria-label="Next review">
+          <i data-lucide="chevron-right" style="width:20px;height:20px;"></i>
+        </button>
+      </div>
+
+      <div style="text-align:center;margin-top:1.75rem;">
+        <a href="https://share.google/YCdCDllcgkIFK3VAT" target="_blank" rel="noopener" class="google-review-btn">
+          <svg class="review-google-g" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          <span data-i18n="reviews_cta">View all on Google</span>
         </a>
       </div>
     </section>
@@ -1000,6 +1105,7 @@ const I18N={
     nav_contact:"Contact",
     call_label:"Call: +503 7435-0381",
     hero_slogan:"Logistics operator · always delivering the best",
+    hero_google_badge:"on Google",
     hero_title:'OLDES<br><span style="color:#fde047;">Rent a Car</span>',
     hero_lead:"El Salvador · home & airport delivery",
     cta_view:"View options",
@@ -1025,6 +1131,8 @@ const I18N={
     summary_total:"Est. total:",
     btn_submit:"REQUEST A QUOTE",
     btn_sending:"Sending…",
+    form_trust:"The rental company with the best customer service in El Salvador.",
+    form_trust_link:" Read our real reviews",
     form_note:"This is a quote request, not a reservation. We'll contact you on WhatsApp.",
     why_tag:"Why choose us",
     why_title:"Why choose OLDES Rent a Car El Salvador?",
@@ -1045,8 +1153,10 @@ const I18N={
     fleet_sub:"Vehicle types available for rent — not individual unit inventory. Insurance included. Request a quote for rates.",
     reviews_tag:"Customer reviews",
     reviews_title:"What our clients say",
-    reviews_sub:"Read verified reviews from OLDES Rent a Car customers on Google.",
-    reviews_cta:"View Google reviews",
+    reviews_sub:"Real reviews from OLDES Rent a Car customers on Google.",
+    reviews_count:"33+ verified Google reviews",
+    reviews_best:"Best customer service among car rentals in El Salvador",
+    reviews_cta:"View all on Google",
     nav_reviews:"Reviews",
     nav_faq:"FAQ",
     faq_tag:"FAQ",
@@ -1106,6 +1216,7 @@ const I18N={
     nav_contact:"Contacto",
     call_label:"Llamar: +503 7435-0381",
     hero_slogan:"Operador logístico · siempre entregando lo mejor",
+    hero_google_badge:"en Google",
     hero_title:'OLDES<br><span style="color:#fde047;">Rent a Car</span>',
     hero_lead:"El Salvador · entrega a domicilio y aeropuerto",
     cta_view:"Ver opciones",
@@ -1131,6 +1242,8 @@ const I18N={
     summary_total:"Total est.:",
     btn_submit:"SOLICITAR COTIZACIÓN",
     btn_sending:"Enviando…",
+    form_trust:"La rentadora con mejor atención al cliente en El Salvador.",
+    form_trust_link:" Lee nuestras reseñas reales",
     form_note:"Esta es una solicitud de cotización, no una reserva. Te contactaremos por WhatsApp.",
     why_tag:"Por qué elegirnos",
     why_title:"¿Por qué elegir OLDES Rent a Car El Salvador?",
@@ -1151,8 +1264,10 @@ const I18N={
     fleet_sub:"Tipos disponibles — no inventario de unidades individuales. Seguro incluido. Solicita cotización para tarifas.",
     reviews_tag:"Reseñas de clientes",
     reviews_title:"Lo que dicen nuestros clientes",
-    reviews_sub:"Lee reseñas verificadas de clientes de OLDES Rent a Car en Google.",
-    reviews_cta:"Ver reseñas en Google",
+    reviews_sub:"Reseñas reales de clientes de OLDES Rent a Car en Google.",
+    reviews_count:"33+ reseñas verificadas en Google",
+    reviews_best:"La mejor atención al cliente entre rentadoras en El Salvador",
+    reviews_cta:"Ver todas en Google",
     nav_reviews:"Reseñas",
     nav_faq:"Preguntas",
     faq_tag:"Preguntas frecuentes",
@@ -1252,6 +1367,7 @@ function applyLang(lang){
     renderFilterTabs();
   }
   renderFaq();
+  renderReviews();
   if(window.lucide)lucide.createIcons();
 }
 
@@ -1311,6 +1427,60 @@ window.toggleFaq=function(i){
     if(mark)mark.textContent=open?"−":"+";
   }
 };
+
+/** Reseñas reales de Google — editable (texto EN/ES). */
+const REVIEW_ITEMS=[
+  {name:"Ruth Abigail Sensente",initials:"RS",color:"#0d9488",when:{en:"5 months ago",es:"Hace 5 meses"},text:{en:"I am extremely pleased. The customer service team is incredibly attentive, available, and accessible regarding any questions. The cars are in good condition and well-maintained (and clean, too!). Highly recommended.",es:"Queda súper complacida. La atención al cliente es súper atenta, disponible y accesible ante cualquier duda. Carros en buen estado y con buen mantenimiento (además de limpios). ¡Súper recomendados!"}},
+  {name:"Tatiana",initials:"T",color:"#6366f1",when:{en:"4 months ago",es:"Hace 4 meses"},text:{en:"Excellent service. Always very friendly and attentive. The vehicles are always delivered very clean and in good condition. Highly recommended!",es:"Excelente servicio. Siempre muy amables y atentos. Las unidades siempre las entregan muy limpias, en buen estado. ¡Super recomendados!"}},
+  {name:"Jona Fuentes",initials:"JF",color:"#db2777",when:{en:"4 months ago",es:"Hace 4 meses"},text:{en:"Excellent service, zero problems with the vehicle, and the staff's friendliness speaks for itself.",es:"Servicio excelente, cero problemas con el vehículo, y la amabilidad del personal ni se diga."}},
+  {name:"André Martínez",initials:"AM",color:"#2563eb",when:{en:"5 months ago",es:"Hace 5 meses"},text:{en:"Excellent service. Always punctual and reliable. 100% recommended. Wide range of vehicles for whatever you need, all in excellent condition.",es:"Excelente servicio. Siempre puntuales y correctos. 100% recomendado. Amplia gama de vehículos para lo que uno necesite y en excelentes condiciones."}},
+  {name:"Nelsy Barrera",initials:"NB",color:"#16a34a",when:{en:"5 months ago",es:"Hace 5 meses"},text:{en:"Very excellent service, with good attention and responsible with good prices. Highly recommended.",es:"Muy excelente servicio, con buena atención y responsables con buenos precios. Muy recomendados."}},
+  {name:"Iliana De Orellana",initials:"IO",color:"#ea580c",when:{en:"1 month ago",es:"Hace 1 mes"},text:{en:"Punctual delivery, the car in good condition and without any problems.",es:"Puntual en la entrega, el carro en buen estado y sin problemas de ningún tipo."}},
+  {name:"Diego Bado",initials:"DB",color:"#7c3aed",when:{en:"5 months ago",es:"Hace 5 meses"},text:{en:"One of the best experiences I've had renting a car. Very satisfied not only with the vehicle in perfect condition, but mainly with the service. A very professional, friendly and efficient team. 100% recommended.",es:"Una de las mejores experiencias que he tenido rentando un auto. Quedé muy satisfecho no solo con el vehículo en perfectas condiciones, sino principalmente con la atención. Equipo muy profesional, amable y eficiente. 100% recomendado."}},
+  {name:"Roberto 64",initials:"R",color:"#0891b2",when:{en:"4 months ago",es:"Hace 4 meses"},text:{en:"Excellent service. Don Carlos is very friendly and professional. They delivered on time.",es:"Excelente servicio. Don Carlos muy amable y profesional, me entregaron a tiempo."}},
+  {name:"Jorge Erazo",initials:"JE",color:"#be123c",when:{en:"4 weeks ago",es:"Hace 4 semanas"},text:{en:"Excellent service, I recommend them. I always use OLDES RENTA AUTO SV on my trips to El Salvador.",es:"Excelente servicio, se los recomiendo. Siempre utilizo OLDES RENTA AUTO SV en mis viajes a El Salvador."}},
+  {name:"Alejandro Mendoza",initials:"AM",color:"#4f46e5",when:{en:"5 months ago",es:"Hace 5 meses"},text:{en:"By far the best experience with renting a vehicle. Responds quickly, very friendly, and the car I rented functioned perfectly! I will definitely use their services again.",es:"La mejor experiencia rentando un vehículo. Responden rápido, muy amables, y el carro funcionó perfectamente. Definitivamente volveré a usar sus servicios."}},
+  {name:"Karim Arana",initials:"KA",color:"#059669",when:{en:"5 months ago",es:"Hace 5 meses"},text:{en:"I've used Jaime's car rental services for over 10 years and he always provides personalized, excellent service. Very responsible, reliable and attentive. I've referred friends and family and all were equally satisfied.",es:"He utilizado los servicios de renta con Jaime por más de 10 años y siempre me ha dado un servicio personalizado y excelente. Muy responsable, confiable y atento. He referido amigos y familias y todos han quedado igual de satisfechos."}},
+  {name:"Hector Artiga",initials:"HA",color:"#c026d3",when:{en:"5 months ago",es:"Hace 5 meses"},text:{en:"Very good experience with the service! Friendly and very flexible.",es:"Muy buena experiencia con los servicios. Amable y muy flexible."}},
+  {name:"Zahir Pineda",initials:"ZP",color:"#0284c7",when:{en:"5 months ago",es:"Hace 5 meses"},text:{en:"Super reliable, the car in excellent condition and the best customer service.",es:"Super confiables, el carro en excelente estado y la atención al cliente de lo mejor."}},
+];
+
+const AVATAR_COLORS=["#0d9488","#6366f1","#db2777","#2563eb","#16a34a","#ea580c","#7c3aed","#0891b2"];
+
+function renderReviews(){
+  const track=document.getElementById("reviews-track");
+  if(!track)return;
+  track.innerHTML=REVIEW_ITEMS.map((item,i)=>{
+    const when=item.when[currentLang]||item.when.es;
+    const text=item.text[currentLang]||item.text.es;
+    const color=item.color||AVATAR_COLORS[i%AVATAR_COLORS.length];
+    return`<article class="review-card" role="listitem">
+      <div class="review-head">
+        <div class="review-avatar" style="background:${color}">${item.initials}</div>
+        <div class="review-meta">
+          <div class="review-name">${item.name}</div>
+          <div class="review-when">${when}</div>
+        </div>
+        <div class="review-card-stars" aria-label="5 stars">★★★★★</div>
+      </div>
+      <p class="review-text">${text}</p>
+      <div class="review-foot">
+        <svg class="review-google-g" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        <span style="font-size:.72rem;color:#9ca3af;font-weight:600;">Google</span>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+(function initReviewsNav(){
+  const track=document.getElementById("reviews-track");
+  const prev=document.getElementById("reviews-prev");
+  const next=document.getElementById("reviews-next");
+  if(!track||!prev||!next)return;
+  const step=()=>Math.min(track.clientWidth*0.85,340);
+  prev.addEventListener("click",()=>{track.scrollBy({left:-step(),behavior:"smooth"});});
+  next.addEventListener("click",()=>{track.scrollBy({left:step(),behavior:"smooth"});});
+})();
 
 function mapTypeFromApi(t){
   const weekly=t.weeklyRate!=null?Number(t.weeklyRate):(t.dailyRate?Math.round(Number(t.dailyRate)*6*100)/100:null);
