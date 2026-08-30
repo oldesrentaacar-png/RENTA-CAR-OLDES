@@ -35,10 +35,10 @@ import {
   damageSymbol,
 } from "@/lib/contracts/oldes-terms";
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
-import { FUEL_LEVEL_LABELS } from "@/lib/inspections/defaults";
+import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS } from "@/lib/inspections/defaults";
 import { resolveBodyStyle } from "@/lib/inspections/vehicle-panel-map";
 import { parseMoneyInput } from "@/lib/money";
-import { uploadSignatureImage } from "@/lib/storage/private-upload";
+import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
 import {
   contractSchema,
@@ -1032,7 +1032,7 @@ export async function getContractPdfData(contractId: string) {
     supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type), inspection_photos(storage_path, category)",
+        "id, type, mileage, fuel_level, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type), inspection_photos(storage_path, category, caption)",
       )
       .eq("reservation_id", row.reservation_id)
       .order("inspection_date", { ascending: true }),
@@ -1165,14 +1165,32 @@ export async function getContractPdfData(contractId: string) {
     primaryPhotoUrl = (vehicleImages[0] as { url: string }).url;
   }
 
-  const annexPhotoUrls: string[] = [];
+  const annexPhotos: Array<{ url: string; label: string }> = [];
+  const seenPaths = new Set<string>();
   for (const inspection of (inspections ?? []) as Array<{
-    inspection_photos?: Array<{ storage_path: string | null }> | null;
+    type?: "CHECK_OUT" | "CHECK_IN";
+    inspection_photos?: Array<{
+      storage_path: string | null;
+      category?: string | null;
+      caption?: string | null;
+    }> | null;
   }>) {
+    const phase =
+      inspection.type === "CHECK_IN" ? "Entrada" : "Salida";
     for (const photo of inspection.inspection_photos ?? []) {
-      if (photo.storage_path && !annexPhotoUrls.includes(photo.storage_path)) {
-        annexPhotoUrls.push(photo.storage_path);
-      }
+      if (!photo.storage_path || seenPaths.has(photo.storage_path)) continue;
+      seenPaths.add(photo.storage_path);
+      const resolved = await resolvePrivateFileUrl(photo.storage_path);
+      if (!resolved) continue;
+      const categoryLabel =
+        PHOTO_CATEGORY_LABELS[photo.category ?? ""] ?? photo.category ?? "Foto";
+      const caption = photo.caption?.trim();
+      annexPhotos.push({
+        url: resolved,
+        label: caption
+          ? `${phase} · ${categoryLabel} — ${caption}`
+          : `${phase} · ${categoryLabel}`,
+      });
     }
   }
 
@@ -1194,7 +1212,10 @@ export async function getContractPdfData(contractId: string) {
         signature_url?: string | null;
       };
       operatorName = `${op.first_name} ${op.last_name}`.trim();
-      operatorSignatureUrl = op.signature_url ?? null;
+      if (op.signature_url) {
+        operatorSignatureUrl =
+          (await resolvePrivateFileUrl(op.signature_url)) ?? op.signature_url;
+      }
     }
   }
 
@@ -1272,7 +1293,7 @@ export async function getContractPdfData(contractId: string) {
       : null,
     operatorName,
     operatorSignatureUrl,
-    annexPhotoUrls,
+    annexPhotos,
     issuedPlace: "San Salvador",
     issuedDateLabel: formatAppDate(mapped.created_at),
   };

@@ -2,7 +2,6 @@ import {
   Circle,
   Document,
   Image,
-  Line,
   Page,
   Path,
   Rect,
@@ -19,7 +18,6 @@ import {
   OLDES_CONTRACT_FOOTER_NOTE,
   OLDES_DAMAGE_LEGEND,
 } from "@/lib/contracts/oldes-terms";
-import { getPickupCadElements } from "@/lib/inspections/pickup-cad";
 import {
   PANEL_VIEWBOX,
   getCarPaths,
@@ -107,8 +105,8 @@ export type ContractPdfProps = {
   operatorName?: string | null;
   /** Firma digital del operador (URL o data URL). */
   operatorSignatureUrl?: string | null;
-  /** Fotos de inspección / comprobación — se imprimen al final. */
-  annexPhotoUrls?: string[];
+  /** Fotos de inspección — solo al final del documento (anexo). */
+  annexPhotos?: Array<{ url: string; label: string }>;
   issuedPlace?: string | null;
   issuedDateLabel?: string | null;
 };
@@ -334,58 +332,18 @@ const styles = StyleSheet.create({
   legendItem: {
     fontSize: 7,
   },
-  diagramGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-  },
-  diagramBox: {
-    width: "32%",
-    borderWidth: 1,
-    borderColor: LINE,
-    padding: 4,
+  panelMapWrap: {
     alignItems: "center",
-    marginBottom: 4,
+    marginTop: 6,
+    marginBottom: 8,
   },
-  diagramPhoto: {
-    width: 150,
-    height: 100,
-    objectFit: "cover",
-  },
-  diagramOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: 150,
-    height: 100,
-  },
-  diagramStack: {
-    position: "relative",
-    width: 150,
-    height: 100,
-  },
-  diagramCaption: {
-    fontSize: 6.5,
+  panelMapHint: {
+    fontSize: 7,
     color: MUTED,
-    marginBottom: 3,
-    fontFamily: "Helvetica-Bold",
-  },
-  realPhotosRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-    marginTop: 4,
-  },
-  realPhotoBox: {
-    width: "32%",
-    borderWidth: 1,
-    borderColor: LINE,
-    padding: 3,
-  },
-  realPhotoImg: {
-    width: "100%",
-    height: 58,
-    objectFit: "cover",
+    textAlign: "center",
+    marginBottom: 6,
+    maxWidth: 420,
+    alignSelf: "center",
   },
   billingBox: {
     borderWidth: 1,
@@ -527,6 +485,10 @@ function FuelGauge({
   );
 }
 
+function panelMapTitle(style: VehicleBodyStyle): string {
+  return style === "PICKUP" ? "PICKUP" : "CARRO SEDAN";
+}
+
 function PanelMapSvg({
   bodyStyle,
   marks,
@@ -541,7 +503,7 @@ function PanelMapSvg({
   const stroke = NAVY;
 
   return (
-    <Svg width={200} height={360} viewBox={`0 0 ${width} ${height}`}>
+    <Svg width={170} height={280} viewBox={`0 0 ${width} ${height}`}>
       <Rect x={0} y={0} width={width} height={height} fill="#f3e6c0" />
       <Text
         x={width / 2 - 42}
@@ -552,7 +514,7 @@ function PanelMapSvg({
           fontFamily: "Helvetica-Bold",
         }}
       >
-        CARRO SEDAN
+        {panelMapTitle(bodyStyle)}
       </Text>
       <Path d={paths.body} fill="#ffffff" stroke={stroke} strokeWidth={2.4} />
       <Path d={paths.bumperFront} fill="#ffffff" stroke={stroke} strokeWidth={1.5} />
@@ -624,118 +586,6 @@ function PanelMapSvg({
   );
 }
 
-function PickupCadSvg({ view }: { view: ContractDamageMarkPdf["view"] }) {
-  const elements = getPickupCadElements(view);
-  return (
-    <>
-      {elements.map((el, index) => {
-        const key = `${el.type}-${index}`;
-        if (el.type === "rect") {
-          return (
-            <Rect
-              key={key}
-              x={el.x}
-              y={el.y}
-              width={el.w}
-              height={el.h}
-              rx={el.rx ?? 0}
-              fill={el.fill}
-              stroke={el.stroke === "none" ? undefined : el.stroke}
-              strokeWidth={el.sw ?? 1}
-            />
-          );
-        }
-        if (el.type === "circle") {
-          return (
-            <Circle
-              key={key}
-              cx={el.cx}
-              cy={el.cy}
-              r={el.r}
-              fill={el.fill}
-              stroke={el.stroke}
-              strokeWidth={el.sw}
-            />
-          );
-        }
-        if (el.type === "line") {
-          return (
-            <Line
-              key={key}
-              x1={el.x1}
-              y1={el.y1}
-              x2={el.x2}
-              y2={el.y2}
-              stroke={el.stroke}
-              strokeWidth={el.sw ?? 1}
-            />
-          );
-        }
-        return (
-          <Path
-            key={key}
-            d={el.d}
-            fill={el.fill}
-            stroke={el.stroke}
-            strokeWidth={el.sw ?? 1}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-function CarDiagram({
-  caption,
-  view,
-  marks,
-  photoUrl,
-}: {
-  caption: string;
-  view: ContractDamageMarkPdf["view"];
-  marks: ContractDamageMarkPdf[];
-  photoUrl?: string | null;
-}) {
-  return (
-    <View style={styles.diagramBox}>
-      <Text style={styles.diagramCaption}>{caption}</Text>
-      <View style={styles.diagramStack}>
-        {photoUrl ? (
-          <Image src={photoUrl} style={styles.diagramPhoto} />
-        ) : (
-          <Svg width={150} height={100} viewBox="0 0 300 300">
-            <PickupCadSvg view={view} />
-          </Svg>
-        )}
-        <Svg
-          style={styles.diagramOverlay}
-          width={150}
-          height={100}
-          viewBox="0 0 300 300"
-        >
-          {marks.map((mark, index) => (
-            <Text
-              key={`${mark.symbol}-${mark.phase ?? "OUT"}-${index}`}
-              x={mark.x * 300}
-              y={mark.y * 300}
-              style={{
-                fontSize: 18,
-                fill: mark.phase === "IN" ? "#b45309" : RED,
-                fontFamily: "Helvetica-Bold",
-              }}
-            >
-              {mark.symbol}
-            </Text>
-          ))}
-        </Svg>
-      </View>
-      <Text style={{ fontSize: 5.5, color: MUTED, marginTop: 2 }}>
-        {photoUrl ? "Foto real + marcas" : "Diagrama CAD pickup"}
-      </Text>
-    </View>
-  );
-}
-
 export function ContractPdfDocument(props: ContractPdfProps) {
   const legalName = props.legalName || OLDES_COMPANY.legalName;
   const businessName = props.businessName || OLDES_COMPANY.brandName;
@@ -758,8 +608,6 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         }));
 
   const marks = props.damageMarks ?? [];
-  const byView = (view: ContractDamageMarkPdf["view"]) =>
-    marks.filter((m) => m.view === view);
 
   const idDoc =
     props.customerDui ||
@@ -955,6 +803,19 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           </View>
         </View>
 
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerText}>{businessName}</Text>
+          <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) =>
+              `Página ${pageNumber} de ${totalPages}`
+            }
+          />
+        </View>
+      </Page>
+
+      {/* ===================== ANVERSO (continuación) ===================== */}
+      <Page size="LETTER" style={styles.page}>
         <Text style={styles.sectionTitle}>Estado del vehículo</Text>
         <View style={styles.legendRow}>
           <Text style={[styles.legendItem, { fontFamily: "Helvetica-Bold" }]}>
@@ -970,55 +831,18 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             </Text>
           ))}
         </View>
-        <View
-          style={{
-            flexDirection: "row",
-            gap: 12,
-            alignItems: "flex-start",
-            marginTop: 4,
-          }}
-        >
-          <View style={{ alignItems: "center" }}>
-            <PanelMapSvg
-              bodyStyle={
-                props.bodyStyle ||
-                resolveBodyStyle(props.vehicleType, props.vehicleModel)
-              }
-              marks={marks}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 7, color: MUTED, marginBottom: 4 }}>
-              Marque daños sobre el plano superior (como el formulario físico).
-              Rojo = salida · Ámbar = entrada.
-            </Text>
-            <View style={styles.diagramGrid}>
-              <CarDiagram
-                caption="Frontal"
-                view="FRONT"
-                marks={byView("FRONT")}
-                photoUrl={props.viewPhotos?.FRONT}
-              />
-              <CarDiagram
-                caption="Trasera"
-                view="REAR"
-                marks={byView("REAR")}
-                photoUrl={props.viewPhotos?.REAR}
-              />
-              <CarDiagram
-                caption="Izquierda"
-                view="LEFT"
-                marks={byView("LEFT")}
-                photoUrl={props.viewPhotos?.LEFT}
-              />
-              <CarDiagram
-                caption="Derecha"
-                view="RIGHT"
-                marks={byView("RIGHT")}
-                photoUrl={props.viewPhotos?.RIGHT}
-              />
-            </View>
-          </View>
+        <Text style={styles.panelMapHint}>
+          Marque daños sobre el plano superior (como el formulario físico).
+          Rojo = salida · Ámbar = entrada.
+        </Text>
+        <View style={styles.panelMapWrap}>
+          <PanelMapSvg
+            bodyStyle={
+              props.bodyStyle ||
+              resolveBodyStyle(props.vehicleType, props.vehicleModel)
+            }
+            marks={marks}
+          />
         </View>
 
         <View style={styles.billingBox}>
@@ -1122,7 +946,9 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             color: NAVY,
           }}
         >
-          Se anexan fotos de comprobación de entrega al final de este documento.
+          {(props.annexPhotos?.length ?? 0) > 0
+            ? "Las fotos de comprobación se anexan al final de este documento."
+            : "Puede adjuntar fotos de comprobación desde la inspección; se imprimirán al final."}
         </Text>
 
         <Text
@@ -1253,7 +1079,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </View>
       </Page>
 
-      {(props.annexPhotoUrls?.length ?? 0) > 0 ? (
+      {(props.annexPhotos?.length ?? 0) > 0 ? (
         <Page size="LETTER" style={styles.page}>
           <Text
             style={{
@@ -1263,11 +1089,11 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               marginBottom: 8,
             }}
           >
-            ANEXO — Fotos de comprobación de entrega
+            ANEXO — Fotos de comprobación
           </Text>
           <Text style={{ fontSize: 8, color: MUTED, marginBottom: 10 }}>
-            Contrato {props.contractCode} · Evidencia fotográfica al final del
-            documento para impresión corrida.
+            Contrato {props.contractCode} · Evidencia fotográfica adjunta al
+            final del documento.
           </Text>
           <View
             style={{
@@ -1276,9 +1102,9 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               gap: 8,
             }}
           >
-            {props.annexPhotoUrls!.map((url, index) => (
+            {props.annexPhotos!.map((photo, index) => (
               <View
-                key={`${url}-${index}`}
+                key={`${photo.url}-${index}`}
                 style={{
                   width: "48%",
                   marginBottom: 8,
@@ -1289,11 +1115,11 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               >
                 {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf */}
                 <Image
-                  src={url}
+                  src={photo.url}
                   style={{ width: "100%", height: 180, objectFit: "contain" }}
                 />
                 <Text style={{ fontSize: 7, marginTop: 4, color: MUTED }}>
-                  Foto {index + 1}
+                  {photo.label}
                 </Text>
               </View>
             ))}
