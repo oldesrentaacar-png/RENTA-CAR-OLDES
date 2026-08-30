@@ -68,6 +68,7 @@ export async function GET(request: Request) {
       .eq("published_on_web", true)
       .eq("is_active", true)
       .is("deleted_at", null)
+      .order("daily_rate", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
 
