@@ -27,6 +27,10 @@ const nextConfig: NextConfig = {
         source: "/landing/privacidad",
         destination: "/landing/privacidad.html",
       },
+      {
+        source: "/oldes-logo.svg",
+        destination: "/landing/oldes-logo.svg",
+      },
     ];
   },
 };
