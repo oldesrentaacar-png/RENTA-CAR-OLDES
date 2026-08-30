@@ -50,7 +50,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="contrato-${pdfData.contractCode}.pdf"`,
+        "Content-Disposition": `inline; filename="contrato-${pdfData.contractCode}-${CONTRACT_PDF_TEMPLATE_VERSION}.pdf"`,
         "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
         Pragma: "no-cache",
         Expires: "0",

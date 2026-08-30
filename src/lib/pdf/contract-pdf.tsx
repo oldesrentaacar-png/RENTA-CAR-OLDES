@@ -837,7 +837,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </View>
         <Text style={styles.panelMapHint}>
           Marque daños sobre el plano superior (como el formulario físico).
-          Rojo = salida · Ámbar = entrada.
+          Rojo = salida · Ámbar = entrada. Sin vistas laterales en este PDF.
         </Text>
         <View style={styles.panelMapWrap}>
           <PanelMapSvg
