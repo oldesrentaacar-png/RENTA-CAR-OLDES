@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 80" fill="none" aria-hidden="true">
+  <text x="0" y="52" fill="#ffffff" font-family="Arial Black, Arial, sans-serif" font-size="42" font-weight="900" font-style="italic">VISA</text>
+  <circle cx="210" cy="30" r="22" fill="#EB001B" opacity=".95"/>
+  <circle cx="242" cy="30" r="22" fill="#F79E1B" opacity=".95"/>
+  <text x="188" y="68" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="600">mastercard.</text>
+  <g transform="translate(310,8)" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="18" width="34" height="22" rx="3"/>
+    <path d="M14 18 V14 a8 8 0 0 1 16 0 v4"/>
+    <path d="M12 28 h26"/>
+    <path d="M18 36 c0 8 6 14 12 14 s12-6 12-14"/>
+  </g>
+  <text x="310" y="68" fill="#ffffff" font-family="Arial, sans-serif" font-size="13" font-weight="600">Efectivo / Transferencia</text>
+</svg>

@@ -19,6 +19,14 @@ const nextConfig: NextConfig = {
         source: "/landing/faq",
         destination: "/landing/faq.html",
       },
+      {
+        source: "/landing/terminos",
+        destination: "/landing/terminos.html",
+      },
+      {
+        source: "/landing/privacidad",
+        destination: "/landing/privacidad.html",
+      },
     ];
   },
 };
