@@ -23,6 +23,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { formatAppDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
+import { contractPdfHref } from "@/lib/pdf/contract-pdf-meta";
 
 export default async function ContratoDetailPage({
   params,
@@ -129,7 +130,7 @@ export default async function ContratoDetailPage({
                   </Link>
                 ) : null}
                 <a
-                  href={`/api/contracts/${id}/pdf`}
+                  href={contractPdfHref(id)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"

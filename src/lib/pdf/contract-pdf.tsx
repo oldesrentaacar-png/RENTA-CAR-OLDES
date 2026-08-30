@@ -27,6 +27,7 @@ import {
 } from "@/lib/inspections/vehicle-panel-map";
 import { formatMoney } from "@/lib/money";
 import { PDF_BRAND } from "@/lib/pdf/brand-assets";
+import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
 
 export type ContractAccessoryRow = {
   key: string;
@@ -120,7 +121,7 @@ const LIGHT = "#f1f5f9";
 const styles = StyleSheet.create({
   page: {
     paddingTop: 28,
-    paddingBottom: 36,
+    paddingBottom: 52,
     paddingHorizontal: 28,
     fontSize: 8,
     fontFamily: "Helvetica",
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   },
   pageBack: {
     paddingTop: 32,
-    paddingBottom: 36,
+    paddingBottom: 52,
     paddingHorizontal: 32,
     fontSize: 8,
     fontFamily: "Helvetica",
@@ -502,8 +503,8 @@ function PanelMapSvg({
   const topMarks = marks.filter((m) => m.view === "TOP");
   const stroke = NAVY;
 
-  return (
-    <Svg width={170} height={280} viewBox={`0 0 ${width} ${height}`}>
+    return (
+    <Svg width={128} height={210} viewBox={`0 0 ${width} ${height}`}>
       <Rect x={0} y={0} width={width} height={height} fill="#f3e6c0" />
       <Text
         x={width / 2 - 42}
@@ -805,7 +806,9 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </View>
 
         <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>{businessName}</Text>
+          <Text style={styles.footerText}>
+            {businessName} · {CONTRACT_PDF_TEMPLATE_VERSION}
+          </Text>
           <Text
             style={styles.footerText}
             render={({ pageNumber, totalPages }) =>
@@ -964,7 +967,9 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </Text>
 
         <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>{businessName}</Text>
+          <Text style={styles.footerText}>
+            {businessName} · {CONTRACT_PDF_TEMPLATE_VERSION}
+          </Text>
           <Text
             style={styles.footerText}
             render={({ pageNumber, totalPages }) =>

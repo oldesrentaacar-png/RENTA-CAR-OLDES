@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
 import { renderContractPdf } from "@/lib/pdf/render";
+import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
 
 export async function GET(
   _request: Request,
@@ -50,8 +51,10 @@ export async function GET(
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="contrato-${pdfData.contractCode}.pdf"`,
-        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
         Pragma: "no-cache",
+        Expires: "0",
+        "X-PDF-Template-Version": CONTRACT_PDF_TEMPLATE_VERSION,
       },
     });
   } catch {

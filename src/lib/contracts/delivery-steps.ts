@@ -1,5 +1,6 @@
 import type { DeliveryStep } from "@/components/contracts/delivery-checklist";
 import { formatMoney } from "@/lib/money";
+import { contractPdfHref } from "@/lib/pdf/contract-pdf-meta";
 
 export type DeliveryStepsInput = {
   contractId: string;
@@ -92,7 +93,7 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
         ? "PDF almacenado en el contrato."
         : "El PDF se genera bajo demanda (siempre disponible).",
       status: "done",
-      href: `/api/contracts/${contractId}/pdf`,
+      href: contractPdfHref(contractId),
       linkLabel: "Ver PDF",
     },
   ];
