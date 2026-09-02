@@ -41,6 +41,11 @@ const OWNERSHIP_OPTIONS = [
   { value: "CONSIGNMENT", label: "Consignación" },
 ];
 
+const TRANSMISSION_OPTIONS = [
+  { value: "Automatic", label: "Automática" },
+  { value: "Manual", label: "Manual" },
+];
+
 export function VehicleForm({ vehicle, vehicleTypes = [] }: VehicleFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -134,10 +139,13 @@ export function VehicleForm({ vehicle, vehicleTypes = [] }: VehicleFormProps) {
           min="0"
           defaultValue={vehicle?.current_mileage ?? ""}
         />
-        <Input
+        <Select
           name="transmission"
           label="Transmisión"
-          defaultValue={vehicle?.transmission ?? "Automatic"}
+          defaultValue={
+            vehicle?.transmission === "Manual" ? "Manual" : "Automatic"
+          }
+          options={TRANSMISSION_OPTIONS}
         />
         <Input
           name="fuelType"
