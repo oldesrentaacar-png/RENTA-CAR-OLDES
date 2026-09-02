@@ -62,14 +62,17 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 }
 .hero-bg{
   position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;object-position:center 55%;
+  object-fit:cover;object-position:18% center;
   z-index:0;
   image-rendering:auto;
-  transform:translateZ(0);
+  transform:scale(1);
+}
+@media(min-width:768px){
+  .hero-bg{object-position:14% center}
 }
 .hero-overlay{
   position:absolute;inset:0;z-index:1;pointer-events:none;
-  background:linear-gradient(105deg,rgba(6,20,56,.78) 0%,rgba(6,20,56,.42) 34%,rgba(6,20,56,.12) 58%,rgba(0,0,0,.18) 100%);
+  background:linear-gradient(105deg,rgba(6,20,56,.72) 0%,rgba(6,20,56,.38) 36%,rgba(6,20,56,.1) 58%,rgba(0,0,0,.14) 100%);
 }
 .hero-inner{
   position:relative;z-index:2;
@@ -118,6 +121,37 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 .faq-a{display:none;padding:0 1.15rem 1rem;color:#6b7280;font-size:.9rem;line-height:1.55}
 .faq-item.open .faq-a{display:block}
 .faq-item.open .faq-q{color:var(--blue)}
+.faq-chevron{flex-shrink:0;color:#94a3b8;font-size:1.1rem;transition:transform .2s}
+.faq-item.open .faq-chevron{transform:rotate(180deg);color:var(--blue)}
+.fleet-guarantee{
+  margin-top:1.5rem;padding:1rem 1.25rem;border-radius:.875rem;
+  background:linear-gradient(135deg,#eff6ff 0%,#f8fafc 100%);
+  border:1px solid #bfdbfe;text-align:center;
+}
+.fleet-guarantee strong{color:var(--blue)}
+.fleet-guarantee p{margin:0;color:#475569;font-size:.88rem;line-height:1.6}
+.faq-layout{display:flex;flex-direction:column;gap:2rem}
+#faq-list{display:flex;flex-direction:column;gap:.75rem}
+.faq-after{display:grid;grid-template-columns:1fr;gap:1rem}
+@media(min-width:768px){.faq-after{grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem}}
+.help-card{background:#fff;border:1px solid #e8ecf1;border-radius:1rem;padding:2rem 1.5rem 1.75rem;text-align:center;box-shadow:0 8px 30px rgba(10,31,92,.07)}
+.help-icon{width:52px;height:52px;border-radius:50%;border:2.5px solid #3a9b63;background:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 1.1rem;color:#3a9b63;font-size:1.35rem;font-weight:900;line-height:1}
+.help-card h3{font-size:1.2rem;font-weight:800;color:#1e3a8a;margin-bottom:.65rem;line-height:1.35}
+.help-card p{color:#64748b;font-size:.88rem;line-height:1.6;margin-bottom:1.35rem;padding:0 .25rem}
+.wa-btn{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;width:100%;background:#3a9b63;color:#fff;border:none;padding:.9rem 1.25rem;border-radius:.65rem;font-family:inherit;font-size:.92rem;font-weight:800;text-decoration:none;transition:background .2s;box-shadow:0 2px 8px rgba(58,155,99,.25)}
+.wa-btn:hover{background:#2f8558}
+.info-card{background:#fff;border:1px solid #e8ecf1;border-radius:1rem;padding:1.5rem 1.35rem 1.35rem;box-shadow:0 8px 30px rgba(10,31,92,.07)}
+.info-card h3{font-size:1.05rem;font-weight:800;color:#1e3a8a;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid #eef2f7}
+.info-block{margin-bottom:1.1rem}
+.info-block:last-child{margin-bottom:0}
+.info-block h4{font-size:.82rem;font-weight:800;color:#334155;margin-bottom:.5rem}
+.info-row{font-size:.84rem;color:#64748b;line-height:1.6;margin-bottom:.35rem}
+.info-row strong{color:#1e293b;font-weight:700}
+.info-row a{color:var(--blue);text-decoration:none;font-weight:600}
+.info-row a:hover{text-decoration:underline}
+.faq-more{text-align:center;margin-top:.5rem}
+.faq-more a{color:var(--blue);font-weight:800;font-size:.85rem;text-decoration:none}
+.faq-more a:hover{text-decoration:underline}
 
 /* ── GOOGLE REVIEWS ── */
 .google-badge{
@@ -575,7 +609,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
       <a href="#por-que" class="nav-link" data-i18n="nav_why">Why OLDES</a>
       <a href="#flota" class="nav-link" data-i18n="nav_vehicles">Vehicles</a>
       <a href="#reservar" class="nav-link" data-i18n="nav_quote">Get a Quote</a>
-      <a href="/landing/faq.html" class="nav-link" data-i18n="nav_faq">FAQ</a>
+      <a href="#preguntas" class="nav-link" data-i18n="nav_faq">FAQ</a>
     </div>
     <div style="display:flex;align-items:center;gap:.625rem;">
       <div class="lang-switch" aria-label="Language / Idioma" title="English / Español">
@@ -626,7 +660,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
     <a href="#reservar" class="mnav-link" onclick="closeMobileNav()">
       <span class="mnav-icon"><i data-lucide="calendar" style="width:18px;height:18px;color:var(--blue);"></i></span><span data-i18n="nav_quote_long">Request a quote</span>
     </a>
-    <a href="/landing/faq.html" class="mnav-link" onclick="closeMobileNav()">
+    <a href="#preguntas" class="mnav-link" onclick="closeMobileNav()">
       <span class="mnav-icon"><i data-lucide="help-circle" style="width:18px;height:18px;color:var(--blue);"></i></span><span data-i18n="nav_faq">FAQ</span>
     </a>
     <div style="height:1px;background:#e5e7eb;margin:.5rem .875rem;"></div>
@@ -642,7 +676,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 
 <!-- HERO -->
 <section id="inicio" class="hero">
-  <img class="hero-bg" src="/landing/hero-beach-suv.png?v=2" alt="" aria-hidden="true" decoding="async" fetchpriority="high"/>
+  <img class="hero-bg" src="/landing/hero-beach-suv.png?v=3" alt="" aria-hidden="true" decoding="async" fetchpriority="high"/>
   <div class="hero-overlay" aria-hidden="true"></div>
   <div class="hero-inner">
     <div class="hero-copy hero-panel">
@@ -753,8 +787,8 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
     </article>
     <article class="why-card">
       <div class="why-icon" aria-hidden="true"><i data-lucide="wallet"></i></div>
-      <h3 data-i18n="why2_title">No deposits or card holds</h3>
-      <p data-i18n="why2_desc">Rent without excessive deposits or freezing your card limit.</p>
+      <h3 data-i18n="why2_title">Sin depósito obligatorio</h3>
+      <p data-i18n="why2_desc">Renta tu vehículo sin dejar bloqueos de dinero excesivos. (Depósito sujeto únicamente a evaluación de riesgo del cliente).</p>
     </article>
     <article class="why-card">
       <div class="why-icon" aria-hidden="true"><i data-lucide="truck"></i></div>
@@ -791,6 +825,9 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
         <p style="color:#6b7280;font-size:.9rem;max-width:640px;margin:.75rem auto 0;line-height:1.55;" data-i18n="fleet_sub">Transparent rates with insurance included. Select a category and get an instant quote with no hidden fees.</p>
       </div>
       <div id="car-grid" class="fleet-grid"></div>
+      <div class="fleet-guarantee" role="note">
+        <p data-i18n-html="fleet_guarantee"><strong>Garantía de Categoría:</strong> Las fotos son ilustrativas. Al reservar, garantizamos la categoría seleccionada (o una superior) con las mismas prestaciones de espacio y comodidad.</p>
+      </div>
     </section>
 
     <!-- RESEÑAS -->
@@ -831,6 +868,59 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
       </div>
     </section>
 
+    <!-- PREGUNTAS FRECUENTES -->
+    <section id="preguntas">
+      <div style="text-align:center;margin-bottom:1.75rem;">
+        <p class="sec-tag" data-i18n="faq_tag">Preguntas frecuentes</p>
+        <h2 class="sec-title" style="font-size:clamp(1.35rem,3.2vw,1.85rem);" data-i18n="faq_title">Preguntas frecuentes</h2>
+        <div class="divider" style="margin:0 auto;"></div>
+        <p style="color:#6b7280;font-size:.9rem;max-width:640px;margin:.75rem auto 0;line-height:1.55;" data-i18n="faq_sub">Respuestas claras sobre requisitos, reservas, pagos y políticas de alquiler.</p>
+      </div>
+
+      <div class="faq-layout">
+        <div id="faq-list">
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q1">¿Cuáles son los requisitos para rentar un vehículo?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a1">Para alquilar con nosotros necesitas contar con tu Documento Único de Identidad (DUI) o Pasaporte vigente, una Licencia de Conducir válida (nacional o extranjera) con al menos 1 o 2 años de antigüedad, y ser mayor de 21 años.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q2">¿Qué se necesita para hacer una reservación?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a2">Puedes reservar en línea o por WhatsApp proporcionando tus fechas de entrega/devolución, números de vuelos, la categoría de vehículo elegida, tus datos de contacto, la copia de tu licencia y pasaporte. En algunos casos solicitamos un anticipo mínimo para asegurar la disponibilidad del auto.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q3">¿Cuál es el tiempo o periodo mínimo de renta?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a3">El periodo mínimo de alquiler suele ser de 72 horas (3 días). Si devuelves el vehículo después del plazo de 72 horas sin previo aviso, se aplicará el cobro de un día adicional o una tarifa por hora extra.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q4">¿Aceptan pago en tarjeta de crédito o solo efectivo?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a4">Aceptamos pagos con tarjeta de crédito, tarjeta de débito y efectivo. Además, contamos con opciones de alquiler donde no retendremos depósitos excesivos ni bloqueos de montos altos en tu tarjeta. Solo que con pagos con tarjetas no se pueden hacer descuentos.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q5">¿Se requiere un depósito de garantía?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a5">En la mayoría de los casos no solicitamos depósito de garantía. Únicamente en situaciones específicas o tras una evaluación de perfil de riesgo podríamos requerir un monto de garantía mínimo y reembolsable, el cual se devuelve en su totalidad al finalizar el contrato.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q6">¿Puedo pedir la entrega o devolución del vehículo en el aeropuerto?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a6">¡Sí! Contamos con servicio de entrega y recepción directa en el Aeropuerto Internacional o en tu domicilio/hotel en San Salvador para que no te preocupes por el transporte a tu llegada.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q7">¿El alquiler incluye seguro y asistencia en carretera?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a7">Sí, todos nuestros autos cuentan con cobertura de seguro básico y asistencia vial para tu tranquilidad. Como en cualquier póliza de alquiler, aplica un deducible en caso de accidentes o siniestros, cuyo monto y condiciones se te explicarán de forma transparente en tu cotización y contrato de arrendamiento.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q8">¿Cuál es la política de combustible?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a8">Aplicamos la política de "Lleno a Lleno" o "Igual a Igual". Recibes el vehículo con cierto nivel de combustible y debes entregarlo con la misma cantidad para evitar cargos adicionales de reabastecimiento.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q9">¿Hay límite de kilometraje durante mi viaje?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a9">Nuestras tarifas estándar incluyen kilometraje libre dentro del país, permitiéndote recorrer todo El Salvador sin preocuparte por distancias o cobros por kilómetro recorrido.</p></article>
+          <article class="faq-item"><button type="button" class="faq-q"><span data-i18n="q10">¿Existen cobros o costos adicionales?</span><span class="faq-chevron" aria-hidden="true">▾</span></button><p class="faq-a" data-i18n="a10">No tenemos cobros ocultos. Nuestras tarifas incluyen seguro básico y kilometraje libre. Los únicos cargos adicionales aplican si solicitas servicios opcionales (como silla para bebé, conductor extra), entregas/devoluciones fuera de horario laboral, o en caso de requerirse la cobertura del deducible del seguro ante un accidente. Todo se te desglosa claramente desde tu cotización inicial.</p></article>
+        </div>
+
+        <div class="faq-after">
+          <div class="help-card">
+            <div class="help-icon" aria-hidden="true">?</div>
+            <h3 data-i18n="help_title">¿Aún tienes preguntas?</h3>
+            <p data-i18n="help_sub">Nuestro Asistente Virtual y equipo de atención están disponibles 24/7 para resolver tus preguntas al instante.</p>
+            <a href="https://wa.me/50374350381" id="wa-help" class="wa-btn" target="_blank" rel="noopener">
+              <span data-i18n="help_wa">Chatea en WhatsApp</span>
+            </a>
+          </div>
+          <div class="info-card">
+            <h3 data-i18n="info_title">Información del contacto</h3>
+            <div class="info-block">
+              <h4 data-i18n="info_immediate">Atención Inmediata</h4>
+              <p class="info-row"><strong data-i18n="info_phone_label">Teléfono / WhatsApp:</strong> <a href="tel:+50374350381">+503 7435-0381</a></p>
+              <p class="info-row"><strong data-i18n="info_email_label">Correo:</strong> <a href="mailto:soporte@oldesrentacar.com">soporte@oldesrentacar.com</a></p>
+            </div>
+            <div class="info-block">
+              <h4 data-i18n="info_coverage">Cobertura y Entregas</h4>
+              <p class="info-row"><strong data-i18n="info_coverage_label">Cobertura:</strong> <span data-i18n="info_coverage_val">Todo El Salvador</span></p>
+              <p class="info-row"><strong data-i18n="info_mode_label">Modalidad:</strong> <span data-i18n="info_mode_val">Servicio 100% a domicilio y entregas en el Aeropuerto Internacional (AILP).</span></p>
+            </div>
+            <div class="info-block">
+              <h4 data-i18n="info_hours">Horario de Respuesta</h4>
+              <p class="info-row"><strong data-i18n="info_chat_label">Chat en línea:</strong> <span data-i18n="info_chat_val">24 horas / 7 días a la semana</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </div>
 </div>
 
@@ -852,7 +942,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
           <li><a href="#flota" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_vehicles_long">Vehicle options</a></li>
           <li><a href="#reservar" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_quote_long">Request a quote</a></li>
           <li><a href="#reseñas" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_reviews">Reviews</a></li>
-          <li><a href="/landing/faq.html" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_faq">FAQ</a></li>
+          <li><a href="#preguntas" style="color:#9ca3af;text-decoration:none;font-size:.85rem;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'" data-i18n="nav_faq">FAQ</a></li>
         </ul>
       </div>
       <div>
@@ -1249,8 +1339,8 @@ const I18N={
     why_sub:"Everything you need to drive with total peace of mind.",
     why1_title:"Simple online booking",
     why1_desc:"Book your vehicle quickly and easily online, anytime.",
-    why2_title:"No deposits or card holds",
-    why2_desc:"Rent without excessive deposits or freezing your card limit.",
+    why2_title:"No mandatory deposit",
+    why2_desc:"Rent your vehicle without excessive money holds. (Deposit subject only to client risk assessment).",
     why3_title:"Home & airport delivery",
     why3_desc:"We deliver to your home, hotel, or airport on arrival.",
     why4_title:"Insurance & 24/7 roadside help",
@@ -1261,6 +1351,7 @@ const I18N={
     why6_desc:"Everything backed by a formal rental agreement — no fine print or surprises at pickup.",
     fleet_title:"Our Available Fleet",
     fleet_sub:"Transparent rates with insurance included. Select a category and get an instant quote with no hidden fees.",
+    fleet_guarantee:"<strong>Category Guarantee:</strong> Photos are illustrative. When you book, we guarantee the selected category (or a higher one) with the same space and comfort features.",
     cta_select_fleet:"Select & quote",
     daily_price:"Daily Rate",
     trans_auto:"Automatic",
@@ -1275,7 +1366,42 @@ const I18N={
     nav_faq:"FAQ",
     faq_tag:"FAQ",
     faq_title:"Frequently asked questions",
-    faq_sub:"Quick answers. Contact us on WhatsApp for anything else.",
+    faq_sub:"Clear answers about requirements, bookings, payments, and rental policies.",
+    help_title:"Still have questions?",
+    help_sub:"Our Virtual Assistant and support team are available 24/7 to answer your questions instantly.",
+    help_wa:"Chat on WhatsApp",
+    info_title:"Contact information",
+    info_immediate:"Immediate Support",
+    info_phone_label:"Phone / WhatsApp:",
+    info_email_label:"Email:",
+    info_coverage:"Coverage & Delivery",
+    info_coverage_label:"Coverage:",
+    info_coverage_val:"All of El Salvador",
+    info_mode_label:"Service:",
+    info_mode_val:"100% home delivery and airport drop-off at AILP.",
+    info_hours:"Response Hours",
+    info_chat_label:"Online chat:",
+    info_chat_val:"24 hours / 7 days a week",
+    q1:"What are the requirements to rent a vehicle?",
+    a1:"You need a valid DUI (national ID) or passport, a valid driver's license (local or foreign) with at least 1–2 years of history, and you must be 21 or older.",
+    q2:"What is needed to make a reservation?",
+    a2:"Book online or via WhatsApp with pickup/return dates, flight numbers, vehicle category, contact details, and copies of your license and passport. A small deposit may be requested in some cases to secure availability.",
+    q3:"What is the minimum rental period?",
+    a3:"The minimum rental period is usually 72 hours (3 days). Late returns without notice may incur an extra day or hourly fee.",
+    q4:"Do you accept credit cards or cash only?",
+    a4:"We accept credit cards, debit cards, and cash. We also offer options without excessive deposits or large card holds. Discounts are not available when paying by card.",
+    q5:"Is a security deposit required?",
+    a5:"In most cases no deposit is required. Only in specific situations or after a risk assessment might we require a minimal refundable deposit, returned in full at contract end.",
+    q6:"Can I request airport pickup or drop-off?",
+    a6:"Yes! We offer direct delivery and pickup at the international airport or at your home/hotel in San Salvador.",
+    q7:"Does the rental include insurance and roadside assistance?",
+    a7:"Yes, all vehicles include basic insurance and roadside assistance. As with any rental policy, a deductible applies in case of accidents; amount and terms are explained clearly in your quote and contract.",
+    q8:"What is the fuel policy?",
+    a8:"We use a Full-to-Full or Same-to-Same policy. Return the vehicle with the same fuel level to avoid refueling charges.",
+    q9:"Is there a mileage limit during my trip?",
+    a9:"Standard rates include unlimited mileage within the country, so you can travel all of El Salvador without per-kilometer charges.",
+    q10:"Are there additional charges?",
+    a10:"No hidden fees. Rates include basic insurance and unlimited mileage. Extra charges only apply for optional services (baby seat, extra driver), after-hours delivery/return, or insurance deductible coverage after an accident. Everything is itemized clearly from your initial quote.",
     contact_tag:"We're here to help",
     contact_title:"CONTACT",
     contact_call_title:"Call us",
@@ -1378,8 +1504,8 @@ const I18N={
     why_sub:"Todo lo que necesitas para manejar con total tranquilidad.",
     why1_title:"Reserva online sencilla",
     why1_desc:"Reserva tu vehículo de forma rápida y sencilla online, en cualquier momento.",
-    why2_title:"Sin depósitos ni bloqueos de dinero",
-    why2_desc:"Alquila sin dejar depósitos excesivos ni congelar el cupo de tu tarjeta.",
+    why2_title:"Sin depósito obligatorio",
+    why2_desc:"Renta tu vehículo sin dejar bloqueos de dinero excesivos. (Depósito sujeto únicamente a evaluación de riesgo del cliente).",
     why3_title:"Entregas a domicilio y Aeropuerto",
     why3_desc:"Llevamos el vehículo hasta la puerta de tu casa, hotel o a tu llegada al aeropuerto.",
     why4_title:"Seguro y asistencia vial 24/7",
@@ -1390,6 +1516,7 @@ const I18N={
     why6_desc:"Todo respaldado por un contrato formal de arrendamiento, sin letras pequeñas ni sorpresas al entregar.",
     fleet_title:"Nuestra Flota Disponible",
     fleet_sub:"Tarifas transparentes con seguro incluido. Selecciona una categoría y cotiza al instante sin cargos ocultos.",
+    fleet_guarantee:"<strong>Garantía de Categoría:</strong> Las fotos son ilustrativas. Al reservar, garantizamos la categoría seleccionada (o una superior) con las mismas prestaciones de espacio y comodidad.",
     cta_select_fleet:"Seleccionar y cotizar",
     daily_price:"Precio Diario",
     trans_auto:"Automática",
@@ -1404,7 +1531,42 @@ const I18N={
     nav_faq:"Preguntas",
     faq_tag:"Preguntas frecuentes",
     faq_title:"Preguntas frecuentes",
-    faq_sub:"Respuestas rápidas. Escríbenos por WhatsApp si necesitas más detalle.",
+    faq_sub:"Respuestas claras sobre requisitos, reservas, pagos y políticas de alquiler.",
+    help_title:"¿Aún tienes preguntas?",
+    help_sub:"Nuestro Asistente Virtual y equipo de atención están disponibles 24/7 para resolver tus preguntas al instante.",
+    help_wa:"Chatea en WhatsApp",
+    info_title:"Información del contacto",
+    info_immediate:"Atención Inmediata",
+    info_phone_label:"Teléfono / WhatsApp:",
+    info_email_label:"Correo:",
+    info_coverage:"Cobertura y Entregas",
+    info_coverage_label:"Cobertura:",
+    info_coverage_val:"Todo El Salvador",
+    info_mode_label:"Modalidad:",
+    info_mode_val:"Servicio 100% a domicilio y entregas en el Aeropuerto Internacional (AILP).",
+    info_hours:"Horario de Respuesta",
+    info_chat_label:"Chat en línea:",
+    info_chat_val:"24 horas / 7 días a la semana",
+    q1:"¿Cuáles son los requisitos para rentar un vehículo?",
+    a1:"Para alquilar con nosotros necesitas contar con tu Documento Único de Identidad (DUI) o Pasaporte vigente, una Licencia de Conducir válida (nacional o extranjera) con al menos 1 o 2 años de antigüedad, y ser mayor de 21 años.",
+    q2:"¿Qué se necesita para hacer una reservación?",
+    a2:"Puedes reservar en línea o por WhatsApp proporcionando tus fechas de entrega/devolución, números de vuelos, la categoría de vehículo elegida, tus datos de contacto, la copia de tu licencia y pasaporte. En algunos casos solicitamos un anticipo mínimo para asegurar la disponibilidad del auto.",
+    q3:"¿Cuál es el tiempo o periodo mínimo de renta?",
+    a3:"El periodo mínimo de alquiler suele ser de 72 horas (3 días). Si devuelves el vehículo después del plazo de 72 horas sin previo aviso, se aplicará el cobro de un día adicional o una tarifa por hora extra.",
+    q4:"¿Aceptan pago en tarjeta de crédito o solo efectivo?",
+    a4:"Aceptamos pagos con tarjeta de crédito, tarjeta de débito y efectivo. Además, contamos con opciones de alquiler donde no retendremos depósitos excesivos ni bloqueos de montos altos en tu tarjeta. Solo que con pagos con tarjetas no se pueden hacer descuentos.",
+    q5:"¿Se requiere un depósito de garantía?",
+    a5:"En la mayoría de los casos no solicitamos depósito de garantía. Únicamente en situaciones específicas o tras una evaluación de perfil de riesgo podríamos requerir un monto de garantía mínimo y reembolsable, el cual se devuelve en su totalidad al finalizar el contrato.",
+    q6:"¿Puedo pedir la entrega o devolución del vehículo en el aeropuerto?",
+    a6:"¡Sí! Contamos con servicio de entrega y recepción directa en el Aeropuerto Internacional o en tu domicilio/hotel en San Salvador para que no te preocupes por el transporte a tu llegada.",
+    q7:"¿El alquiler incluye seguro y asistencia en carretera?",
+    a7:"Sí, todos nuestros autos cuentan con cobertura de seguro básico y asistencia vial para tu tranquilidad. Como en cualquier póliza de alquiler, aplica un deducible en caso de accidentes o siniestros, cuyo monto y condiciones se te explicarán de forma transparente en tu cotización y contrato de arrendamiento.",
+    q8:"¿Cuál es la política de combustible?",
+    a8:"Aplicamos la política de \"Lleno a Lleno\" o \"Igual a Igual\". Recibes el vehículo con cierto nivel de combustible y debes entregarlo con la misma cantidad para evitar cargos adicionales de reabastecimiento.",
+    q9:"¿Hay límite de kilometraje durante mi viaje?",
+    a9:"Nuestras tarifas estándar incluyen kilometraje libre dentro del país, permitiéndote recorrer todo El Salvador sin preocuparte por distancias o cobros por kilómetro recorrido.",
+    q10:"¿Existen cobros o costos adicionales?",
+    a10:"No tenemos cobros ocultos. Nuestras tarifas incluyen seguro básico y kilometraje libre. Los únicos cargos adicionales aplican si solicitas servicios opcionales (como silla para bebé, conductor extra), entregas/devoluciones fuera de horario laboral, o en caso de requerirse la cobertura del deducible del seguro ante un accidente. Todo se te desglosa claramente desde tu cotización inicial.",
     contact_tag:"Estamos para servirte",
     contact_title:"CONTACTO",
     contact_call_title:"Llámanos",
@@ -1539,6 +1701,8 @@ function applyLang(lang){
   document.querySelectorAll("[data-wa-prefill]").forEach(a=>{a.href=waHref;});
   const waHeroHref=`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(t("wa_hero_chat"))}`;
   document.querySelectorAll("[data-wa-hero]").forEach(a=>{a.href=waHeroHref;});
+  const waHelp=document.getElementById("wa-help");
+  if(waHelp)waHelp.href=`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(t("wa_prefill"))}`;
   const btnText=document.getElementById("btn-text");
   if(btnText&&!document.getElementById("reserve-btn")?.disabled)btnText.textContent=t("btn_submit");
   if(vehicleTypes.length){
@@ -1924,6 +2088,17 @@ window.closeMobileNav=function(){
   document.getElementById("menu-backdrop").classList.remove("show");
   document.body.style.overflow="";
 };
+
+/* ── FAQ ACCORDION ── */
+document.querySelectorAll(".faq-q").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const item=btn.closest(".faq-item");
+    if(!item)return;
+    const open=item.classList.contains("open");
+    document.querySelectorAll(".faq-item.open").forEach(el=>el.classList.remove("open"));
+    if(!open)item.classList.add("open");
+  });
+});
 
 applyLang(currentLang);
 refreshIcons();
