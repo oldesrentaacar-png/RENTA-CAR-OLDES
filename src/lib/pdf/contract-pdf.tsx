@@ -318,32 +318,35 @@ const styles = StyleSheet.create({
     lineHeight: 1.3,
   },
   fuelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 3,
+    width: "100%",
+    marginTop: 4,
   },
   fuelLabel: {
-    width: 42,
     fontSize: 7,
     fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    marginBottom: 3,
   },
   fuelScale: {
     flexDirection: "row",
-    flex: 1,
+    width: "100%",
+    height: 16,
     borderWidth: 1,
     borderColor: LINE,
   },
   fuelCell: {
     flex: 1,
-    fontSize: 6,
-    textAlign: "center",
-    paddingVertical: 2,
+    justifyContent: "center",
+    alignItems: "center",
     borderRightWidth: 0.5,
     borderRightColor: LINE,
   },
+  fuelCellText: {
+    fontSize: 6,
+    fontFamily: "Helvetica-Bold",
+  },
   fuelActive: {
     backgroundColor: "#fde68a",
-    fontFamily: "Helvetica-Bold",
   },
   accessoryHeader: {
     flexDirection: "row",
@@ -431,7 +434,7 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 6.5, color: MUTED },
 });
 
-const FUEL_MARKS = ["E", "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "F"] as const;
+const FUEL_SEGMENT_COUNT = 9;
 
 function fuelIndexFromLabel(label?: string | null): number {
   if (!label) return -1;
@@ -488,17 +491,21 @@ function FuelGauge({
     <View style={styles.fuelRow}>
       <Text style={styles.fuelLabel}>{label}</Text>
       <View style={styles.fuelScale}>
-        {FUEL_MARKS.map((mark, index) => (
-          <Text
-            key={mark}
+        {Array.from({ length: FUEL_SEGMENT_COUNT }).map((_, index) => (
+          <View
+            key={index}
             style={[
               styles.fuelCell,
               index === activeIndex ? styles.fuelActive : {},
-              index === FUEL_MARKS.length - 1 ? { borderRightWidth: 0 } : {},
+              index === FUEL_SEGMENT_COUNT - 1 ? { borderRightWidth: 0 } : {},
             ]}
           >
-            {mark}
-          </Text>
+            {index === 0 || index === FUEL_SEGMENT_COUNT - 1 ? (
+              <Text style={styles.fuelCellText}>
+                {index === 0 ? "E" : "F"}
+              </Text>
+            ) : null}
+          </View>
         ))}
       </View>
     </View>
