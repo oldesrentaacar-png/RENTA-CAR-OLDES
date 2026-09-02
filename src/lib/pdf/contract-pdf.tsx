@@ -1,12 +1,9 @@
 import {
-  Circle,
   Document,
   Image,
   Page,
-  Path,
   Rect,
   StyleSheet,
-  Svg,
   Text,
   View,
 } from "@react-pdf/renderer";
@@ -16,15 +13,7 @@ import {
   OLDES_COMPANY,
   OLDES_CONTRACT_CLAUSES,
   OLDES_CONTRACT_FOOTER_NOTE,
-  OLDES_DAMAGE_LEGEND,
 } from "@/lib/contracts/oldes-terms";
-import {
-  PANEL_VIEWBOX,
-  getCarPaths,
-  getPanelsForBody,
-  resolveBodyStyle,
-  type VehicleBodyStyle,
-} from "@/lib/inspections/vehicle-panel-map";
 import { formatMoney } from "@/lib/money";
 import { PDF_BRAND } from "@/lib/pdf/brand-assets";
 import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
@@ -74,7 +63,6 @@ export type ContractPdfProps = {
   vehicleYear: number;
   plate: string;
   vehicleType?: string | null;
-  bodyStyle?: VehicleBodyStyle | null;
   startDateLabel: string;
   startTimeLabel: string;
   endDateLabel: string;
@@ -325,27 +313,6 @@ const styles = StyleSheet.create({
   },
   accessoryLabel: { width: "62%", fontSize: 6.5 },
   accessoryMark: { width: "19%", fontSize: 6.5, textAlign: "center" },
-  legendRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 4,
-  },
-  legendItem: {
-    fontSize: 7,
-  },
-  panelMapWrap: {
-    alignItems: "center",
-    marginTop: 6,
-    marginBottom: 8,
-  },
-  panelMapHint: {
-    fontSize: 7,
-    color: MUTED,
-    textAlign: "center",
-    marginBottom: 6,
-    maxWidth: 420,
-    alignSelf: "center",
-  },
   billingBox: {
     borderWidth: 1,
     borderColor: LINE,
@@ -486,107 +453,6 @@ function FuelGauge({
   );
 }
 
-function panelMapTitle(style: VehicleBodyStyle): string {
-  return style === "PICKUP" ? "PICKUP" : "CARRO SEDAN";
-}
-
-function PanelMapSvg({
-  bodyStyle,
-  marks,
-}: {
-  bodyStyle: VehicleBodyStyle;
-  marks: ContractDamageMarkPdf[];
-}) {
-  const panels = getPanelsForBody(bodyStyle);
-  const paths = getCarPaths(bodyStyle);
-  const { width, height } = PANEL_VIEWBOX;
-  const topMarks = marks.filter((m) => m.view === "TOP");
-  const stroke = NAVY;
-
-    return (
-    <Svg width={128} height={210} viewBox={`0 0 ${width} ${height}`}>
-      <Rect x={0} y={0} width={width} height={height} fill="#f3e6c0" />
-      <Text
-        x={width / 2 - 42}
-        y={22}
-        style={{
-          fontSize: 12,
-          fill: stroke,
-          fontFamily: "Helvetica-Bold",
-        }}
-      >
-        {panelMapTitle(bodyStyle)}
-      </Text>
-      <Path d={paths.body} fill="#ffffff" stroke={stroke} strokeWidth={2.4} />
-      <Path d={paths.bumperFront} fill="#ffffff" stroke={stroke} strokeWidth={1.5} />
-      <Path d={paths.hood} fill="#ffffff" stroke={stroke} strokeWidth={1.5} />
-      <Path d={paths.fenderFL} fill="#ffffff" stroke={stroke} strokeWidth={1.4} />
-      <Path d={paths.fenderFR} fill="#ffffff" stroke={stroke} strokeWidth={1.4} />
-      <Path d={paths.doorFL} fill="#ffffff" stroke={stroke} strokeWidth={1.4} />
-      <Path d={paths.doorFR} fill="#ffffff" stroke={stroke} strokeWidth={1.4} />
-      <Path d={paths.stepL} fill="#ffffff" stroke={stroke} strokeWidth={1.3} />
-      <Path d={paths.stepR} fill="#ffffff" stroke={stroke} strokeWidth={1.3} />
-      <Path d={paths.roof} fill="#ffffff" stroke={stroke} strokeWidth={1.5} />
-      <Path d={paths.doorRL} fill="#ffffff" stroke={stroke} strokeWidth={1.4} />
-      <Path d={paths.doorRR} fill="#ffffff" stroke={stroke} strokeWidth={1.4} />
-      <Path d={paths.fenderRL} fill="#ffffff" stroke={stroke} strokeWidth={1.4} />
-      <Path d={paths.fenderRR} fill="#ffffff" stroke={stroke} strokeWidth={1.4} />
-      <Path d={paths.trunk} fill="#ffffff" stroke={stroke} strokeWidth={1.5} />
-      <Path d={paths.bumperRear} fill="#ffffff" stroke={stroke} strokeWidth={1.5} />
-      {paths.wheels.map((w) => (
-        <Circle
-          key={`wo-${w.cx}-${w.cy}`}
-          cx={w.cx}
-          cy={w.cy}
-          r={w.r}
-          fill="#ffffff"
-          stroke={stroke}
-          strokeWidth={2.2}
-        />
-      ))}
-      {paths.wheels.map((w) => (
-        <Circle
-          key={`wi-${w.cx}-${w.cy}`}
-          cx={w.cx}
-          cy={w.cy}
-          r={w.r * 0.45}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={1.6}
-        />
-      ))}
-      {panels.map((panel) => (
-        <Text
-          key={`${panel.id}-label`}
-          x={panel.lx - Math.min(40, (panel.label.length * (panel.fontSize ?? 7)) / 3.2)}
-          y={panel.ly}
-          style={{
-            fontSize: panel.fontSize ?? 7,
-            fill: stroke,
-            fontFamily: "Helvetica-Bold",
-          }}
-        >
-          {panel.label}
-        </Text>
-      ))}
-      {topMarks.map((mark, index) => (
-        <Text
-          key={`m-${index}`}
-          x={mark.x * width}
-          y={mark.y * height}
-          style={{
-            fontSize: 14,
-            fill: mark.phase === "IN" ? "#b45309" : RED,
-            fontFamily: "Helvetica-Bold",
-          }}
-        >
-          {mark.symbol}
-        </Text>
-      ))}
-    </Svg>
-  );
-}
-
 export function ContractPdfDocument(props: ContractPdfProps) {
   const legalName = props.legalName || OLDES_COMPANY.legalName;
   const businessName = props.businessName || OLDES_COMPANY.brandName;
@@ -607,8 +473,6 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           checkOut: null,
           checkIn: null,
         }));
-
-  const marks = props.damageMarks ?? [];
 
   const idDoc =
     props.customerDui ||
@@ -820,35 +684,6 @@ export function ContractPdfDocument(props: ContractPdfProps) {
 
       {/* ===================== ANVERSO (continuación) ===================== */}
       <Page size="LETTER" style={styles.page}>
-        <Text style={styles.sectionTitle}>Estado del vehículo</Text>
-        <View style={styles.legendRow}>
-          <Text style={[styles.legendItem, { fontFamily: "Helvetica-Bold" }]}>
-            CÓDIGO DE IDENTIFICACIÓN:
-          </Text>
-          {OLDES_DAMAGE_LEGEND.map((item) => (
-            <Text key={item.symbol} style={styles.legendItem}>
-              <Text style={{ fontFamily: "Helvetica-Bold", color: RED }}>
-                {item.symbol}
-              </Text>
-              {" = "}
-              {item.meaning}
-            </Text>
-          ))}
-        </View>
-        <Text style={styles.panelMapHint}>
-          Marque daños sobre el plano superior (como el formulario físico).
-          Rojo = salida · Ámbar = entrada. Sin vistas laterales en este PDF.
-        </Text>
-        <View style={styles.panelMapWrap}>
-          <PanelMapSvg
-            bodyStyle={
-              props.bodyStyle ||
-              resolveBodyStyle(props.vehicleType, props.vehicleModel)
-            }
-            marks={marks}
-          />
-        </View>
-
         <View style={styles.billingBox}>
           <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Facturación</Text>
           <Text style={{ fontSize: 7, marginBottom: 3 }}>

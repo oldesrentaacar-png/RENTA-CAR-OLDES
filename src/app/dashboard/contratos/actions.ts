@@ -37,7 +37,6 @@ import {
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
 import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS } from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
-import { resolveBodyStyle } from "@/lib/inspections/vehicle-panel-map";
 import { parseMoneyInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
@@ -1470,7 +1469,6 @@ export async function getContractPdfData(contractId: string) {
     vehicleYear: row.vehicles.year,
     plate: row.vehicles.plate,
     vehicleType: row.vehicles.category,
-    bodyStyle: resolveBodyStyle(row.vehicles.category, row.vehicles.model),
     startDateLabel: formatAppDate(mapped.start_at),
     startTimeLabel: formatAppTime(mapped.start_at),
     endDateLabel: formatAppDate(mapped.end_at),
