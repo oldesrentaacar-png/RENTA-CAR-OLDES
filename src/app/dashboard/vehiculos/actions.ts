@@ -426,6 +426,11 @@ export async function createVehicle(
     if (error) throw mapPostgresError(error);
 
     const id = (data as { id: string }).id;
+
+    if (parsed.data.publishedOnWeb) {
+      await syncPublicVehicleTypeFromUnit(supabase, id, true);
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "vehicle.create",
@@ -434,6 +439,9 @@ export async function createVehicle(
     });
 
     revalidatePath("/dashboard/vehiculos");
+    if (parsed.data.publishedOnWeb) {
+      revalidatePath("/dashboard/configuracion/tipos-vehiculo");
+    }
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -516,6 +524,14 @@ export async function updateVehicle(
 
     if (error) throw mapPostgresError(error);
 
+    if (parsed.data.publishedOnWeb !== undefined) {
+      await syncPublicVehicleTypeFromUnit(
+        supabase,
+        id,
+        parsed.data.publishedOnWeb,
+      );
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "vehicle.update",
@@ -525,6 +541,9 @@ export async function updateVehicle(
 
     revalidatePath("/dashboard/vehiculos");
     revalidatePath(`/dashboard/vehiculos/${id}`);
+    if (parsed.data.publishedOnWeb !== undefined) {
+      revalidatePath("/dashboard/configuracion/tipos-vehiculo");
+    }
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));

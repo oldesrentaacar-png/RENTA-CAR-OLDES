@@ -249,7 +249,8 @@ export function VehicleForm({ vehicle, vehicleTypes = [] }: VehicleFormProps) {
           defaultChecked={vehicle?.published_on_web ?? false}
           className="rounded border-zinc-300"
         />
-        Publicar en web
+        Publicar categoría en la web (aparece en la landing como tipo/tarifa, no
+        placa ni unidad individual)
       </label>
 
       <Textarea
