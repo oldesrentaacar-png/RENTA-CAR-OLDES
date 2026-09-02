@@ -17,6 +17,12 @@ import {
 import { formatMoney } from "@/lib/money";
 import { PDF_BRAND } from "@/lib/pdf/brand-assets";
 import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
+import {
+  MachoteField,
+  MachoteGrid,
+  MachoteSection,
+  machoteStyles,
+} from "@/lib/pdf/machote-box";
 
 export type ContractAccessoryRow = {
   key: string;
@@ -96,6 +102,8 @@ export type ContractPdfProps = {
   operatorSignatureUrl?: string | null;
   /** Fotos de inspección — solo al final del documento (anexo). */
   annexPhotos?: Array<{ url: string; label: string }>;
+  /** Líneas de facturación (silla bebé, entrega fuera de horario, etc.) */
+  billingLineItems?: Array<{ label: string; amount: number }>;
   issuedPlace?: string | null;
   issuedDateLabel?: string | null;
 };
@@ -263,8 +271,42 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  leftCol: { width: "48%" },
-  rightCol: { width: "52%" },
+  photoPanel: {
+    width: "52%",
+    borderWidth: 1,
+    borderColor: LINE,
+    padding: 4,
+    alignItems: "center",
+  },
+  heroPhoto: {
+    width: "100%",
+    height: 168,
+    objectFit: "contain",
+    marginBottom: 6,
+  },
+  checklistPanel: {
+    width: "48%",
+    borderWidth: 1,
+    borderColor: LINE,
+    padding: 4,
+  },
+  checklistItem: {
+    flexDirection: "row",
+    gap: 4,
+    marginBottom: 3,
+    alignItems: "flex-start",
+  },
+  checklistMark: {
+    width: 14,
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+  },
+  checklistLabel: {
+    flex: 1,
+    fontSize: 7,
+    lineHeight: 1.3,
+  },
   fuelRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -485,6 +527,21 @@ export function ContractPdfDocument(props: ContractPdfProps) {
       ? props.clauses.split(/\n+/).filter(Boolean)
       : OLDES_CONTRACT_CLAUSES;
 
+  const billingLines = props.billingLineItems ?? [];
+  const subtotalRental = props.dailyRate * props.rentalDays;
+
+  const openingAccessories = accessories.filter(
+    (item) => item.checkOut && item.checkOut !== "☐",
+  );
+  const checklistRows =
+    openingAccessories.length > 0
+      ? openingAccessories
+      : accessories.filter((item) => item.checkOut !== undefined);
+
+  const issuedWhen =
+    props.issuedDateLabel ||
+    `${props.startDateLabel} · ${props.startTimeLabel}`;
+
   return (
     <Document
       title={`Contrato ${props.contractCode}`}
@@ -515,159 +572,133 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             </Text>
           </View>
           <View style={styles.titleBlock}>
-            <Text style={styles.title}>CONTRATO DE ALQUILER{"\n"}DE VEHÍCULO</Text>
+            <Text style={styles.title}>
+              CONTRATO DE ARRENDAMIENTO{"\n"}Y ACTA DE ENTREGA
+            </Text>
             <Text style={styles.contractNo}>No. {props.contractCode}</Text>
-            <Text style={[styles.meta, { marginTop: 4 }]}>
-              REGISTRO IVA: {props.ivaRegistry || "____________________"}
+            <Text style={[styles.meta, { marginTop: 4, textAlign: "right" }]}>
+              Fecha: {issuedWhen}
             </Text>
           </View>
         </View>
 
-        <View style={styles.checkboxRow}>
-          <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
-            OPERADO POR:
-          </Text>
-          <View style={styles.checkItem}>
-            <View
-              style={[
-                styles.box,
-                props.operatedAs !== "INTERMEDIATION" ? styles.boxChecked : {},
-              ]}
+        <MachoteSection title="1. Datos del arrendatario">
+          <MachoteGrid>
+            <MachoteField label="Nombre completo" value={props.customerName} width="full" />
+            <MachoteField label="DUI / Pasaporte / ID" value={idDoc} width="half" />
+            <MachoteField label="Teléfono / Celular" value={props.customerPhone} width="half" />
+            <MachoteField label="N° Licencia de conducir" value={props.licenseNumber} width="half" />
+            <MachoteField label="Vencimiento licencia" value={props.licenseExpiry} width="half" />
+            <MachoteField label="Correo electrónico" value={props.customerEmail} width="full" />
+            <MachoteField
+              label="Conductor adicional"
+              value={props.additionalDriverName}
+              width="full"
             />
-            <Text style={{ fontSize: 7 }}>Operador logístico</Text>
-          </View>
-          <View style={styles.checkItem}>
-            <View
-              style={[
-                styles.box,
-                props.operatedAs === "INTERMEDIATION" ? styles.boxChecked : {},
-              ]}
+            <MachoteField label="Dirección" value={props.customerAddress} width="full" />
+            <MachoteField label="Dirección USA" value={props.customerUsaAddress} width="full" />
+          </MachoteGrid>
+        </MachoteSection>
+
+        <MachoteSection title="2. Datos del vehículo y facturación">
+          <MachoteGrid>
+            <MachoteField
+              label="Marca y modelo"
+              value={`${props.vehicleBrand} ${props.vehicleModel} ${props.vehicleYear}`}
+              width="half"
             />
-            <Text style={{ fontSize: 7 }}>Intermediación</Text>
+            <MachoteField label="Placa / Matrícula" value={props.plate} width="half" />
+            <MachoteField label="Tipo de vehículo" value={props.vehicleType} width="half" />
+            <MachoteField
+              label="Combustible (salida)"
+              value={props.fuelOutLabel ? `Registrado: ${props.fuelOutLabel}` : null}
+              width="half"
+            />
+            <MachoteField
+              label="Devolución pactada"
+              value={`${props.endDateLabel} · ${props.endTimeLabel}`}
+              width="full"
+            />
+            <MachoteField
+              label="Días acordados"
+              value={`${props.rentalDays} día${props.rentalDays === 1 ? "" : "s"}`}
+              width="third"
+            />
+            <MachoteField
+              label="Tarifa diaria"
+              value={`${formatMoney(props.dailyRate)} / día`}
+              width="third"
+            />
+            <MachoteField label="Depósito (garantía)" value={formatMoney(props.deposit)} width="third" />
+          </MachoteGrid>
+          <View style={machoteStyles.billingRow}>
+            <Text style={{ fontSize: 7.5 }}>Renta ({props.rentalDays} días × {formatMoney(props.dailyRate)})</Text>
+            <Text style={{ fontSize: 7.5 }}>{formatMoney(subtotalRental)}</Text>
           </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>1. Datos del arrendatario</Text>
-        <Field label="ARRENDATARIO(A):" value={props.customerName} />
-        <Field
-          label="FACTURAR A NOMBRE DE:"
-          value={props.billingName || props.customerName}
-        />
-        <Field label="DIRECCIÓN:" value={props.customerAddress} />
-        <View style={styles.dual}>
-          <Field label="CONDUCTOR:" value={props.driverName || props.customerName} />
-          <Field label="TEL:" value={props.customerPhone} />
-        </View>
-        <View style={styles.dual}>
-          <Field label="LICENCIA:" value={props.licenseNumber} />
-          <Field label="VENCIMIENTO:" value={props.licenseExpiry} />
-        </View>
-        <View style={styles.dual}>
-          <Field label="DUI O PASAPORTE:" value={idDoc} />
-          <Field label="E-MAIL:" value={props.customerEmail} />
-        </View>
-        <Field label="DIRECCIÓN USA:" value={props.customerUsaAddress} />
-        <Field
-          label="CONDUCTOR ADICIONAL:"
-          value={props.additionalDriverName}
-        />
-
-        <Text style={styles.sectionTitle}>2. Datos del vehículo y facturación</Text>
-        <View style={styles.table}>
-          <View style={styles.tableRow}>
-            <Text style={styles.th}>MARCA</Text>
-            <Text style={styles.th}>MODELO</Text>
-            <Text style={styles.th}>PLACAS</Text>
-            <Text style={styles.th}>TIPO</Text>
-          </View>
-          <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.td}>{props.vehicleBrand}</Text>
-            <Text style={styles.td}>
-              {props.vehicleModel} {props.vehicleYear}
-            </Text>
-            <Text style={styles.td}>{props.plate}</Text>
-            <Text style={[styles.td, styles.tdLast]}>
-              {props.vehicleType || "—"}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.table}>
-          <View style={styles.tableRow}>
-            <Text style={[styles.th, { flex: 1.2 }]} />
-            <Text style={styles.th}>DÍA</Text>
-            <Text style={styles.th}>HORAS</Text>
-            <Text style={styles.th}>KM</Text>
-          </View>
-          <View style={styles.tableRow}>
-            <Text style={[styles.td, { flex: 1.2, fontFamily: "Helvetica-Bold" }]}>
-              SALIDA
-            </Text>
-            <Text style={styles.td}>{props.startDateLabel}</Text>
-            <Text style={styles.td}>{props.startTimeLabel}</Text>
-            <Text style={[styles.td, styles.tdLast]}>
-              {props.mileageOut != null ? String(props.mileageOut) : "—"}
-            </Text>
-          </View>
-          <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
-            <Text style={[styles.td, { flex: 1.2, fontFamily: "Helvetica-Bold" }]}>
-              ENTRADA
-            </Text>
-            <Text style={styles.td}>{props.endDateLabel}</Text>
-            <Text style={styles.td}>{props.endTimeLabel}</Text>
-            <Text style={[styles.td, styles.tdLast]}>
-              {props.mileageIn != null ? String(props.mileageIn) : "—"}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Combustible</Text>
-        <FuelGauge
-          label="SALIDA"
-          activeIndex={fuelIndexFromLabel(props.fuelOutLabel)}
-        />
-        <FuelGauge
-          label="ENTRADA"
-          activeIndex={fuelIndexFromLabel(props.fuelInLabel)}
-        />
-        <Text style={{ fontSize: 6, color: MUTED, marginBottom: 4 }}>
-          (No se hace reintegros por combustible no utilizado)
-        </Text>
-
-        <View style={styles.twoColMain}>
-          <View style={{ width: "100%" }}>
-            <Text style={styles.sectionTitle}>Revisión de accesorios</Text>
-            <View style={styles.accessoryHeader}>
-              <Text style={[styles.accessoryHeaderText, { width: "62%" }]}>
-                ACCESORIO
-              </Text>
-              <Text style={[styles.accessoryHeaderText, { width: "19%" }]}>
-                SALIDA
-              </Text>
-              <Text style={[styles.accessoryHeaderText, { width: "19%" }]}>
-                ENTRADA
-              </Text>
+          {props.insurance > 0 ? (
+            <View style={machoteStyles.billingRow}>
+              <Text style={{ fontSize: 7.5 }}>Seguro</Text>
+              <Text style={{ fontSize: 7.5 }}>{formatMoney(props.insurance)}</Text>
             </View>
-            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              {accessories.map((item) => (
-                <View
-                  key={item.key}
-                  style={[styles.accessoryRow, { width: "50%", paddingRight: 4 }]}
-                >
-                  <Text style={[styles.accessoryLabel, { width: "62%" }]}>
-                    {item.label}
+          ) : null}
+          {billingLines.map((line) => (
+            <View key={line.label} style={machoteStyles.billingRow}>
+              <Text style={{ fontSize: 7.5 }}>{line.label}</Text>
+              <Text style={{ fontSize: 7.5 }}>{formatMoney(line.amount)}</Text>
+            </View>
+          ))}
+          {(props.otherCharges ?? 0) > 0 ? (
+            <View style={machoteStyles.billingRow}>
+              <Text style={{ fontSize: 7.5 }}>Otros cargos</Text>
+              <Text style={{ fontSize: 7.5 }}>{formatMoney(props.otherCharges ?? 0)}</Text>
+            </View>
+          ) : null}
+          <View style={machoteStyles.billingTotal}>
+            <Text style={styles.totalStrong}>MONTO TOTAL</Text>
+            <Text style={styles.totalStrong}>{formatMoney(props.total)}</Text>
+          </View>
+          <Text style={[styles.disclaimer, { marginHorizontal: 6, marginBottom: 4 }]}>
+            ESTE DOCUMENTO NO ES UNA FACTURA; EXÍJALA CUANDO SU SERVICIO ESTÉ FINALIZADO
+          </Text>
+        </MachoteSection>
+
+        <MachoteSection title="3. Inspección de estado del vehículo y combustible">
+          <Text style={{ fontSize: 6.5, color: MUTED, paddingHorizontal: 6, paddingTop: 4 }}>
+            Simbología: (X) Rayón · (O) Golpe · (*) Cristal · (△) Faltante
+          </Text>
+          <View style={[styles.twoColMain, { paddingHorizontal: 4, paddingBottom: 4 }]}>
+            <View style={styles.photoPanel}>
+              {props.primaryPhotoUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+                <Image src={props.primaryPhotoUrl} style={styles.heroPhoto} />
+              ) : props.viewPhotos?.FRONT ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+                <Image src={props.viewPhotos.FRONT} style={styles.heroPhoto} />
+              ) : (
+                <View style={[styles.heroPhoto, { backgroundColor: LIGHT, justifyContent: "center", alignItems: "center" }]}>
+                  <Text style={{ fontSize: 7, color: MUTED }}>Sin foto del vehículo</Text>
+                </View>
+              )}
+              <FuelGauge
+                label="NIVEL COMBUSTIBLE"
+                activeIndex={fuelIndexFromLabel(props.fuelOutLabel)}
+              />
+            </View>
+            <View style={styles.checklistPanel}>
+              <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 4 }}>
+                CHECKLIST INVENTARIO (SALIDA)
+              </Text>
+              {checklistRows.map((item) => (
+                <View key={item.key} style={styles.checklistItem}>
+                  <Text style={styles.checklistMark}>
+                    [{item.checkOut === "✓" ? " ✓ " : item.checkOut || "   "}]
                   </Text>
-                  <Text style={styles.accessoryMark}>
-                    {item.checkOut || "☐"}
-                  </Text>
-                  <Text style={styles.accessoryMark}>
-                    {item.checkIn || "☐"}
-                  </Text>
+                  <Text style={styles.checklistLabel}>{item.label}</Text>
                 </View>
               ))}
             </View>
           </View>
-        </View>
+        </MachoteSection>
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
@@ -682,43 +713,20 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </View>
       </Page>
 
-      {/* ===================== ANVERSO (continuación) ===================== */}
+      {/* ===================== FIRMAS APERTURA ===================== */}
       <Page size="LETTER" style={styles.page}>
-        <View style={styles.billingBox}>
-          <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Facturación</Text>
-          <Text style={{ fontSize: 7, marginBottom: 3 }}>
-            El servicio a facturar comprende del día {props.startDateLabel} al
-            día {props.endDateLabel}
+        <Text style={[styles.sectionTitle, { marginTop: 0 }]}>
+          Términos y condiciones generales
+        </Text>
+        {clauses.slice(0, 3).map((clause) => (
+          <Text key={clause.slice(0, 24)} style={[styles.clause, { fontSize: 7 }]}>
+            {clause}
           </Text>
-          <View style={styles.billingRow}>
-            <Text>Días a facturar</Text>
-            <Text>{props.rentalDays}</Text>
-          </View>
-          <View style={styles.billingRow}>
-            <Text>Tarifa por día</Text>
-            <Text>{formatMoney(props.dailyRate)}</Text>
-          </View>
-          <View style={styles.billingRow}>
-            <Text>Seguro</Text>
-            <Text>{formatMoney(props.insurance)}</Text>
-          </View>
-          <View style={styles.billingRow}>
-            <Text>Otros cargos adicionales</Text>
-            <Text>{formatMoney(props.otherCharges ?? 0)}</Text>
-          </View>
-          <View style={styles.billingRow}>
-            <Text>Depósito (garantía)</Text>
-            <Text>{formatMoney(props.deposit)}</Text>
-          </View>
-          <View style={[styles.billingRow, { marginTop: 4 }]}>
-            <Text style={styles.totalStrong}>TOTAL</Text>
-            <Text style={styles.totalStrong}>{formatMoney(props.total)}</Text>
-          </View>
-          <Text style={styles.disclaimer}>
-            ESTE DOCUMENTO NO ES UNA FACTURA; EXÍJALA CUANDO SU SERVICIO ESTÉ
-            FINALIZADO
-          </Text>
-        </View>
+        ))}
+        <Text style={{ fontSize: 7, marginTop: 6, fontFamily: "Helvetica-Bold", color: NAVY }}>
+          ✓ ACEPTO Y ESTOY DE ACUERDO con los términos, inventario y estado del vehículo
+          registrados en este contrato de apertura.
+        </Text>
 
         <Text style={styles.sectionTitle}>Observaciones</Text>
         <View
@@ -737,7 +745,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         <View style={styles.signRow}>
           <View style={styles.signBox}>
             <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
-              RECIBE (ARRENDATARIO)
+              FIRMA DEL ARRENDATARIO
             </Text>
             <Text style={{ fontSize: 7 }}>
               Nombre: {props.customerName}
@@ -751,7 +759,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           </View>
           <View style={styles.signBox}>
             <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
-              ENTREGA (OLDES)
+              POR LA EMPRESA ARRENDADORA
             </Text>
             <Text style={{ fontSize: 7 }}>
               Nombre:{" "}

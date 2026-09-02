@@ -1232,7 +1232,7 @@ export async function getContractPdfData(contractId: string) {
     supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type), inspection_photos(storage_path, category, caption)",
+        "id, type, mileage, fuel_level, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type), inspection_photos(storage_path, category, caption)",
       )
       .eq("reservation_id", row.reservation_id)
       .order("inspection_date", { ascending: true }),
@@ -1264,6 +1264,7 @@ export async function getContractPdfData(contractId: string) {
     type: "CHECK_OUT" | "CHECK_IN";
     mileage: number | null;
     fuel_level: string | null;
+    additional_driver_name?: string | null;
     inspection_checklist_items:
       | Array<{ item_name: string; status: string }>
       | null;
@@ -1443,6 +1444,35 @@ export async function getContractPdfData(contractId: string) {
     ? FUEL_LEVEL_LABELS[checkIn.fuel_level] ?? checkIn.fuel_level
     : null;
 
+  const { data: reservationRow } = await supabase
+    .from("reservations")
+    .select("quote_id")
+    .eq("id", row.reservation_id)
+    .maybeSingle();
+
+  const billingLineItems: Array<{ label: string; amount: number }> = [];
+  const quoteId = (reservationRow as { quote_id?: string | null } | null)
+    ?.quote_id;
+  if (quoteId) {
+    const { data: quoteItems } = await supabase
+      .from("quote_items")
+      .select("description, amount")
+      .eq("quote_id", quoteId)
+      .order("sort_order", { ascending: true });
+    for (const item of quoteItems ?? []) {
+      const amount = Number((item as { amount: number }).amount ?? 0);
+      const label = String((item as { description: string }).description ?? "").trim();
+      if (label && amount > 0) {
+        billingLineItems.push({ label, amount });
+      }
+    }
+  }
+
+  const additionalDriverName =
+    checkOut?.additional_driver_name?.trim() ||
+    customer.additional_driver_name?.trim() ||
+    null;
+
   return {
     businessName: settingsRow?.business_name ?? "OLDES Renta Autos",
     legalName: settingsRow?.legal_name ?? null,
@@ -1464,6 +1494,7 @@ export async function getContractPdfData(contractId: string) {
     licenseExpiry: customer.license_expiry
       ? formatAppDate(customer.license_expiry)
       : null,
+    additionalDriverName,
     vehicleBrand: row.vehicles.brand,
     vehicleModel: row.vehicles.model,
     vehicleYear: row.vehicles.year,
@@ -1476,6 +1507,7 @@ export async function getContractPdfData(contractId: string) {
     rentalDays: rentalDaysBetween(mapped.start_at, mapped.end_at),
     dailyRate: mapped.agreed_rate,
     otherCharges: 0,
+    billingLineItems,
     deposit: mapped.deposit,
     insurance: mapped.insurance,
     total: mapped.total,
@@ -1502,6 +1534,6 @@ export async function getContractPdfData(contractId: string) {
     operatorSignatureUrl,
     annexPhotos,
     issuedPlace: "San Salvador",
-    issuedDateLabel: formatAppDate(mapped.created_at),
+    issuedDateLabel: `${formatAppDate(mapped.start_at)} - ${formatAppTime(mapped.start_at)}`,
   };
 }
