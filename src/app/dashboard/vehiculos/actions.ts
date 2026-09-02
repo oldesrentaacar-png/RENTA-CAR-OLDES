@@ -352,6 +352,22 @@ export async function getVehicle(
   }
 }
 
+async function categoryFromVehicleTypeId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  vehicleTypeId: string | null | undefined,
+  fallbackCategory: string | null | undefined,
+): Promise<string> {
+  if (vehicleTypeId) {
+    const { data } = await supabase
+      .from("vehicle_types")
+      .select("name")
+      .eq("id", vehicleTypeId)
+      .maybeSingle();
+    if (data?.name?.trim()) return data.name.trim();
+  }
+  return fallbackCategory?.trim() || "General";
+}
+
 export async function createVehicle(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {
@@ -412,12 +428,17 @@ export async function createVehicle(
     );
 
     const supabase = await createClient();
+    const category = await categoryFromVehicleTypeId(
+      supabase,
+      parsed.data.vehicleTypeId,
+      parsed.data.category,
+    );
     const { data, error } = await supabase
       .from("vehicles")
       .insert({
         ...vehicleInputToRow(parsed.data),
         slug,
-        category: parsed.data.category ?? "General",
+        category,
         created_by: user.id,
       })
       .select("id")
@@ -516,6 +537,13 @@ export async function updateVehicle(
     }
 
     const supabase = await createClient();
+    if (parsed.data.vehicleTypeId) {
+      row.category = await categoryFromVehicleTypeId(
+        supabase,
+        parsed.data.vehicleTypeId,
+        parsed.data.category,
+      );
+    }
     const { error } = await supabase
       .from("vehicles")
       .update(row)

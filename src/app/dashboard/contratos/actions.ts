@@ -1197,7 +1197,7 @@ export async function getContractPdfData(contractId: string) {
   const { data } = await supabase
     .from("contracts")
     .select(
-      "*, customers(*), vehicles(brand, model, year, plate, category)",
+      "*, customers(*), vehicles(brand, model, year, plate, category, vehicle_type_id, vehicle_types(slug, name))",
     )
     .eq("id", contractId)
     .is("deleted_at", null)
@@ -1213,6 +1213,8 @@ export async function getContractPdfData(contractId: string) {
       year: number;
       plate: string;
       category: string | null;
+      vehicle_type_id: string | null;
+      vehicle_types: { slug: string; name: string } | null;
     };
   };
 
@@ -1499,7 +1501,11 @@ export async function getContractPdfData(contractId: string) {
     vehicleModel: row.vehicles.model,
     vehicleYear: row.vehicles.year,
     plate: row.vehicles.plate,
-    vehicleType: row.vehicles.category,
+    vehicleType:
+      row.vehicles.vehicle_types?.name ??
+      row.vehicles.category,
+    vehicleTypeSlug: row.vehicles.vehicle_types?.slug ?? null,
+    vehicleTypeName: row.vehicles.vehicle_types?.name ?? null,
     startDateLabel: formatAppDate(mapped.start_at),
     startTimeLabel: formatAppTime(mapped.start_at),
     endDateLabel: formatAppDate(mapped.end_at),

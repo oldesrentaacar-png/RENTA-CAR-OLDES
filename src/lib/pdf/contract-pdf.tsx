@@ -69,6 +69,8 @@ export type ContractPdfProps = {
   vehicleYear: number;
   plate: string;
   vehicleType?: string | null;
+  vehicleTypeSlug?: string | null;
+  vehicleTypeName?: string | null;
   startDateLabel: string;
   startTimeLabel: string;
   endDateLabel: string;
@@ -90,6 +92,8 @@ export type ContractPdfProps = {
     Record<"TOP" | "FRONT" | "REAR" | "LEFT" | "RIGHT", string>
   >;
   primaryPhotoUrl?: string | null;
+  /** Diagrama 5 vistas según tipo (sedán, pickup, minivan, SUV). */
+  inspectionWireframeUrl?: string | null;
   observations?: string | null;
   terms?: string | null;
   clauses?: string | null;
@@ -281,6 +285,12 @@ const styles = StyleSheet.create({
   heroPhoto: {
     width: "100%",
     height: 168,
+    objectFit: "contain",
+    marginBottom: 6,
+  },
+  wireframeDiagram: {
+    width: "100%",
+    height: 200,
     objectFit: "contain",
     marginBottom: 6,
   },
@@ -668,7 +678,13 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           </Text>
           <View style={[styles.twoColMain, { paddingHorizontal: 4, paddingBottom: 4 }]}>
             <View style={styles.photoPanel}>
-              {props.primaryPhotoUrl ? (
+              {props.inspectionWireframeUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+                <Image
+                  src={props.inspectionWireframeUrl}
+                  style={styles.wireframeDiagram}
+                />
+              ) : props.primaryPhotoUrl ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
                 <Image src={props.primaryPhotoUrl} style={styles.heroPhoto} />
               ) : props.viewPhotos?.FRONT ? (
@@ -676,7 +692,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                 <Image src={props.viewPhotos.FRONT} style={styles.heroPhoto} />
               ) : (
                 <View style={[styles.heroPhoto, { backgroundColor: LIGHT, justifyContent: "center", alignItems: "center" }]}>
-                  <Text style={{ fontSize: 7, color: MUTED }}>Sin foto del vehículo</Text>
+                  <Text style={{ fontSize: 7, color: MUTED }}>Sin diagrama del vehículo</Text>
                 </View>
               )}
               <FuelGauge
