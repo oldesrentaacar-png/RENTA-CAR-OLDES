@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { z } from "zod";
 
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
@@ -444,9 +445,20 @@ export async function saveChecklistItems(
       return actionError("Formato de checklist inválido.");
     }
 
-    const items = rawItems.map((item, index) =>
-      checklistItemSchema.parse({ ...(item as object), sortOrder: index }),
-    );
+    const items: z.infer<typeof checklistItemSchema>[] = [];
+    for (let index = 0; index < rawItems.length; index++) {
+      const parsed = checklistItemSchema.safeParse({
+        ...(rawItems[index] as object),
+        sortOrder: index,
+      });
+      if (!parsed.success) {
+        return actionError(
+          parsed.error.issues[0]?.message ??
+            `Ítem ${index + 1} del checklist inválido.`,
+        );
+      }
+      items.push(parsed.data);
+    }
 
     const supabase = await createClient();
     await supabase
@@ -499,10 +511,19 @@ export async function saveDamageMarks(
       return actionError("Formato de daños inválido.");
     }
 
-    const marks = rawMarks.map((mark, index) => {
-      const parsed = damageMarkSchema.parse(mark);
-      return { ...parsed, markNumber: index + 1 };
-    });
+    const marks: Array<
+      z.infer<typeof damageMarkSchema> & { markNumber: number }
+    > = [];
+    for (let index = 0; index < rawMarks.length; index++) {
+      const parsed = damageMarkSchema.safeParse(rawMarks[index]);
+      if (!parsed.success) {
+        return actionError(
+          parsed.error.issues[0]?.message ??
+            `Marca de daño ${index + 1} inválida.`,
+        );
+      }
+      marks.push({ ...parsed.data, markNumber: index + 1 });
+    }
 
     const supabase = await createClient();
     await supabase

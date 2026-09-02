@@ -1,30 +1,16 @@
 import { z } from "zod";
 
+import { optionalText, optionalUuid } from "@/lib/validation/form-helpers";
+
 const moneyField = z.coerce
   .number()
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
-
-const optionalUuid = z
-  .string()
-  .optional()
-  .or(z.literal(""))
-  .transform((value) => (value === "" ? undefined : value))
-  .pipe(z.uuid().optional());
-
 export const paymentReceiptSchema = z.object({
-  customerId: optionalUuid,
-  contractId: optionalUuid,
-  reservationId: optionalUuid,
+  customerId: optionalUuid(),
+  contractId: optionalUuid(),
+  reservationId: optionalUuid(),
   amount: moneyField.refine(
     (value) => value > 0,
     "El monto debe ser mayor a cero.",
@@ -39,7 +25,7 @@ export const paymentReceiptSchema = z.object({
   notes: optionalText(1000),
   /** When true (default), also creates a linked income_transactions row. */
   createIncome: z
-    .union([z.boolean(), z.string()])
+    .union([z.boolean(), z.string(), z.null()])
     .optional()
     .transform((value) => {
       if (value === undefined || value === null || value === "") return true;

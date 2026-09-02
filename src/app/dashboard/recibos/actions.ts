@@ -6,10 +6,12 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/typ
 import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
 import { formatAppDate } from "@/lib/dates";
-import { env, isSupabaseConfigured } from "@/lib/env";
+import { env, isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney, toNumber } from "@/lib/money";
+import { formatZodIssues, firstRelation } from "@/lib/validation/form-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   paymentReceiptSchema,
@@ -163,7 +165,10 @@ async function tryUpdateContractBilling(
   snapshot: ContractBillingSnapshot,
 ): Promise<boolean> {
   try {
-    const { error: updateError } = await supabase
+    const dbClient = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+    const { error: updateError } = await dbClient
       .from("contracts")
       .update({
         amount_paid: snapshot.newPaid,
@@ -266,7 +271,7 @@ export async function createPaymentReceipt(
 
     const parsed = paymentReceiptSchema.safeParse(parseReceiptForm(formData));
     if (!parsed.success) {
-      return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
+      return actionError(formatZodIssues(parsed.error));
     }
 
     const input = parsed.data;
@@ -426,7 +431,7 @@ export async function createPaymentRefund(
       createIncome: "false",
     });
     if (!parsed.success) {
-      return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
+      return actionError(formatZodIssues(parsed.error));
     }
 
     const input = parsed.data;
@@ -554,24 +559,38 @@ export async function getReceiptWhatsAppLink(
       amount: number;
       concept: string;
       receipt_kind?: "PAYMENT" | "REFUND";
-      customers: {
-        first_name: string;
-        last_name: string;
-        phone: string | null;
-        whatsapp: string | null;
-      };
+      customers:
+        | {
+            first_name: string;
+            last_name: string;
+            phone: string | null;
+            whatsapp: string | null;
+          }
+        | Array<{
+            first_name: string;
+            last_name: string;
+            phone: string | null;
+            whatsapp: string | null;
+          }>;
     };
 
-    const phone = row.customers.whatsapp || row.customers.phone;
-    if (!phone) {
-      return actionError("El cliente no tiene teléfono o WhatsApp registrado.");
+    const customer = firstRelation(row.customers);
+    if (!customer) {
+      return actionError("No se encontró el cliente asociado al recibo.");
+    }
+
+    const phone = customer.whatsapp || customer.phone;
+    if (!phone?.trim()) {
+      return actionError(
+        "El cliente no tiene teléfono o WhatsApp registrado. Actualice los datos del cliente.",
+      );
     }
 
     const appUrl = env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
     const pdfUrl = appUrl ? `${appUrl}/api/receipts/${id}/pdf` : null;
 
     const message = buildPaymentReceiptWhatsAppMessage({
-      customerName: `${row.customers.first_name} ${row.customers.last_name}`,
+      customerName: `${customer.first_name} ${customer.last_name}`.trim(),
       receiptCode: row.code,
       amountLabel: formatMoney(row.amount),
       concept: row.concept,

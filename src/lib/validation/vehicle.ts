@@ -1,13 +1,23 @@
 import { z } from "zod";
 
+import { emptyToUndefined, optionalText } from "@/lib/validation/form-helpers";
+
 const moneyField = z.coerce
   .number()
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
-function emptyToUndefined(value: unknown) {
-  if (value === "" || value === null || value === undefined) return undefined;
-  return value;
+/** Query-string booleans: z.coerce.boolean() treats "false" as true. */
+function queryBoolean() {
+  return z.preprocess(
+    (value) => {
+      if (value === "" || value === null || value === undefined) return undefined;
+      if (value === "true" || value === true) return true;
+      if (value === "false" || value === false) return false;
+      return value;
+    },
+    z.boolean().optional(),
+  );
 }
 
 const optionalMoneyField = z.preprocess(emptyToUndefined, moneyField.optional());
@@ -17,15 +27,6 @@ const optionalIntField = (min: number, max: number) =>
     emptyToUndefined,
     z.coerce.number().int().min(min).max(max).optional(),
   );
-
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
 
 export const vehicleSchema = z.object({
   brand: z.string().trim().min(1, "Marca requerida.").max(100),
@@ -47,10 +48,11 @@ export const vehicleSchema = z.object({
   luggage: optionalIntField(0, 20),
   airConditioning: z.boolean().default(true),
   category: optionalText(100),
-  vehicleTypeId: z
-    .union([z.string().uuid(), z.literal(""), z.null()])
-    .optional()
-    .transform((value) => (value === "" || value === undefined ? null : value)),
+  vehicleTypeId: z.preprocess(
+    (value) =>
+      value === "" || value === null || value === undefined ? null : value,
+    z.union([z.string().uuid(), z.null()]).optional(),
+  ),
   ownershipType: z
     .enum(["OWN", "THIRD_PARTY", "SUBLEASED", "CONSIGNMENT"])
     .default("OWN"),
@@ -100,7 +102,7 @@ export const vehicleSearchSchema = z.object({
       "ARCHIVED",
     ])
     .optional(),
-  publishedOnWeb: z.coerce.boolean().optional(),
+  publishedOnWeb: queryBoolean(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

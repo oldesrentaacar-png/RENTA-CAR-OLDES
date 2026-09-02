@@ -20,6 +20,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatMoney, multiply, toNumber } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
+import { firstRelation } from "@/lib/validation/form-helpers";
 import {
   buildQuoteWhatsAppMessage,
   buildWaMeLink,
@@ -549,7 +550,7 @@ export async function getQuoteWhatsAppLink(
     const { data: quote, error } = await supabase
       .from("quotes")
       .select(
-        "code, total, customers(first_name, last_name, phone), vehicles(brand, model, year)",
+        "code, total, customers(first_name, last_name, phone, whatsapp), vehicles(brand, model, year)",
       )
       .eq("id", quoteId)
       .maybeSingle();
@@ -560,19 +561,46 @@ export async function getQuoteWhatsAppLink(
     const q = quote as unknown as {
       code: string;
       total: number;
-      customers: { first_name: string; last_name: string; phone: string };
-      vehicles: { brand: string; model: string; year: number } | null;
+      customers:
+        | {
+            first_name: string;
+            last_name: string;
+            phone: string | null;
+            whatsapp: string | null;
+          }
+        | Array<{
+            first_name: string;
+            last_name: string;
+            phone: string | null;
+            whatsapp: string | null;
+          }>;
+      vehicles:
+        | { brand: string; model: string; year: number }
+        | Array<{ brand: string; model: string; year: number }>
+        | null;
     };
 
+    const customer = firstRelation(q.customers);
+    if (!customer) {
+      return actionError("No se encontró el cliente de la cotización.");
+    }
+
+    const phone = customer.whatsapp || customer.phone;
+    if (!phone?.trim()) {
+      return actionError(
+        "El cliente no tiene teléfono o WhatsApp registrado. Actualice los datos del cliente.",
+      );
+    }
+
     const message = buildQuoteWhatsAppMessage({
-      customerName: `${q.customers.first_name} ${q.customers.last_name}`,
+      customerName: `${customer.first_name} ${customer.last_name}`.trim(),
       quoteCode: q.code,
-      vehicleLabel: vehicleLabelFromJoin(q.vehicles),
+      vehicleLabel: vehicleLabelFromJoin(firstRelation(q.vehicles)),
       totalLabel: formatMoney(q.total),
     });
 
     return actionSuccess({
-      url: buildWaMeLink(q.customers.phone, message),
+      url: buildWaMeLink(phone, message),
     });
   } catch (error) {
     return actionError(toUserMessage(error));

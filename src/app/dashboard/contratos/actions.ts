@@ -66,7 +66,7 @@ function nextStatusAfterSign(
   hasClient: boolean,
   hasRepresentative: boolean,
 ): ContractStatus {
-  if (hasClient) return "COMPLETED";
+  if (hasClient) return "CLIENT_SIGNED";
   if (hasRepresentative) return "REPRESENTATIVE_SIGNED";
   return "PENDING";
 }
@@ -77,7 +77,7 @@ async function ensureRepresentativeSignature(
   userId: string,
   ipAddress: string | null,
   userAgent: string | null,
-) {
+): Promise<string | undefined> {
   const { data: existing } = await supabase
     .from("contract_signatures")
     .select("id")
@@ -85,7 +85,7 @@ async function ensureRepresentativeSignature(
     .eq("signer_type", "REPRESENTATIVE")
     .maybeSingle();
 
-  if (existing) return;
+  if (existing) return undefined;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -93,7 +93,9 @@ async function ensureRepresentativeSignature(
     .eq("id", userId)
     .maybeSingle();
 
-  if (!profile) return;
+  if (!profile) {
+    return "Configure su nombre y firma en el perfil para registrar la firma del operador.";
+  }
 
   const operator = profile as {
     first_name: string;
@@ -101,7 +103,9 @@ async function ensureRepresentativeSignature(
     signature_url?: string | null;
   };
   const operatorName = `${operator.first_name} ${operator.last_name}`.trim();
-  if (!operatorName) return;
+  if (!operatorName) {
+    return "Configure su nombre en el perfil para registrar la firma del operador.";
+  }
 
   let signaturePath: string | null = null;
   if (operator.signature_url?.startsWith("data:")) {
@@ -115,7 +119,11 @@ async function ensureRepresentativeSignature(
     signaturePath = operator.signature_url;
   }
 
-  await supabase.from("contract_signatures").insert({
+  if (!signaturePath) {
+    return "Configure su firma en el perfil para registrar la firma del operador.";
+  }
+
+  const { error } = await supabase.from("contract_signatures").insert({
     contract_id: contractId,
     signer_type: "REPRESENTATIVE",
     signed_by_name: operatorName,
@@ -124,6 +132,16 @@ async function ensureRepresentativeSignature(
     ip_address: ipAddress,
     user_agent: userAgent,
   });
+
+  if (error) {
+    console.error(
+      "[ensureRepresentativeSignature] insert failed",
+      error.message,
+    );
+    return "La firma del cliente se guardó, pero no se pudo registrar la firma del operador.";
+  }
+
+  return undefined;
 }
 
 export type DeliveryFlowContext = {
@@ -1115,14 +1133,18 @@ export async function signContract(
 
     if (sigError) throw mapPostgresError(sigError);
 
+    let warning = upload.warning;
     if (parsed.data.signerType === "CLIENT") {
-      await ensureRepresentativeSignature(
+      const repWarning = await ensureRepresentativeSignature(
         supabase,
         contractId,
         user.id,
         ipAddress,
         userAgent,
       );
+      if (repWarning) {
+        warning = warning ? `${warning} ${repWarning}` : repWarning;
+      }
     }
 
     const { data: allSignatures } = await supabase
@@ -1162,7 +1184,7 @@ export async function signContract(
     revalidatePath(`/dashboard/contratos/${contractId}`);
     return actionSuccess({
       status: newStatus,
-      warning: upload.warning,
+      warning,
     });
   } catch (error) {
     return actionError(toUserMessage(error));
