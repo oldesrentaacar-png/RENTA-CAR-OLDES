@@ -38,7 +38,7 @@ import {
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
 import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS } from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
-import { formatMoney, parseMoneyInput } from "@/lib/money";
+import { parseMoneyInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
