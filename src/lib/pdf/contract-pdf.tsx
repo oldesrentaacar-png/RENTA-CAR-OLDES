@@ -326,8 +326,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   checklistMark: {
-    width: 14,
-    fontSize: 8,
+    width: 28,
+    fontSize: 7,
     fontFamily: "Helvetica-Bold",
     color: NAVY,
   },
@@ -571,16 +571,42 @@ export function ContractPdfDocument(props: ContractPdfProps) {
   // Authoritative total from the contract record — never invent from line sums.
   const displayedTotal = props.total;
 
-  const openingAccessories = accessories.filter(
-    (item) => item.checkOut && item.checkOut !== "☐",
-  );
-  const checklistRows =
-    openingAccessories.length > 0
-      ? openingAccessories
-      : accessories.filter((item) => item.checkOut !== undefined);
+  // Always show the full inventory with clear SÍ / NO / DAÑADO marks.
+  const checklistRows = accessories;
   const checklistMid = Math.ceil(checklistRows.length / 2);
   const checklistLeft = checklistRows.slice(0, checklistMid);
   const checklistRight = checklistRows.slice(checklistMid);
+
+  function accessoryMark(raw?: string | null): { text: string; color: string } {
+    const value = (raw ?? "").trim();
+    if (
+      value === "✓" ||
+      value === "SÍ" ||
+      value === "SI" ||
+      value.toUpperCase() === "OK"
+    ) {
+      return { text: "SÍ", color: "#15803d" };
+    }
+    if (
+      value === "X" ||
+      value === "NO" ||
+      value.toUpperCase() === "MISSING"
+    ) {
+      return { text: "NO", color: "#b91c1c" };
+    }
+    if (
+      value === "○" ||
+      value === "DAÑADO" ||
+      value.toUpperCase() === "DAMAGED" ||
+      value.toUpperCase() === "NEEDS_ATTENTION"
+    ) {
+      return { text: "DAÑ.", color: "#b45309" };
+    }
+    if (!value || value === "☐") {
+      return { text: "—", color: MUTED };
+    }
+    return { text: value.slice(0, 4), color: NAVY };
+  }
 
   const issuedWhen =
     props.issuedDateLabel ||
@@ -754,28 +780,38 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             </View>
             <View style={styles.checklistPanel}>
               <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 4 }}>
-                CHECKLIST INVENTARIO (SALIDA)
+                CHECKLIST INVENTARIO (SALIDA) — SÍ / NO / DAÑ.
               </Text>
               <View style={styles.checklistColumns}>
                 <View style={styles.checklistColumn}>
-                  {checklistLeft.map((item) => (
-                    <View key={item.key} style={styles.checklistItem}>
-                      <Text style={styles.checklistMark}>
-                        [{item.checkOut === "✓" ? " ✓ " : item.checkOut || "   "}]
-                      </Text>
-                      <Text style={styles.checklistLabel}>{item.label}</Text>
-                    </View>
-                  ))}
+                  {checklistLeft.map((item) => {
+                    const mark = accessoryMark(item.checkOut);
+                    return (
+                      <View key={item.key} style={styles.checklistItem}>
+                        <Text
+                          style={[styles.checklistMark, { color: mark.color }]}
+                        >
+                          [{mark.text}]
+                        </Text>
+                        <Text style={styles.checklistLabel}>{item.label}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
                 <View style={styles.checklistColumn}>
-                  {checklistRight.map((item) => (
-                    <View key={item.key} style={styles.checklistItem}>
-                      <Text style={styles.checklistMark}>
-                        [{item.checkOut === "✓" ? " ✓ " : item.checkOut || "   "}]
-                      </Text>
-                      <Text style={styles.checklistLabel}>{item.label}</Text>
-                    </View>
-                  ))}
+                  {checklistRight.map((item) => {
+                    const mark = accessoryMark(item.checkOut);
+                    return (
+                      <View key={item.key} style={styles.checklistItem}>
+                        <Text
+                          style={[styles.checklistMark, { color: mark.color }]}
+                        >
+                          [{mark.text}]
+                        </Text>
+                        <Text style={styles.checklistLabel}>{item.label}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
             </View>

@@ -955,6 +955,48 @@ export async function cancelContract(
     }
 
     const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("contracts")
+      .select("id, status, closed_at, reservation_id")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Contrato no encontrado.");
+
+    const row = existing as {
+      id: string;
+      status: ContractStatus;
+      closed_at: string | null;
+      reservation_id: string;
+    };
+
+    if (row.status === "COMPLETED" || row.closed_at) {
+      return actionError(
+        "Este contrato ya está cerrado. No se puede anular; use el acta de cierre.",
+      );
+    }
+    if (row.status === "CANCELLED") {
+      return actionError("Este contrato ya está anulado.");
+    }
+
+    // If the vehicle was already delivered (CHECK_OUT), do not allow cancel.
+    // Staff must use "Cerrar renta" (check-in + close) instead.
+    const { data: checkOut } = await supabase
+      .from("inspections")
+      .select("id")
+      .eq("reservation_id", row.reservation_id)
+      .eq("type", "CHECK_OUT")
+      .limit(1)
+      .maybeSingle();
+
+    if (checkOut) {
+      return actionError(
+        "Este contrato ya tiene entrega (CHECK_OUT). No lo anule: use «Cerrar renta» para devolver el vehículo, completar el contrato y generar el acta. Anular cancela el documento y bloquea el cierre.",
+      );
+    }
+
     const { error } = await supabase
       .from("contracts")
       .update({ status: "CANCELLED" })
@@ -1330,6 +1372,59 @@ export async function closeContract(
       );
     }
 
+    const conformitySignatureDataUrl = String(
+      formData.get("conformitySignatureDataUrl") ?? "",
+    ).trim();
+    const conformitySignedBy =
+      String(formData.get("conformitySignedBy") ?? "").trim() || "Cliente";
+    const depositReturned =
+      String(formData.get("depositReturned") ?? "") === "true";
+    const chargeConcept =
+      String(formData.get("chargeConcept") ?? "").trim() || null;
+
+    const { data: existingConformity } = await supabase
+      .from("contract_signatures")
+      .select("id")
+      .eq("contract_id", contractId)
+      .eq("signer_type", "CLOSE_CONFORMITY")
+      .maybeSingle();
+
+    if (!existingConformity && !conformitySignatureDataUrl) {
+      return actionError(
+        "El cliente debe firmar la declaración de conformidad antes de cerrar.",
+      );
+    }
+
+    if (conformitySignatureDataUrl) {
+      if (!/^data:image\/(png|jpeg|webp);base64,/.test(conformitySignatureDataUrl)) {
+        return actionError("Formato de firma de conformidad inválido.");
+      }
+      const upload = await uploadSignatureImage(
+        contractId,
+        "CLOSE_CONFORMITY",
+        conformitySignatureDataUrl,
+      );
+      const headerStore = await headers();
+      const ipAddress =
+        headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+      const userAgent = headerStore.get("user-agent");
+      const { error: conformityError } = await supabase
+        .from("contract_signatures")
+        .upsert(
+          {
+            contract_id: contractId,
+            signer_type: "CLOSE_CONFORMITY",
+            signed_by_name: conformitySignedBy,
+            signed_by_user_id: null,
+            signature_path: upload.storagePath,
+            ip_address: ipAddress,
+            user_agent: userAgent,
+          },
+          { onConflict: "contract_id,signer_type" },
+        );
+      if (conformityError) throw mapPostgresError(conformityError);
+    }
+
     const checkInDate = (checkInInspection as { inspection_date?: string })
       .inspection_date;
 
@@ -1350,11 +1445,20 @@ export async function closeContract(
       balanceDue <= 0 ? "PAID" : amountPaid > 0 ? "PARTIAL" : "PENDING";
 
     const closedAt = new Date().toISOString();
+    const closeMetaBits = [
+      notesExtra,
+      chargeConcept ? `Concepto cargo: ${chargeConcept}` : null,
+      Number(contract.deposit ?? 0) > 0
+        ? `Garantía: ${depositReturned ? "DEVUELTA" : "RETENIDA"}`
+        : null,
+    ].filter(Boolean);
+    const closeBlock =
+      closeMetaBits.length > 0 ? `[Cierre] ${closeMetaBits.join(" · ")}` : null;
     const mergedNotes =
-      notesExtra && contract.notes
-        ? `${contract.notes}\n\n[Cierre] ${notesExtra}`
-        : notesExtra
-          ? `[Cierre] ${notesExtra}`
+      closeBlock && contract.notes
+        ? `${contract.notes}\n\n${closeBlock}`
+        : closeBlock
+          ? closeBlock
           : contract.notes;
 
     const updateRow: Record<string, unknown> = {
@@ -1503,6 +1607,8 @@ export async function signContract(
       );
     }
 
+    // CLOSE_CONFORMITY does not require T&C — only the reception declaration.
+
     const supabase = await createClient();
     const { data: contract, error: contractError } = await supabase
       .from("contracts")
@@ -1515,7 +1621,13 @@ export async function signContract(
     if (!contract) return actionError("Contrato no encontrado.");
 
     const currentStatus = (contract as { status: ContractStatus }).status;
-    if (currentStatus === "CANCELLED" || currentStatus === "COMPLETED") {
+    if (currentStatus === "CANCELLED") {
+      return actionError("Este contrato ya no admite firmas.");
+    }
+    if (
+      currentStatus === "COMPLETED" &&
+      parsed.data.signerType !== "CLOSE_CONFORMITY"
+    ) {
       return actionError("Este contrato ya no admite firmas.");
     }
 
@@ -1593,14 +1705,22 @@ export async function signContract(
 
     const hasClient = signerTypes.has("CLIENT");
     const hasRepresentative = signerTypes.has("REPRESENTATIVE");
-    const newStatus = nextStatusAfterSign(hasClient, hasRepresentative);
+    const newStatus =
+      currentStatus === "COMPLETED" ||
+      parsed.data.signerType === "CLOSE_CONFORMITY"
+        ? currentStatus
+        : nextStatusAfterSign(hasClient, hasRepresentative);
 
-    const { error: updateError } = await supabase
-      .from("contracts")
-      .update({ status: newStatus })
-      .eq("id", contractId);
+    if (newStatus !== currentStatus) {
+      const { error: updateError } = await supabase
+        .from("contracts")
+        .update({ status: newStatus })
+        .eq("id", contractId);
 
-    if (updateError) throw mapPostgresError(updateError);
+      if (updateError) throw mapPostgresError(updateError);
+    } else {
+      // No status change (e.g. close-conformity signature).
+    }
 
     await writeAuditLog({
       userId: user.id,
@@ -1737,9 +1857,10 @@ export async function getContractPdfData(contractId: string) {
   );
 
   function checklistStatusMark(status: string): string {
-    if (status === "OK") return "✓";
-    if (status === "MISSING") return "X";
-    if (status === "DAMAGED" || status === "NEEDS_ATTENTION") return "○";
+    if (status === "OK") return "SÍ";
+    if (status === "MISSING") return "NO";
+    if (status === "DAMAGED" || status === "NEEDS_ATTENTION") return "DAÑADO";
+    if (status === "NOT_APPLICABLE") return "N/A";
     return "☐";
   }
 
@@ -2127,16 +2248,20 @@ export async function getContractCloseActPdfData(contractId: string) {
   let operatorName: string | null = null;
   let clientSignedAt: string | null = null;
 
-  const clientSig = contract.signatures.find((s) => s.signer_type === "CLIENT");
+  const closeConformitySig = contract.signatures.find(
+    (s) => s.signer_type === "CLOSE_CONFORMITY",
+  );
   const repSig = contract.signatures.find(
     (s) => s.signer_type === "REPRESENTATIVE",
   );
 
-  if (clientSig?.signature_path) {
+  // Prefer end-of-rental conformity signature over opening CLIENT signature.
+  const closeClientSig = closeConformitySig ?? null;
+  if (closeClientSig?.signature_path) {
     clientSignatureUrl =
-      (await resolvePrivateFileUrl(clientSig.signature_path)) ??
-      clientSig.signature_path;
-    clientSignedAt = formatAppDateTime(clientSig.signed_at);
+      (await resolvePrivateFileUrl(closeClientSig.signature_path)) ??
+      closeClientSig.signature_path;
+    clientSignedAt = formatAppDateTime(closeClientSig.signed_at);
   }
   if (repSig?.signature_path) {
     operatorSignatureUrl =
@@ -2201,14 +2326,43 @@ export async function getContractCloseActPdfData(contractId: string) {
     ? FUEL_LEVEL_LABELS[checkIn.fuel_level] ?? checkIn.fuel_level
     : null;
 
-  const accessories = accessoryComparison.map((row) => ({
-    label: row.itemName,
-    returned: Boolean(
+  function checklistStatusLabel(status: string | null): string {
+    if (!status) return "—";
+    if (status === "OK") return "SÍ";
+    if (status === "MISSING") return "NO";
+    if (status === "DAMAGED" || status === "NEEDS_ATTENTION") return "DAÑADO";
+    if (status === "NOT_APPLICABLE") return "N/A";
+    return status;
+  }
+
+  const accessories = accessoryComparison.map((row) => {
+    const status = row.checkInStatus ?? row.checkOutStatus;
+    const returned = Boolean(
       row.checkInStatus &&
         row.checkInStatus !== "MISSING" &&
         row.checkInStatus !== "NOT_APPLICABLE",
-    ),
-  }));
+    );
+    return {
+      label: row.itemName,
+      returned,
+      statusLabel: checklistStatusLabel(status),
+    };
+  });
+
+  const missingAccessories = accessoryComparison
+    .filter(
+      (row) =>
+        row.checkInStatus === "MISSING" ||
+        row.checkInStatus === "DAMAGED" ||
+        row.checkInStatus === "NEEDS_ATTENTION" ||
+        (row.changed &&
+          row.checkOutStatus === "OK" &&
+          row.checkInStatus !== "OK"),
+    )
+    .map(
+      (row) =>
+        `${row.itemName}: ${checklistStatusLabel(row.checkOutStatus)} → ${checklistStatusLabel(row.checkInStatus)}`,
+    );
 
   const accessoryChanges = accessoryComparison
     .filter((row) => row.changed)
@@ -2267,6 +2421,39 @@ export async function getContractCloseActPdfData(contractId: string) {
       ? Number(contract.balance_due)
       : Math.max(0, totalOwed - amountPaid);
 
+  const notesText = contract.notes ?? "";
+  const depositReturned =
+    /Garantía:\s*DEVUELTA/i.test(notesText) ||
+    (!/Garantía:\s*RETENIDA/i.test(notesText) &&
+      balanceDue <= 0 &&
+      Number(contract.deposit ?? 0) > 0 &&
+      Boolean(contract.closed_at));
+  const chargeConceptMatch = notesText.match(
+    /Concepto cargo:\s*([^·\n]+)/i,
+  );
+  const chargeConcept =
+    chargeConceptMatch?.[1]?.trim() ||
+    [
+      extraCharges > 0 ? "Días / cargos extra" : null,
+      damageCharges > 0 ? "Daños" : null,
+      fuelCharges > 0 ? "Combustible" : null,
+      complementaryAmount > 0 ? "Complementario" : null,
+    ]
+      .filter(Boolean)
+      .join("; ") ||
+    null;
+
+  const chargeLines = [
+    extraCharges > 0
+      ? { label: "Días extra / cargos extra", amount: extraCharges }
+      : null,
+    damageCharges > 0 ? { label: "Daños", amount: damageCharges } : null,
+    fuelCharges > 0 ? { label: "Combustible", amount: fuelCharges } : null,
+    complementaryAmount > 0
+      ? { label: "Complementario", amount: complementaryAmount }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; amount: number }>;
+
   const receiptCode = contract.code.replace(/^CTR/i, "REC");
   const actualReturn =
     contract.actual_return_at || contract.closed_at || contract.end_at;
@@ -2297,10 +2484,12 @@ export async function getContractCloseActPdfData(contractId: string) {
     returnPlace: contact.businessAddress,
     mileageOut: checkOut?.mileage ?? null,
     mileageIn: checkIn?.mileage ?? null,
+    fuelOutLabel: fuelOut,
     fuelInLabel: fuelIn,
     fuelSameLevel:
       fuelOut && fuelIn ? fuelOut === fuelIn : fuelOut || fuelIn ? false : null,
     accessories,
+    missingAccessories,
     noNewDamage: !newDamageNotes,
     newDamageNotes,
     bodyZoneMarks,
@@ -2309,8 +2498,9 @@ export async function getContractCloseActPdfData(contractId: string) {
     fuelCharges,
     complementaryAmount,
     deposit: Number(contract.deposit ?? 0),
-    depositReturned: balanceDue <= 0,
-    chargeConcept: null as string | null,
+    depositReturned,
+    chargeConcept,
+    chargeLines,
     amountPaid,
     balanceDue,
     totalOwed,

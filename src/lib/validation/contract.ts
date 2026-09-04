@@ -35,7 +35,12 @@ export const contractUpdateSchema = contractSchema
   .partial();
 
 export const contractSignSchema = z.object({
-  signerType: z.enum(["CLIENT", "REPRESENTATIVE", "PAGARE"]),
+  signerType: z.enum([
+    "CLIENT",
+    "REPRESENTATIVE",
+    "PAGARE",
+    "CLOSE_CONFORMITY",
+  ]),
   signedBy: z.string().trim().min(1, "Nombre del firmante requerido.").max(200),
   signatureDataUrl: z
     .string()

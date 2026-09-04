@@ -17,11 +17,13 @@ import {
   machoteStyles,
 } from "@/lib/pdf/machote-box";
 
-export const CLOSE_ACT_PDF_VERSION = "2026-09-04-v1";
+export const CLOSE_ACT_PDF_VERSION = "2026-09-04-v2";
 
 export type CloseActAccessoryRow = {
   label: string;
   returned: boolean;
+  /** Optional status label for display: SÍ / NO / DAÑADO */
+  statusLabel?: string | null;
 };
 
 export type CloseActPdfProps = {
@@ -46,9 +48,11 @@ export type CloseActPdfProps = {
   returnPlace?: string | null;
   mileageOut?: number | null;
   mileageIn?: number | null;
+  fuelOutLabel?: string | null;
   fuelInLabel?: string | null;
   fuelSameLevel?: boolean | null;
   accessories: CloseActAccessoryRow[];
+  missingAccessories?: string[];
   noNewDamage: boolean;
   newDamageNotes?: string | null;
   /** Marcas por zona (símbolos R/G/F) para la sección 4 */
@@ -70,6 +74,7 @@ export type CloseActPdfProps = {
   deposit: number;
   depositReturned: boolean;
   chargeConcept?: string | null;
+  chargeLines?: Array<{ label: string; amount: number }>;
   amountPaid: number;
   balanceDue: number;
   totalOwed: number;
@@ -428,13 +433,16 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
             activeIndex={fuelIndexFromLabel(props.fuelInLabel)}
           />
           <Text style={styles.note}>
+            Combustible salida: {props.fuelOutLabel || "—"} · Combustible
+            retorno: {props.fuelInLabel || "—"}
+          </Text>
+          <Text style={styles.note}>
             Mismo nivel entregado en salida:{" "}
             {props.fuelSameLevel == null
               ? "[ ] Sí   [ ] No"
               : props.fuelSameLevel
                 ? "[X] Sí   [ ] No"
                 : "[ ] Sí   [X] No"}
-            {props.fuelInLabel ? ` · Registrado: ${props.fuelInLabel}` : ""}
           </Text>
           <Text
             style={{
@@ -445,16 +453,36 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
               marginBottom: 2,
             }}
           >
-            Checklist de accesorios devueltos
+            Checklist de accesorios (devolución)
           </Text>
           <View style={styles.checkGrid}>
             {accessories.map((item) => (
               <View key={item.label} style={styles.checkItem}>
-                <Text style={styles.mark}>{item.returned ? "[X]" : "[ ]"}</Text>
+                <Text
+                  style={[
+                    styles.mark,
+                    {
+                      color: item.returned ? "#15803d" : "#b91c1c",
+                      fontFamily: "Helvetica-Bold",
+                    },
+                  ]}
+                >
+                  {item.statusLabel?.trim()
+                    ? `[${item.statusLabel}]`
+                    : item.returned
+                      ? "[SÍ]"
+                      : "[NO]"}
+                </Text>
                 <Text style={styles.checkLabel}>{item.label}</Text>
               </View>
             ))}
           </View>
+          {(props.missingAccessories?.length ?? 0) > 0 ? (
+            <Text style={[styles.note, { color: "#b91c1c" }]}>
+              Faltantes / novedades de inventario:{" "}
+              {props.missingAccessories!.join("; ")}
+            </Text>
+          ) : null}
         </MachoteSection>
 
         <MachoteSection title="4. Inspección de carrocería e incidencias nuevas">
@@ -498,7 +526,7 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
         <MachoteSection title="5. Balance financiero de cierre">
           <MachoteGrid>
             <MachoteField
-              label="Cargos adicionales (días extra / gas / daños)"
+              label="Cargos adicionales (total)"
               value={formatMoney(totalExtra)}
               width="half"
             />
@@ -507,16 +535,43 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
               value={formatMoney(props.deposit)}
               width="half"
             />
-            <MachoteField
-              label="Concepto de cargo"
-              value={
-                props.chargeConcept?.trim() ||
-                (totalExtra > 0
-                  ? "Cargos de cierre (extra / daño / combustible)"
-                  : "Sin cargos adicionales")
-              }
-              width="full"
-            />
+          </MachoteGrid>
+          {(props.chargeLines?.length
+            ? props.chargeLines
+            : [
+                props.extraCharges > 0
+                  ? { label: "Días extra / cargos extra", amount: props.extraCharges }
+                  : null,
+                props.damageCharges > 0
+                  ? { label: "Daños", amount: props.damageCharges }
+                  : null,
+                props.fuelCharges > 0
+                  ? { label: "Combustible", amount: props.fuelCharges }
+                  : null,
+                props.complementaryAmount > 0
+                  ? {
+                      label: "Complementario",
+                      amount: props.complementaryAmount,
+                    }
+                  : null,
+              ].filter(Boolean) as Array<{ label: string; amount: number }>
+          ).map((line) => (
+            <View key={line.label} style={machoteStyles.billingRow}>
+              <Text style={{ fontSize: 7.5 }}>{line.label}</Text>
+              <Text style={{ fontSize: 7.5 }}>{formatMoney(line.amount)}</Text>
+            </View>
+          ))}
+          <MachoteField
+            label="Concepto de cargo"
+            value={
+              props.chargeConcept?.trim() ||
+              (totalExtra > 0
+                ? "Cargos de cierre según detalle anterior"
+                : "Sin cargos adicionales")
+            }
+            width="full"
+          />
+          <MachoteGrid>
             <MachoteField
               label="Total adeudado al cierre"
               value={formatMoney(props.totalOwed)}
@@ -534,10 +589,12 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
             />
           </MachoteGrid>
           <Text style={styles.note}>
-            Estado de garantía:{" "}
+            Estado de garantía / depósito:{" "}
             {props.depositReturned
               ? "[X] Devuelta total   [ ] Retención parcial/total"
-              : "[ ] Devuelta total   [X] Retención parcial/total / en custodia"}
+              : props.deposit > 0
+                ? "[ ] Devuelta total   [X] Retención parcial/total / en custodia"
+                : "[ ] Sin depósito registrado"}
           </Text>
           <View style={machoteStyles.billingTotal}>
             <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold" }}>
@@ -551,10 +608,25 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
 
         <MachoteSection title="6. Declaración de conformidad">
           <Text style={styles.declaration}>
-            Por medio del presente documento, hago constar la devolución del
-            vehículo antes descrito. Agradecemos su preferencia y confianza.
-            Hacemos entrega del finiquito correspondiente, confirmando que la
-            unidad ha sido recibida conforme al reporte verificado de recepción.
+            Por medio del presente documento, el ARRENDATARIO declara la
+            devolución del vehículo, reconoce el inventario y estado
+            registrados en esta acta, y manifiesta su conformidad y
+            satisfacción con el cierre del servicio. Ambas partes confirman que
+            la unidad fue recibida según el reporte de recepción y que el
+            finiquito queda aceptado con esta firma.
+          </Text>
+          <Text
+            style={{
+              fontSize: 7,
+              fontFamily: "Helvetica-Bold",
+              color: NAVY,
+              paddingHorizontal: 6,
+              marginBottom: 4,
+            }}
+          >
+            {props.clientSignatureUrl
+              ? "☑ El cliente firmó la declaración de conformidad al cierre."
+              : "☐ Pendiente firma de conformidad del cliente al cierre."}
           </Text>
           <View style={styles.signRow}>
             <View style={styles.signBox}>

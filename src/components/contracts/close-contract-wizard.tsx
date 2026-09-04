@@ -9,6 +9,7 @@ import {
   closeContract,
   type ContractCloseContext,
 } from "@/app/dashboard/contratos/actions";
+import { SignaturePad } from "@/components/contracts/signature-pad";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,9 +37,12 @@ type StepId =
   | "charges"
   | "close";
 
+const CLOSE_CONFORMITY_TEXT =
+  "Declaro la devolución del vehículo, reconozco el inventario y el estado registrados en el acta de recepción, y manifiesto mi conformidad y satisfacción con el cierre del servicio. Con esta firma confirmo que la unidad fue entregada según el reporte verificado y que el finiquito queda aceptado.";
+
 export function CloseContractWizard({
   context,
-  canSign,
+  canSign: _canSign,
 }: CloseContractWizardProps) {
   const router = useRouter();
   const { contract, checkOut, checkIn, accessoryComparison, extraDayGraceHours } =
@@ -77,6 +81,16 @@ export function CloseContractWizard({
     contract.received_by_name ?? "",
   );
   const [closeNotes, setCloseNotes] = useState("");
+  const [chargeConcept, setChargeConcept] = useState("");
+  const [depositReturned, setDepositReturned] = useState(
+    Number(contract.deposit ?? 0) > 0,
+  );
+  const [conformitySignedBy, setConformitySignedBy] = useState(
+    contract.customerName ?? "",
+  );
+  const [conformitySignatureDataUrl, setConformitySignatureDataUrl] = useState<
+    string | null
+  >(null);
 
   const amountPaidBase = Number(contract.amount_paid ?? 0);
 
@@ -126,12 +140,11 @@ export function CloseContractWizard({
     fuelCharges,
   ]);
 
-  const clientSigned = contract.signatures.some(
-    (s) => s.signer_type === "CLIENT",
+  const closeConformitySigned = contract.signatures.some(
+    (s) => s.signer_type === "CLOSE_CONFORMITY",
   );
-  const repSigned = contract.signatures.some(
-    (s) => s.signer_type === "REPRESENTATIVE",
-  );
+  const hasConformitySignature =
+    closeConformitySigned || Boolean(conformitySignatureDataUrl);
 
   const hasCheckIn = Boolean(checkIn);
   const hasFuelAndMileage = Boolean(
@@ -141,7 +154,11 @@ export function CloseContractWizard({
   const returnReviewed = Boolean(actualReturnAt);
 
   const canClose =
-    hasCheckIn && hasFuelAndMileage && hasAccessories && returnReviewed;
+    hasCheckIn &&
+    hasFuelAndMileage &&
+    hasAccessories &&
+    returnReviewed &&
+    hasConformitySignature;
 
   const steps: Array<{
     id: StepId;
@@ -196,11 +213,11 @@ export function CloseContractWizard({
     },
     {
       id: "close",
-      title: "Cerrar contrato",
-      description: canClose
-        ? "Listo para confirmar cierre"
-        : "Complete los pasos requeridos",
-      done: false,
+      title: "Conformidad y cierre",
+      description: hasConformitySignature
+        ? "Firma de conformidad lista"
+        : "Declaración + firma del cliente",
+      done: hasConformitySignature,
       required: true,
     },
   ];
@@ -219,6 +236,9 @@ export function CloseContractWizard({
       missing.push("completar el checklist de accesorios en la inspección");
     }
     if (!returnReviewed) missing.push("indicar la hora real de devolución");
+    if (!hasConformitySignature) {
+      missing.push("obtener la firma de conformidad del cliente");
+    }
     return missing;
   }
 
@@ -249,7 +269,16 @@ export function CloseContractWizard({
     formData.set("deliveredByName", deliveredByName);
     formData.set("receivedByName", receivedByName);
     formData.set("closeNotes", closeNotes);
+    formData.set("chargeConcept", chargeConcept);
+    formData.set("depositReturned", depositReturned ? "true" : "false");
     formData.set("confirmClose", "true");
+    if (conformitySignatureDataUrl) {
+      formData.set("conformitySignatureDataUrl", conformitySignatureDataUrl);
+      formData.set(
+        "conformitySignedBy",
+        conformitySignedBy.trim() || contract.customerName || "Cliente",
+      );
+    }
 
     const result = await closeContract(contract.id, formData);
     setClosing(false);
@@ -275,6 +304,15 @@ export function CloseContractWizard({
       openConfirm();
       return;
     }
+    if (current.required && !current.done) {
+      const missing = missingRequirements();
+      setError(
+        missing.length > 0
+          ? `Complete este paso antes de continuar: ${missing[0]}.`
+          : "Complete este paso antes de continuar.",
+      );
+      return;
+    }
     setStepIndex((value) => Math.min(value + 1, steps.length - 1));
   }
 
@@ -285,6 +323,62 @@ export function CloseContractWizard({
 
   return (
     <div className="space-y-4">
+      {!canClose ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-semibold">
+            Aún no se puede cerrar esta renta
+          </p>
+          <p className="mt-1">
+            Esto <strong>no se resuelve anulando</strong> el contrato. Anular
+            cancela el documento y ya no podrá completar el cierre ni generar el
+            acta. Complete lo pendiente:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {!hasCheckIn ? (
+              <li>
+                Crear inspección de entrada (CHECK_IN){" "}
+                <Link
+                  href={`/dashboard/inspecciones/nuevo?reservation_id=${contract.reservation_id}&type=CHECK_IN`}
+                  className="font-medium underline"
+                >
+                  Ir a crear inspección
+                </Link>
+              </li>
+            ) : null}
+            {hasCheckIn && !hasFuelAndMileage ? (
+              <li>
+                Registrar combustible y km en la inspección{" "}
+                <Link
+                  href={`/dashboard/inspecciones/${checkIn!.id}`}
+                  className="font-medium underline"
+                >
+                  Abrir inspección
+                </Link>
+              </li>
+            ) : null}
+            {hasCheckIn && !hasAccessories ? (
+              <li>
+                Completar checklist de accesorios{" "}
+                <Link
+                  href={`/dashboard/inspecciones/${checkIn!.id}#accesorios`}
+                  className="font-medium underline"
+                >
+                  Abrir accesorios
+                </Link>
+              </li>
+            ) : null}
+            {!returnReviewed ? (
+              <li>Indicar fecha/hora real de devolución en el paso “Antes / después”</li>
+            ) : null}
+            {!hasConformitySignature ? (
+              <li>
+                Capturar la firma de conformidad del cliente en el último paso
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -627,7 +721,31 @@ export function CloseContractWizard({
                     value={receivedByName}
                     onChange={(e) => setReceivedByName(e.target.value)}
                   />
+                  <div className="sm:col-span-2">
+                    <Input
+                      label="Concepto de cargo (acta)"
+                      value={chargeConcept}
+                      onChange={(e) => setChargeConcept(e.target.value)}
+                      placeholder="Ej. días extra, combustible, daños…"
+                    />
+                  </div>
                 </div>
+                {Number(contract.deposit ?? 0) > 0 ? (
+                  <label className="flex items-start gap-2 rounded-lg border border-border bg-white p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={depositReturned}
+                      onChange={(e) => setDepositReturned(e.target.checked)}
+                    />
+                    <span>
+                      Garantía / depósito de{" "}
+                      <strong>{formatMoney(Number(contract.deposit ?? 0))}</strong>{" "}
+                      fue <strong>devuelta</strong> al cliente. Desmarque si se
+                      retiene parcial o total.
+                    </span>
+                  </label>
+                ) : null}
                 <Textarea
                   label="Notas de cierre"
                   rows={3}
@@ -659,26 +777,65 @@ export function CloseContractWizard({
 
             {current.id === "close" ? (
               <div className="space-y-4 text-sm">
-                <p>
-                  Cliente firmado:{" "}
-                  <strong>{clientSigned ? "Sí" : "Pendiente"}</strong> ·
-                  Operador: <strong>{repSigned ? "Sí" : "Pendiente"}</strong>
-                </p>
-                {canSign && !(clientSigned && repSigned) ? (
-                  <Link
-                    href={`/dashboard/contratos/${contract.id}/sign`}
-                    className="inline-block font-medium text-brand hover:underline"
-                  >
-                    Ir a firmar contrato
-                  </Link>
-                ) : null}
+                <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4 text-blue-950">
+                  <p className="font-semibold">Declaración de conformidad</p>
+                  <p className="mt-2 leading-relaxed">{CLOSE_CONFORMITY_TEXT}</p>
+                  <p className="mt-2 text-xs text-blue-900/80">
+                    En el cierre no se vuelven a aceptar términos y condiciones;
+                    solo esta declaración y la firma del cliente.
+                  </p>
+                </div>
+
+                {closeConformitySigned && !conformitySignatureDataUrl ? (
+                  <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-green-900">
+                    Ya existe una firma de conformidad registrada para este
+                    contrato.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <Input
+                      label="Nombre del firmante (cliente)"
+                      value={conformitySignedBy}
+                      onChange={(e) => setConformitySignedBy(e.target.value)}
+                    />
+                    {conformitySignatureDataUrl ? (
+                      <div className="space-y-2">
+                        <p className="font-medium text-green-800">
+                          Firma de conformidad capturada.
+                        </p>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={conformitySignatureDataUrl}
+                          alt="Firma de conformidad"
+                          className="h-20 max-w-full rounded border border-border bg-white object-contain"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setConformitySignatureDataUrl(null)}
+                        >
+                          Volver a firmar
+                        </Button>
+                      </div>
+                    ) : (
+                      <SignaturePad
+                        onConfirm={(dataUrl) =>
+                          setConformitySignatureDataUrl(dataUrl)
+                        }
+                        disabled={closing}
+                      />
+                    )}
+                  </div>
+                )}
+
                 {!canClose ? (
                   <p className="text-amber-900">
-                    Aún faltan pasos requeridos. Use Anterior para completarlos.
+                    Aún faltan pasos requeridos (inspección, cargos o firma).
                   </p>
                 ) : (
                   <p className="text-green-800">
-                    Requisitos listos. Confirme el cierre cuando esté seguro.
+                    Conformidad lista. Confirme el cierre cuando esté seguro.
                   </p>
                 )}
                 <Button
@@ -707,7 +864,14 @@ export function CloseContractWizard({
                 <ChevronLeft className="mr-1 h-4 w-4" />
                 Anterior
               </Button>
-              <Button type="button" size="sm" onClick={goNext}>
+              <Button
+                type="button"
+                size="sm"
+                onClick={goNext}
+                disabled={
+                  (!isLast && current.required && !current.done) || closing
+                }
+              >
                 {isLast ? "Confirmar cierre" : "Siguiente"}
                 {!isLast ? <ChevronRight className="ml-1 h-4 w-4" /> : null}
               </Button>

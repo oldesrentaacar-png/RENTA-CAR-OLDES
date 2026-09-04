@@ -148,7 +148,7 @@ export type MaintenanceStatus =
   | "COMPLETED"
   | "CANCELLED";
 
-export type SignerType = "CLIENT" | "REPRESENTATIVE" | "PAGARE";
+export type SignerType = "CLIENT" | "REPRESENTATIVE" | "PAGARE" | "CLOSE_CONFORMITY";
 
 export type DocumentSequenceType =
   | "WEB_REQUEST"

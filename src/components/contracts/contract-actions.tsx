@@ -414,42 +414,51 @@ export function ContractDetailActions({
       ) : null}
 
       {canCancel && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (
-        <div className="rounded-xl border border-red-200 bg-red-50/40 p-4">
-          <p className="text-sm font-medium text-red-900">
-            Anular contrato (no es cerrar la renta)
-          </p>
-          <p className="mt-1 text-sm text-red-800">
-            Use esto solo si el contrato no se ejecutará. Para devolver el
-            vehículo y terminar la renta use{" "}
-            <a
-              href={`/dashboard/contratos/${contract.id}/cerrar`}
-              className="font-medium underline"
+        <details className="rounded-xl border border-red-200 bg-red-50/40 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-red-900">
+            Zona peligrosa: anular contrato (no es cerrar la renta)
+          </summary>
+          <div className="mt-3 space-y-3">
+            <p className="text-sm text-red-800">
+              <strong>Anular</strong> cancela el contrato y{" "}
+              <strong>ya no podrá cerrar la renta ni generar el acta</strong>.
+              Si el vehículo ya fue entregado o lo van a devolver, use{" "}
+              <a
+                href={`/dashboard/contratos/${contract.id}/cerrar`}
+                className="font-medium underline"
+              >
+                Cerrar renta
+              </a>
+              .
+            </p>
+            <p className="text-xs text-red-700">
+              Solo anule si el contrato nunca se ejecutará (error de captura,
+              cliente desistió antes de la entrega).
+            </p>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={async () => {
+                const ok = confirm(
+                  "ATENCIÓN: Anular NO es cerrar la renta.\n\nSi el vehículo ya salió o lo van a devolver, cancele esto y use «Cerrar renta».\n\n¿Seguro que quiere ANULAR el contrato?",
+                );
+                if (!ok) return;
+                const typed = window.prompt(
+                  'Para confirmar, escriba exactamente: ANULAR',
+                );
+                if (typed?.trim().toUpperCase() !== "ANULAR") {
+                  setError("Anulación cancelada. Debe escribir ANULAR para confirmar.");
+                  return;
+                }
+                const result = await cancelContract(contract.id);
+                if (!result.success) setError(result.error);
+                else router.refresh();
+              }}
             >
-              Cerrar renta
-            </a>
-            .
-          </p>
-          <Button
-            type="button"
-            variant="danger"
-            className="mt-3"
-            onClick={async () => {
-              const ok = confirm(
-                "¿Está seguro de ANULAR este contrato?\n\nEsto no es un cierre de renta. El contrato quedará cancelado y no se podrá usar.",
-              );
-              if (!ok) return;
-              const again = confirm(
-                "Confirmación final: ¿anular el contrato de forma permanente?",
-              );
-              if (!again) return;
-              const result = await cancelContract(contract.id);
-              if (!result.success) setError(result.error);
-              else router.refresh();
-            }}
-          >
-            Anular contrato
-          </Button>
-        </div>
+              Anular contrato (permanente)
+            </Button>
+          </div>
+        </details>
       ) : null}
     </div>
   );

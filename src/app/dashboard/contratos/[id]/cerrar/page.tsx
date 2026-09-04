@@ -25,9 +25,8 @@ export default async function CerrarContratoPage({
   if (context?.contract.closed_at) {
     redirect(`/dashboard/contratos/${id}`);
   }
-  if (context?.contract.status === "CANCELLED") {
-    redirect(`/dashboard/contratos/${id}`);
-  }
+
+  const isCancelled = context?.contract.status === "CANCELLED";
 
   const user = configured ? await getCurrentUser() : null;
   const canSign = user
@@ -64,6 +63,21 @@ export default async function CerrarContratoPage({
 
         {!configured ? (
           <SetupBanner />
+        ) : isCancelled ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900">
+            <p className="font-semibold">Este contrato está anulado</p>
+            <p className="mt-2">
+              No se puede completar el cierre ni generar el acta porque el
+              contrato fue anulado (cancelado). Anular no es lo mismo que cerrar
+              la renta.
+            </p>
+            <Link
+              href={`/dashboard/contratos/${id}`}
+              className="mt-3 inline-flex font-medium underline"
+            >
+              Volver al detalle del contrato
+            </Link>
+          </div>
         ) : context ? (
           <CloseContractWizard context={context} canSign={canSign} />
         ) : null}

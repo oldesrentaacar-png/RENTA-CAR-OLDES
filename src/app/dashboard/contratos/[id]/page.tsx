@@ -180,6 +180,17 @@ export default async function ContratoDetailPage({
                 </div>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+                {contract.status === "CANCELLED" ? (
+                  <div className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+                    <p className="font-semibold">Contrato anulado</p>
+                    <p className="mt-1">
+                      Anular no es lo mismo que cerrar la renta. Este contrato ya
+                      no admite cierre ni acta de recepción. Si el vehículo
+                      sigue en calle, cree un nuevo flujo de cierre desde un
+                      contrato activo o contacte soporte para corregir el caso.
+                    </p>
+                  </div>
+                ) : null}
                 <p>
                   <span className="text-muted">Reserva:</span>{" "}
                   {contract.reservationCode}
