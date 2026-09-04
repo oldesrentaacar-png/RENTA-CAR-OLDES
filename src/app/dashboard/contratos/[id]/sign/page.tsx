@@ -31,15 +31,22 @@ export default async function ContratoSignPage({
   const canSign = user ? await hasPermission(user.id, "contracts.sign") : false;
 
   let operatorName: string | null = null;
+  let operatorHasSignature = false;
   if (user && configured) {
     const supabase = await createClient();
     const { data: profile } = await supabase
       .from("profiles")
-      .select("first_name, last_name")
+      .select("first_name, last_name, signature_url")
       .eq("id", user.id)
       .maybeSingle();
     if (profile) {
-      operatorName = `${profile.first_name} ${profile.last_name}`.trim();
+      const p = profile as {
+        first_name: string;
+        last_name: string;
+        signature_url?: string | null;
+      };
+      operatorName = `${p.first_name} ${p.last_name}`.trim();
+      operatorHasSignature = Boolean(p.signature_url?.trim());
     }
   }
 
@@ -85,6 +92,7 @@ export default async function ContratoSignPage({
               canSign={canSign}
               canCancel={false}
               operatorName={operatorName}
+              operatorHasSignature={operatorHasSignature}
             />
             <Link
               href={`/dashboard/contratos/${id}`}

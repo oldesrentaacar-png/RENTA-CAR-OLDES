@@ -4,11 +4,15 @@ import { getContractPdfData } from "@/app/dashboard/contratos/actions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
 import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
 import { prepareContractPdfImages } from "@/lib/pdf/pdf-images";
 import { renderContractPdf } from "@/lib/pdf/render";
 
+/**
+ * Staff can always preview the contract PDF.
+ * Sharing with the customer should only happen after the client has signed
+ * (enforced in the UI / delivery flow).
+ */
 export async function serveContractPdfResponse(
   contractId: string,
 ): Promise<NextResponse> {
@@ -31,27 +35,6 @@ export async function serveContractPdfResponse(
   if (!allowed) {
     return NextResponse.json(
       { success: false, error: { message: "Sin permiso." } },
-      { status: 403 },
-    );
-  }
-
-  const supabase = await createClient();
-  const { data: clientSig } = await supabase
-    .from("contract_signatures")
-    .select("id")
-    .eq("contract_id", contractId)
-    .eq("signer_type", "CLIENT")
-    .maybeSingle();
-
-  if (!clientSig) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          message:
-            "El contrato aún no tiene firma electrónica del cliente. Complete la firma antes de ver o compartir el PDF.",
-        },
-      },
       { status: 403 },
     );
   }

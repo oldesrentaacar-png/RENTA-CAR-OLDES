@@ -23,6 +23,8 @@ type ContractDetailActionsProps = {
   canSign: boolean;
   canCancel: boolean;
   operatorName?: string | null;
+  /** Current operator already has signature_url on profile. */
+  operatorHasSignature?: boolean;
 };
 
 export function ContractDetailActions({
@@ -31,12 +33,16 @@ export function ContractDetailActions({
   canSign,
   canCancel,
   operatorName,
+  operatorHasSignature = false,
 }: ContractDetailActionsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [signedBy, setSignedBy] = useState(contract.customerName);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [operatorSignatureDataUrl, setOperatorSignatureDataUrl] = useState<
+    string | null
+  >(null);
   const [signing, setSigning] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [scrolledTerms, setScrolledTerms] = useState(false);
@@ -84,6 +90,12 @@ export function ContractDetailActions({
       setError("Complete el nombre y la firma del cliente.");
       return;
     }
+    if (!operatorHasSignature && !operatorSignatureDataUrl) {
+      setError(
+        "Falta su firma de operador. Dibújela abajo (o guárdela en su perfil) antes de firmar al cliente.",
+      );
+      return;
+    }
     if (!scrolledTerms) {
       setError("El cliente debe leer los términos hasta el final (desplazar el texto).");
       return;
@@ -102,6 +114,9 @@ export function ContractDetailActions({
     fd.set("signedBy", signedBy);
     fd.set("signatureDataUrl", signatureDataUrl);
     fd.set("acceptedTerms", "true");
+    if (operatorSignatureDataUrl) {
+      fd.set("operatorSignatureDataUrl", operatorSignatureDataUrl);
+    }
 
     const result = await signContract(contract.id, fd);
     setSigning(false);
@@ -113,6 +128,7 @@ export function ContractDetailActions({
 
     if (result.data.warning) setWarning(result.data.warning);
     setSignatureDataUrl(null);
+    setOperatorSignatureDataUrl(null);
     router.refresh();
   }
 
@@ -186,7 +202,7 @@ export function ContractDetailActions({
           <h3 className="font-semibold">Firma del cliente</h3>
           <p className="text-sm text-muted">
             El cliente debe leer los términos, marcar la aceptación y firmar.
-            El operador ({repName}) se registra automáticamente con la firma de su perfil.
+            Su firma de operador se aplica automáticamente desde su perfil.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-border p-3 text-sm">
@@ -201,14 +217,40 @@ export function ContractDetailActions({
               <p className="font-medium">Operador OLDES</p>
               {repSigned ? (
                 <p className="text-success">{repName} · Registrado</p>
+              ) : operatorHasSignature || operatorSignatureDataUrl ? (
+                <p className="text-muted">{repName} · Firma lista</p>
               ) : (
-                <p className="text-muted">{repName} · Se registrará al firmar</p>
+                <p className="text-amber-800">
+                  {repName} · Falta firma en perfil
+                </p>
               )}
             </div>
           </div>
 
           {!clientSigned ? (
             <>
+              {!operatorHasSignature ? (
+                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+                  <p className="text-sm font-medium text-amber-950">
+                    Su firma de operador (se guardará en su perfil)
+                  </p>
+                  <p className="text-xs text-amber-900">
+                    Dibuje su firma una vez aquí (o en{" "}
+                    <a href="/dashboard/mi-perfil" className="underline">
+                      Mi perfil
+                    </a>
+                    ). Se usará automáticamente en los siguientes contratos.
+                  </p>
+                  <SignaturePad
+                    onConfirm={setOperatorSignatureDataUrl}
+                    disabled={signing}
+                  />
+                  {operatorSignatureDataUrl ? (
+                    <p className="text-xs text-success">Firma de operador capturada.</p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div>
                 <p className="mb-2 text-sm font-medium">Términos y condiciones</p>
                 <div
@@ -266,7 +308,12 @@ export function ContractDetailActions({
                 type="button"
                 onClick={handleSign}
                 loading={signing}
-                disabled={!signatureDataUrl || !acceptedTerms || !scrolledTerms}
+                disabled={
+                  !signatureDataUrl ||
+                  !acceptedTerms ||
+                  !scrolledTerms ||
+                  (!operatorHasSignature && !operatorSignatureDataUrl)
+                }
               >
                 Registrar firma del cliente
               </Button>

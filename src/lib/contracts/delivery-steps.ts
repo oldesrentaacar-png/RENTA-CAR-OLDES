@@ -25,7 +25,6 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     checkOutChecklistCount,
     amountPaid,
     hasClientSignature,
-    hasPdf,
   } = input;
 
   return [
@@ -88,17 +87,15 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     },
     {
       id: "pdf",
-      title: "PDF generado",
+      title: "PDF del contrato",
       description: hasClientSignature
-        ? hasPdf
-          ? "PDF listo para ver y compartir."
-          : "PDF disponible bajo demanda."
-        : "Disponible solo después de la firma electrónica del cliente.",
-      status: hasClientSignature ? "done" : "pending",
-      href: hasClientSignature
-        ? contractPdfHref(contractId)
-        : `/dashboard/contratos/${contractId}/sign`,
-      linkLabel: hasClientSignature ? "Ver PDF" : "Firmar para habilitar PDF",
+        ? "Firmado por el cliente — listo para ver y compartir."
+        : "Vista interna disponible. Comparta solo después de la firma del cliente.",
+      status: hasClientSignature ? "done" : "partial",
+      href: contractPdfHref(contractId),
+      linkLabel: hasClientSignature
+        ? "Ver / Compartir PDF"
+        : "Ver PDF (vista interna)",
     },
   ];
 }

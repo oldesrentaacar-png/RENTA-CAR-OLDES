@@ -27,6 +27,7 @@ const ROUTE_LABELS: Record<string, string> = {
   gastos: "Gastos",
   reportes: "Reportes",
   alertas: "Alertas",
+  "mi-perfil": "Mi perfil",
   usuarios: "Usuarios",
   roles: "Roles y permisos",
   configuracion: "Configuración",
@@ -152,6 +153,15 @@ export function Topbar() {
                       {profile?.email ?? ""}
                     </p>
                   </div>
+                  <a
+                    href="/dashboard/mi-perfil"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-surface-muted"
+                  >
+                    <User className="h-4 w-4" />
+                    Mi perfil y firma
+                  </a>
                   <button
                     type="button"
                     role="menuitem"

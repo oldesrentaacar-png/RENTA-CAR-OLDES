@@ -5,39 +5,38 @@ type ContractPdfLinkProps = {
   contractId: string;
   className?: string;
   children?: React.ReactNode;
-  /** When false, PDF cannot be opened/shared yet. */
+  /** Client electronic signature present. */
   clientSigned?: boolean;
 };
 
-/** Opens contract PDF in a new tab (never via Next.js client navigation). */
+/**
+ * Staff can always open the PDF (admin/operator preview).
+ * When the client has not signed, the label warns it is internal-only
+ * (do not share with the customer yet).
+ */
 export function ContractPdfLink({
   contractId,
   className,
-  children = "Ver PDF",
+  children,
   clientSigned = true,
 }: ContractPdfLinkProps) {
-  if (!clientSigned) {
-    return (
-      <span
-        className={cn(
-          "inline-flex h-10 cursor-not-allowed items-center rounded-lg border border-border px-4 text-sm font-medium text-muted opacity-70",
-          className,
-        )}
-        title="El cliente debe firmar electrónicamente antes de ver o compartir el PDF."
-      >
-        {children} (requiere firma)
-      </span>
-    );
-  }
+  const label =
+    children ??
+    (clientSigned ? "Ver PDF" : "Ver PDF (vista interna)");
 
   return (
     <a
       href={contractPdfHref(contractId)}
       target="_blank"
       rel="noopener noreferrer"
+      title={
+        clientSigned
+          ? "Abrir PDF del contrato"
+          : "Vista interna: el cliente aún no ha firmado. No compartir hasta firmar."
+      }
       className={cn(className)}
     >
-      {children}
+      {label}
     </a>
   );
 }

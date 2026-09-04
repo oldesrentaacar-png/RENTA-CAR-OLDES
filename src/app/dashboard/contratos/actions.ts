@@ -85,6 +85,7 @@ async function ensureRepresentativeSignature(
   userId: string,
   ipAddress: string | null,
   userAgent: string | null,
+  operatorSignatureDataUrl?: string | null,
 ): Promise<string | undefined> {
   const { data: existing } = await supabase
     .from("contract_signatures")
@@ -102,7 +103,7 @@ async function ensureRepresentativeSignature(
     .maybeSingle();
 
   if (!profile) {
-    return "Configure su nombre y firma en el perfil para registrar la firma del operador.";
+    return "Configure su nombre y firma en Usuarios → su perfil.";
   }
 
   const operator = profile as {
@@ -116,19 +117,33 @@ async function ensureRepresentativeSignature(
   }
 
   let signaturePath: string | null = null;
-  if (operator.signature_url?.startsWith("data:")) {
+  const sourceDataUrl =
+    operatorSignatureDataUrl?.startsWith("data:")
+      ? operatorSignatureDataUrl
+      : operator.signature_url?.startsWith("data:")
+        ? operator.signature_url
+        : null;
+
+  if (sourceDataUrl) {
     const upload = await uploadSignatureImage(
       contractId,
       "REPRESENTATIVE",
-      operator.signature_url,
+      sourceDataUrl,
     );
     signaturePath = upload.storagePath;
+    // Persist on profile for next contracts (even as data URL if R2 missing).
+    if (!operator.signature_url || operatorSignatureDataUrl) {
+      await supabase
+        .from("profiles")
+        .update({ signature_url: sourceDataUrl })
+        .eq("id", userId);
+    }
   } else if (operator.signature_url) {
     signaturePath = operator.signature_url;
   }
 
   if (!signaturePath) {
-    return "Configure su firma en el perfil para registrar la firma del operador.";
+    return "Falta su firma de operador. Guárdela en Mi perfil (menú usuario) o dibújela en esta pantalla.";
   }
 
   const { error } = await supabase.from("contract_signatures").insert({
@@ -1406,18 +1421,25 @@ export async function signContract(
 
     if (sigError) throw mapPostgresError(sigError);
 
-    let warning = upload.warning;
+    // Do not surface storage infra warnings (R2) to the operator UI.
+    if (upload.warning) {
+      console.warn("[signContract] storage warning:", upload.warning);
+    }
+
+    let warning: string | undefined;
     if (parsed.data.signerType === "CLIENT") {
+      const operatorSignatureDataUrl = formData.get("operatorSignatureDataUrl");
       const repWarning = await ensureRepresentativeSignature(
         supabase,
         contractId,
         user.id,
         ipAddress,
         userAgent,
+        typeof operatorSignatureDataUrl === "string"
+          ? operatorSignatureDataUrl
+          : null,
       );
-      if (repWarning) {
-        warning = warning ? `${warning} ${repWarning}` : repWarning;
-      }
+      if (repWarning) warning = repWarning;
     }
 
     const { data: allSignatures } = await supabase
