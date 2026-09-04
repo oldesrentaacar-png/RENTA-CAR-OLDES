@@ -131,6 +131,9 @@ export default async function ContratoDetailPage({
                 ) : null}
                 <ContractPdfLink
                   contractId={id}
+                  clientSigned={Boolean(
+                    contract.signatures.some((s) => s.signer_type === "CLIENT"),
+                  )}
                   className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"
                 />
                 {canSign &&

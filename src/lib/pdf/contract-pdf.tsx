@@ -104,6 +104,8 @@ export type ContractPdfProps = {
   operatorName?: string | null;
   /** Firma digital del operador (URL o data URL). */
   operatorSignatureUrl?: string | null;
+  /** Firma digital del cliente (URL o data URL). */
+  clientSignatureUrl?: string | null;
   /** Fotos de inspección — solo al final del documento (anexo). */
   annexPhotos?: Array<{ url: string; label: string }>;
   /** Líneas de facturación (silla bebé, entrega fuera de horario, etc.) */
@@ -290,15 +292,26 @@ const styles = StyleSheet.create({
   },
   wireframeDiagram: {
     width: "100%",
-    height: 200,
+    maxHeight: 280,
     objectFit: "contain",
-    marginBottom: 6,
+    marginBottom: 4,
+  },
+  inspectionStack: {
+    width: "100%",
+    gap: 6,
   },
   checklistPanel: {
-    width: "48%",
+    width: "100%",
     borderWidth: 1,
     borderColor: LINE,
     padding: 4,
+  },
+  checklistColumns: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  checklistColumn: {
+    flex: 1,
   },
   checklistItem: {
     flexDirection: "row",
@@ -544,8 +557,14 @@ export function ContractPdfDocument(props: ContractPdfProps) {
       ? props.clauses.split(/\n+/).filter(Boolean)
       : OLDES_CONTRACT_CLAUSES;
 
-  const billingLines = props.billingLineItems ?? [];
   const subtotalRental = props.dailyRate * props.rentalDays;
+  const billingLines = props.billingLineItems ?? [];
+  const extrasTotal = billingLines.reduce((sum, line) => sum + line.amount, 0);
+  const displayedTotal =
+    subtotalRental +
+    (props.insurance > 0 ? props.insurance : 0) +
+    extrasTotal +
+    (props.otherCharges ?? 0);
 
   const openingAccessories = accessories.filter(
     (item) => item.checkOut && item.checkOut !== "☐",
@@ -554,6 +573,9 @@ export function ContractPdfDocument(props: ContractPdfProps) {
     openingAccessories.length > 0
       ? openingAccessories
       : accessories.filter((item) => item.checkOut !== undefined);
+  const checklistMid = Math.ceil(checklistRows.length / 2);
+  const checklistLeft = checklistRows.slice(0, checklistMid);
+  const checklistRight = checklistRows.slice(checklistMid);
 
   const issuedWhen =
     props.issuedDateLabel ||
@@ -647,7 +669,9 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             <MachoteField label="Depósito (garantía)" value={formatMoney(props.deposit)} width="third" />
           </MachoteGrid>
           <View style={machoteStyles.billingRow}>
-            <Text style={{ fontSize: 7.5 }}>Renta ({props.rentalDays} días × {formatMoney(props.dailyRate)})</Text>
+            <Text style={{ fontSize: 7.5 }}>
+              Renta ({props.rentalDays} días × {formatMoney(props.dailyRate)})
+            </Text>
             <Text style={{ fontSize: 7.5 }}>{formatMoney(subtotalRental)}</Text>
           </View>
           {props.insurance > 0 ? (
@@ -657,7 +681,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             </View>
           ) : null}
           {billingLines.map((line) => (
-            <View key={line.label} style={machoteStyles.billingRow}>
+            <View key={`${line.label}-${line.amount}`} style={machoteStyles.billingRow}>
               <Text style={{ fontSize: 7.5 }}>{line.label}</Text>
               <Text style={{ fontSize: 7.5 }}>{formatMoney(line.amount)}</Text>
             </View>
@@ -670,8 +694,14 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           ) : null}
           <View style={machoteStyles.billingTotal}>
             <Text style={styles.totalStrong}>MONTO TOTAL</Text>
-            <Text style={styles.totalStrong}>{formatMoney(props.total)}</Text>
+            <Text style={styles.totalStrong}>{formatMoney(displayedTotal)}</Text>
           </View>
+          {props.deposit > 0 ? (
+            <Text style={[styles.disclaimer, { marginHorizontal: 6, marginBottom: 2 }]}>
+              Depósito en garantía (no forma parte del total de renta):{" "}
+              {formatMoney(props.deposit)}
+            </Text>
+          ) : null}
           <Text style={[styles.disclaimer, { marginHorizontal: 6, marginBottom: 4 }]}>
             ESTE DOCUMENTO NO ES UNA FACTURA; EXÍJALA CUANDO SU SERVICIO ESTÉ FINALIZADO
           </Text>
@@ -681,8 +711,8 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           <Text style={{ fontSize: 6.5, color: MUTED, paddingHorizontal: 6, paddingTop: 4 }}>
             Simbología: (X) Rayón · (O) Golpe · (*) Cristal · (△) Faltante
           </Text>
-          <View style={[styles.twoColMain, { paddingHorizontal: 4, paddingBottom: 4 }]}>
-            <View style={styles.photoPanel}>
+          <View style={[styles.inspectionStack, { paddingHorizontal: 4, paddingBottom: 4 }]}>
+            <View style={[styles.photoPanel, { width: "100%" }]}>
               {props.inspectionWireframeUrl ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
                 <Image
@@ -709,14 +739,28 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 4 }}>
                 CHECKLIST INVENTARIO (SALIDA)
               </Text>
-              {checklistRows.map((item) => (
-                <View key={item.key} style={styles.checklistItem}>
-                  <Text style={styles.checklistMark}>
-                    [{item.checkOut === "✓" ? " ✓ " : item.checkOut || "   "}]
-                  </Text>
-                  <Text style={styles.checklistLabel}>{item.label}</Text>
+              <View style={styles.checklistColumns}>
+                <View style={styles.checklistColumn}>
+                  {checklistLeft.map((item) => (
+                    <View key={item.key} style={styles.checklistItem}>
+                      <Text style={styles.checklistMark}>
+                        [{item.checkOut === "✓" ? " ✓ " : item.checkOut || "   "}]
+                      </Text>
+                      <Text style={styles.checklistLabel}>{item.label}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
+                <View style={styles.checklistColumn}>
+                  {checklistRight.map((item) => (
+                    <View key={item.key} style={styles.checklistItem}>
+                      <Text style={styles.checklistMark}>
+                        [{item.checkOut === "✓" ? " ✓ " : item.checkOut || "   "}]
+                      </Text>
+                      <Text style={styles.checklistLabel}>{item.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
             </View>
           </View>
         </MachoteSection>
@@ -745,8 +789,9 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           </Text>
         ))}
         <Text style={{ fontSize: 7, marginTop: 6, fontFamily: "Helvetica-Bold", color: NAVY }}>
-          ✓ ACEPTO Y ESTOY DE ACUERDO con los términos, inventario y estado del vehículo
-          registrados en este contrato de apertura.
+          {props.clientSignedAt
+            ? "☑ He leído y acepto los términos y condiciones, inventario y estado del vehículo registrados en este contrato."
+            : "☐ He leído y acepto los términos y condiciones (se marca al firmar electrónicamente)."}
         </Text>
 
         <Text style={styles.sectionTitle}>Observaciones</Text>
@@ -771,12 +816,25 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             <Text style={{ fontSize: 7 }}>
               Nombre: {props.customerName}
             </Text>
-            <Text style={{ fontSize: 7 }}>
-              Firma:{" "}
-              {props.clientSignedAt
-                ? `Firmado ${props.clientSignedAt}`
-                : "________________"}
-            </Text>
+            {props.clientSignatureUrl ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+              <Image
+                src={props.clientSignatureUrl}
+                style={{ width: 120, height: 36, objectFit: "contain", marginTop: 4 }}
+              />
+            ) : (
+              <Text style={{ fontSize: 7 }}>
+                Firma:{" "}
+                {props.clientSignedAt
+                  ? `Firmado ${props.clientSignedAt}`
+                  : "________________"}
+              </Text>
+            )}
+            {props.clientSignedAt ? (
+              <Text style={{ fontSize: 6.5, color: MUTED, marginTop: 2 }}>
+                {props.clientSignedAt}
+              </Text>
+            ) : null}
           </View>
           <View style={styles.signBox}>
             <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
@@ -873,68 +931,24 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           </Text>
         ))}
 
-        <View
-          style={{
-            marginTop: 10,
-            borderWidth: 1,
-            borderColor: LINE,
-            padding: 8,
-            backgroundColor: LIGHT,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 8,
-              fontFamily: "Helvetica-Bold",
-              marginBottom: 4,
-              color: NAVY,
-            }}
-          >
-            AUTORIZACIÓN DE CARGO A TARJETA DE CRÉDITO
-          </Text>
-          <Text style={{ fontSize: 7.5, lineHeight: 1.45 }}>
-            Yo, {props.customerName || "________________"}, autorizo a{" "}
-            {legalName} cargar a mi tarjeta de Crédito N°
-            ________________________ con fecha de vencimiento: ____/____ el
-            monto de $ {formatMoney(props.total)} en concepto de: alquiler de
-            vehículo / depósito en garantía / cargos adicionales derivados del
-            presente contrato {props.contractCode}.
-          </Text>
-        </View>
-
-        <View style={{ alignItems: "center", marginTop: 28 }}>
-          <View
-            style={{
-              width: 240,
-              borderTopWidth: 1,
-              borderTopColor: LINE,
-              paddingTop: 4,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold" }}>
-              FIRMA DEL ARRENDATARIO (TÉRMINOS)
-            </Text>
-            <Text style={{ fontSize: 7, color: MUTED }}>
-              {props.customerName}
-              {props.clientSignedAt
-                ? ` · Firmado ${props.clientSignedAt}`
-                : ""}
-            </Text>
-          </View>
-        </View>
-
         <Text
           style={{
-            fontSize: 7,
-            marginTop: 16,
-            color: MUTED,
-            textAlign: "center",
+            fontSize: 8,
+            marginTop: 12,
+            fontFamily: "Helvetica-Bold",
+            color: NAVY,
           }}
         >
-          Los pagarés se gestionan por escrito y por separado para notarización.
-          No forman parte de este PDF digital.
+          {props.clientSignedAt
+            ? "☑ El arrendatario declaró haber leído y aceptado estos términos al firmar electrónicamente."
+            : "☐ Pendiente aceptación electrónica de términos por el arrendatario."}
         </Text>
+        {props.clientSignedAt ? (
+          <Text style={{ fontSize: 7, marginTop: 4, color: MUTED }}>
+            Aceptación registrada: {props.clientSignedAt}
+            {props.customerName ? ` · ${props.customerName}` : ""}
+          </Text>
+        ) : null}
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>

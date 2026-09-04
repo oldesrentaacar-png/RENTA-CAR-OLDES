@@ -18,7 +18,8 @@ export const createUserSchema = z.object({
   firstName: z.string().trim().min(1, "Nombre requerido.").max(100),
   lastName: z.string().trim().min(1, "Apellido requerido.").max(100),
   phone: optionalText(20),
-  signatureUrl: optionalText(500),
+  /** URL or data:image base64 signature captured from pad. */
+  signatureUrl: optionalText(2_000_000),
   roleId: z.uuid("Rol inválido."),
   status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]).default("ACTIVE"),
 });

@@ -1348,10 +1348,20 @@ export async function signContract(
       signerType: formData.get("signerType"),
       signedBy: formData.get("signedBy"),
       signatureDataUrl: formData.get("signatureDataUrl"),
+      acceptedTerms: formData.get("acceptedTerms"),
     });
 
     if (!parsed.success) {
       return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
+    }
+
+    if (
+      parsed.data.signerType === "CLIENT" &&
+      !parsed.data.acceptedTerms
+    ) {
+      return actionError(
+        "Debe aceptar los términos y condiciones antes de firmar.",
+      );
     }
 
     const supabase = await createClient();
@@ -1663,6 +1673,14 @@ export async function getContractPdfData(contractId: string) {
 
   let operatorName: string | null = repSig?.signed_by_name ?? null;
   let operatorSignatureUrl: string | null = null;
+  let clientSignatureUrl: string | null = null;
+
+  if (clientSig?.signature_path) {
+    clientSignatureUrl =
+      (await resolvePrivateFileUrl(clientSig.signature_path)) ??
+      clientSig.signature_path;
+  }
+
   if (repSig?.signature_path) {
     operatorSignatureUrl =
       (await resolvePrivateFileUrl(repSig.signature_path)) ??
@@ -1722,15 +1740,38 @@ export async function getContractPdfData(contractId: string) {
   if (quoteId) {
     const { data: quoteItems } = await supabase
       .from("quote_items")
-      .select("description, amount")
+      .select("description, amount, item_type")
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true });
     for (const item of quoteItems ?? []) {
-      const amount = Number((item as { amount: number }).amount ?? 0);
-      const label = String((item as { description: string }).description ?? "").trim();
-      if (label && amount > 0) {
-        billingLineItems.push({ label, amount });
+      const rowItem = item as {
+        description?: string | null;
+        amount?: number | null;
+        item_type?: string | null;
+      };
+      const itemType = String(rowItem.item_type ?? "CUSTOM").toUpperCase();
+      // VEHICLE duplicates "Renta (días × tarifa)"; TAX/DISCOUNT handled elsewhere.
+      if (itemType === "VEHICLE" || itemType === "TAX" || itemType === "DISCOUNT") {
+        continue;
       }
+      const amount = Number(rowItem.amount ?? 0);
+      const label = String(rowItem.description ?? "").trim();
+      if (!label || amount <= 0) continue;
+      // Skip lines that clearly repeat the base rental description.
+      const lower = label.toLowerCase();
+      if (
+        lower.includes("renta") &&
+        (lower.includes("vehículo") ||
+          lower.includes("vehiculo") ||
+          lower.includes("sedan") ||
+          lower.includes("sedán") ||
+          lower.includes("pickup") ||
+          lower.includes("camioneta") ||
+          lower.includes("minivan"))
+      ) {
+        continue;
+      }
+      billingLineItems.push({ label, amount });
     }
   }
 
@@ -1805,6 +1846,7 @@ export async function getContractPdfData(contractId: string) {
       : null,
     operatorName,
     operatorSignatureUrl,
+    clientSignatureUrl,
     annexPhotos,
     issuedPlace: "San Salvador",
     issuedDateLabel: `${formatAppDate(mapped.start_at)} - ${formatAppTime(mapped.start_at)}`,

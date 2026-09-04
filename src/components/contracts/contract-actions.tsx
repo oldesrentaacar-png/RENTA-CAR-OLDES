@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   cancelContract,
@@ -14,6 +14,8 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { OLDES_CONTRACT_CLAUSES } from "@/lib/contracts/oldes-terms";
+import { cn } from "@/lib/utils";
 
 type ContractDetailActionsProps = {
   contract: ContractDetail;
@@ -36,6 +38,9 @@ export function ContractDetailActions({
   const [signedBy, setSignedBy] = useState(contract.customerName);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [scrolledTerms, setScrolledTerms] = useState(false);
+  const termsRef = useRef<HTMLDivElement>(null);
 
   const clientSigned = contract.signatures.some((s) => s.signer_type === "CLIENT");
   const repSigned = contract.signatures.some(
@@ -47,10 +52,25 @@ export function ContractDetailActions({
     operatorName ??
     "Operador en sesión";
 
+  const termsClauses = useMemo(() => {
+    const raw = contract.clauses?.trim();
+    if (raw && raw.length > 40) {
+      return raw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    }
+    return [...OLDES_CONTRACT_CLAUSES];
+  }, [contract.clauses]);
+
   const editable =
     canEdit &&
     contract.status !== "COMPLETED" &&
     contract.status !== "CANCELLED";
+
+  function handleTermsScroll() {
+    const el = termsRef.current;
+    if (!el || scrolledTerms) return;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (remaining <= 24) setScrolledTerms(true);
+  }
 
   async function handleUpdate(formData: FormData) {
     setError(null);
@@ -64,6 +84,14 @@ export function ContractDetailActions({
       setError("Complete el nombre y la firma del cliente.");
       return;
     }
+    if (!scrolledTerms) {
+      setError("El cliente debe leer los términos hasta el final (desplazar el texto).");
+      return;
+    }
+    if (!acceptedTerms) {
+      setError("Debe marcar que ha leído y acepta los términos y condiciones.");
+      return;
+    }
 
     setSigning(true);
     setError(null);
@@ -73,6 +101,7 @@ export function ContractDetailActions({
     fd.set("signerType", "CLIENT");
     fd.set("signedBy", signedBy);
     fd.set("signatureDataUrl", signatureDataUrl);
+    fd.set("acceptedTerms", "true");
 
     const result = await signContract(contract.id, fd);
     setSigning(false);
@@ -156,8 +185,8 @@ export function ContractDetailActions({
         <div className="space-y-4 rounded-xl border border-border bg-surface p-6">
           <h3 className="font-semibold">Firma del cliente</h3>
           <p className="text-sm text-muted">
-            Solo se requiere la firma del cliente. El operador ({repName}) se
-            registra automáticamente al guardar la firma del cliente.
+            El cliente debe leer los términos, marcar la aceptación y firmar.
+            El operador ({repName}) se registra automáticamente con la firma de su perfil.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-border p-3 text-sm">
@@ -180,6 +209,45 @@ export function ContractDetailActions({
 
           {!clientSigned ? (
             <>
+              <div>
+                <p className="mb-2 text-sm font-medium">Términos y condiciones</p>
+                <div
+                  ref={termsRef}
+                  onScroll={handleTermsScroll}
+                  className="max-h-56 overflow-y-auto rounded-lg border border-border bg-white p-3 text-xs leading-relaxed text-foreground"
+                >
+                  {termsClauses.map((clause) => (
+                    <p key={clause.slice(0, 32)} className="mb-2 last:mb-0">
+                      {clause}
+                    </p>
+                  ))}
+                </div>
+                <p
+                  className={cn(
+                    "mt-2 text-xs",
+                    scrolledTerms ? "text-success" : "text-muted",
+                  )}
+                >
+                  {scrolledTerms
+                    ? "Lectura completa registrada."
+                    : "Desplace hasta el final para habilitar la aceptación."}
+                </p>
+              </div>
+
+              <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={acceptedTerms}
+                  disabled={!scrolledTerms}
+                  onChange={(event) => setAcceptedTerms(event.target.checked)}
+                />
+                <span>
+                  He leído y acepto los términos y condiciones del contrato de
+                  arrendamiento.
+                </span>
+              </label>
+
               <Input
                 label="Nombre del cliente (firmante)"
                 value={signedBy}
@@ -187,7 +255,7 @@ export function ContractDetailActions({
               />
               <SignaturePad
                 onConfirm={setSignatureDataUrl}
-                disabled={signing}
+                disabled={signing || !acceptedTerms}
               />
               {signatureDataUrl ? (
                 <p className="text-sm text-muted">
@@ -198,7 +266,7 @@ export function ContractDetailActions({
                 type="button"
                 onClick={handleSign}
                 loading={signing}
-                disabled={!signatureDataUrl}
+                disabled={!signatureDataUrl || !acceptedTerms || !scrolledTerms}
               >
                 Registrar firma del cliente
               </Button>

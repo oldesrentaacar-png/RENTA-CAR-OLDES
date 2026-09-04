@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { createUser, updateUser } from "@/app/dashboard/usuarios/actions";
+import { SignaturePad } from "@/components/contracts/signature-pad";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import type { Profile } from "@/types/database";
 
 type UserFormProps = {
@@ -19,10 +21,13 @@ type UserFormProps = {
 export function UserForm({ user, roles, redirectTo }: UserFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [signatureUrl, setSignatureUrl] = useState(user?.signature_url ?? "");
+  const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const isEdit = Boolean(user);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
+    formData.set("signatureUrl", signatureUrl);
     const result = isEdit
       ? await updateUser(user!.id, formData)
       : await createUser(formData);
@@ -64,12 +69,6 @@ export function UserForm({ user, roles, redirectTo }: UserFormProps) {
           required
         />
         <Input name="phone" label="Teléfono" defaultValue={user?.phone ?? ""} />
-        <Input
-          name="signatureUrl"
-          label="URL firma digital (Cloudinary)"
-          defaultValue={user?.signature_url ?? ""}
-          placeholder="https://..."
-        />
         <Select
           name="roleId"
           label="Rol *"
@@ -86,6 +85,51 @@ export function UserForm({ user, roles, redirectTo }: UserFormProps) {
             { value: "SUSPENDED", label: "Suspendido" },
           ]}
         />
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-border p-4">
+        <div>
+          <h3 className="text-sm font-semibold">Firma digital del operador</h3>
+          <p className="text-sm text-muted">
+            Esta firma se usará automáticamente en contratos y documentos cuando
+            usted esté en sesión.
+          </p>
+        </div>
+
+        {(capturedPreview ||
+          (signatureUrl && !signatureUrl.startsWith("data:"))) ? (
+          <div className="rounded-lg border border-border bg-white p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={capturedPreview || signatureUrl}
+              alt="Firma actual"
+              className="h-16 max-w-full object-contain"
+            />
+          </div>
+        ) : null}
+
+        <SignaturePad
+          onConfirm={(dataUrl) => {
+            setSignatureUrl(dataUrl);
+            setCapturedPreview(dataUrl);
+          }}
+        />
+
+        {signatureUrl ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setSignatureUrl("");
+              setCapturedPreview(null);
+            }}
+          >
+            Quitar firma
+          </Button>
+        ) : null}
+
+        <input type="hidden" name="signatureUrl" value={signatureUrl} />
       </div>
 
       <div className="flex flex-wrap gap-3">

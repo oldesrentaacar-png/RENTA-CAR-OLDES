@@ -41,6 +41,10 @@ export const contractSignSchema = z.object({
     .string()
     .min(1, "Firma requerida.")
     .regex(/^data:image\/(png|jpeg|webp);base64,/, "Formato de firma inválido."),
+  acceptedTerms: z
+    .union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
+    .transform((value) => value === true || value === "true"),
 });
 
 export type ContractInput = z.infer<typeof contractSchema>;

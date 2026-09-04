@@ -89,12 +89,16 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     {
       id: "pdf",
       title: "PDF generado",
-      description: hasPdf
-        ? "PDF almacenado en el contrato."
-        : "El PDF se genera bajo demanda (siempre disponible).",
-      status: "done",
-      href: contractPdfHref(contractId),
-      linkLabel: "Ver PDF",
+      description: hasClientSignature
+        ? hasPdf
+          ? "PDF listo para ver y compartir."
+          : "PDF disponible bajo demanda."
+        : "Disponible solo después de la firma electrónica del cliente.",
+      status: hasClientSignature ? "done" : "pending",
+      href: hasClientSignature
+        ? contractPdfHref(contractId)
+        : `/dashboard/contratos/${contractId}/sign`,
+      linkLabel: hasClientSignature ? "Ver PDF" : "Firmar para habilitar PDF",
     },
   ];
 }
