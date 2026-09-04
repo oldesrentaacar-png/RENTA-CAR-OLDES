@@ -338,12 +338,59 @@ function ChargeRow({
 
 export function QuotePdfDocument(props: QuotePdfProps) {
   const businessName = props.businessName || PDF_BRAND.name;
+  const en = props.language === "en";
+  const t = {
+    docType: en ? "Quote" : "Cotización",
+    issued: en ? "Issued" : "Emitida",
+    customer: en ? "Customer" : "Cliente",
+    rental: en ? "Rental" : "Alquiler",
+    pickup: en ? "Pickup" : "Recogida",
+    return: en ? "Return" : "Devolución",
+    day: en ? "day" : "día",
+    days: en ? "days" : "días",
+    perDay: en ? "/day" : "/día",
+    detail: en ? "Charge details" : "Detalle de cargos",
+    description: en ? "Description" : "Concepto",
+    qty: en ? "Qty" : "Cant.",
+    price: en ? "Price" : "Precio",
+    amount: en ? "Amount" : "Monto",
+    vehicleRental: en ? "Vehicle rental" : "Alquiler de vehículo",
+    insurance: en ? "Insurance" : "Seguro",
+    deliveryFee: en ? "Delivery fee" : "Cargo por entrega",
+    pickupFee: en ? "Pickup fee" : "Cargo por recogida",
+    otherCharges: en ? "Other charges" : "Otros cargos",
+    subtotal: en ? "Rental subtotal" : "Subtotal renta",
+    delivery: en ? "Delivery" : "Entrega",
+    pickupShort: en ? "Pickup" : "Recogida",
+    other: en ? "Other" : "Otros",
+    discount: en ? "Discount" : "Descuento",
+    taxes: en ? "Taxes" : "Impuestos",
+    deposit: en ? "Deposit (security)" : "Depósito (garantía)",
+    depositNote: en
+      ? "The deposit is a refundable security hold and is not part of the rental amount due."
+      : "El depósito es una garantía reembolsable y no forma parte del total a cobrar por el alquiler.",
+    totalDue: en ? "Total due" : "Total a cobrar",
+    validity: en
+      ? "This quote is valid until"
+      : "Vigencia de esta cotización: hasta",
+    notes: en ? "Notes" : "Notas",
+    payment: en ? "Payment conditions" : "Condiciones de pago",
+    deliveryReturn: en ? "Delivery & return" : "Entrega y devolución",
+    insurancePolicy: en
+      ? "Insurance & deductibles"
+      : "Póliza de seguro y deducibles",
+    driving: en ? "Driving guidelines" : "Directrices de conducción",
+    terms: en ? "Terms" : "Condiciones",
+    footerDoc: en ? "Commercial document" : "Documento comercial",
+    page: en ? "Page" : "Página",
+    of: en ? "of" : "de",
+  };
 
   return (
     <Document
-      title={`Cotización ${props.quoteCode}`}
+      title={`${t.docType} ${props.quoteCode}`}
       author={businessName}
-      subject={`Cotización de alquiler ${props.quoteCode}`}
+      subject={`${t.docType} ${props.quoteCode}`}
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.topBar} fixed />
@@ -361,7 +408,9 @@ export function QuotePdfDocument(props: QuotePdfProps) {
                 <Text style={styles.brandMeta}>{props.businessAddress}</Text>
               ) : null}
               {props.businessPhone ? (
-                <Text style={styles.brandMeta}>Tel: {props.businessPhone}</Text>
+                <Text style={styles.brandMeta}>
+                  {en ? "Ph" : "Tel"}: {props.businessPhone}
+                </Text>
               ) : null}
               {props.businessWhatsapp ? (
                 <Text style={styles.brandMeta}>
@@ -375,37 +424,43 @@ export function QuotePdfDocument(props: QuotePdfProps) {
           </View>
 
           <View style={styles.docBadge}>
-            <Text style={styles.docType}>Cotización</Text>
+            <Text style={styles.docType}>{t.docType}</Text>
             <Text style={styles.docCode}>{props.quoteCode}</Text>
             {props.issuedAtLabel ? (
-              <Text style={styles.docDate}>Emitida: {props.issuedAtLabel}</Text>
+              <Text style={styles.docDate}>
+                {t.issued}: {props.issuedAtLabel}
+              </Text>
             ) : null}
           </View>
         </View>
 
         <View style={styles.twoCol}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Cliente</Text>
+            <Text style={styles.cardTitle}>{t.customer}</Text>
             <Text style={styles.line}>{props.customerName}</Text>
             {props.customerPhone ? (
-              <Text style={styles.lineMuted}>Tel: {props.customerPhone}</Text>
+              <Text style={styles.lineMuted}>
+                {en ? "Ph" : "Tel"}: {props.customerPhone}
+              </Text>
             ) : null}
             {props.customerEmail ? (
               <Text style={styles.lineMuted}>{props.customerEmail}</Text>
             ) : null}
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Alquiler</Text>
+            <Text style={styles.cardTitle}>{t.rental}</Text>
             <Text style={styles.line}>{props.vehicleLabel}</Text>
             <Text style={styles.lineMuted}>
-              Recogida: {props.startAtLabel}
+              {t.pickup}: {props.startAtLabel}
             </Text>
             <Text style={styles.lineMuted}>
-              Devolución: {props.endAtLabel}
+              {t.return}: {props.endAtLabel}
             </Text>
             <Text style={styles.lineMuted}>
-              {props.rentalDays} día{props.rentalDays === 1 ? "" : "s"} ·{" "}
-              {formatMoney(props.dailyRate)}/día
+              {props.rentalDays}{" "}
+              {props.rentalDays === 1 ? t.day : t.days} ·{" "}
+              {formatMoney(props.dailyRate)}
+              {t.perDay}
             </Text>
           </View>
         </View>
@@ -417,21 +472,19 @@ export function QuotePdfDocument(props: QuotePdfProps) {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {props.language === "en" ? "Quote detail" : "Detalle de cargos"}
-          </Text>
+          <Text style={styles.sectionTitle}>{t.detail}</Text>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderText, styles.colDesc]}>
-              {props.language === "en" ? "Description" : "Concepto"}
+              {t.description}
             </Text>
             <Text style={[styles.tableHeaderText, styles.colQty]}>
-              {props.language === "en" ? "Qty" : "Cant."}
+              {t.qty}
             </Text>
             <Text style={[styles.tableHeaderText, styles.colRate]}>
-              {props.language === "en" ? "Price" : "Precio"}
+              {t.price}
             </Text>
             <Text style={[styles.tableHeaderText, styles.colAmount]}>
-              {props.language === "en" ? "Amount" : "Monto"}
+              {t.amount}
             </Text>
           </View>
           {props.lineItems && props.lineItems.length > 0
@@ -461,7 +514,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
               <>
                 <View style={styles.tableRow}>
                   <Text style={[styles.cell, styles.colDesc]}>
-                    Alquiler de vehículo — {props.vehicleLabel}
+                    {t.vehicleRental} — {props.vehicleLabel}
                   </Text>
                   <Text style={[styles.cell, styles.colQty]}>
                     {props.rentalDays}
@@ -475,7 +528,9 @@ export function QuotePdfDocument(props: QuotePdfProps) {
                 </View>
                 {props.insuranceAmount > 0 ? (
                   <View style={[styles.tableRow, styles.tableRowAlt]}>
-                    <Text style={[styles.cell, styles.colDesc]}>Seguro</Text>
+                    <Text style={[styles.cell, styles.colDesc]}>
+                      {t.insurance}
+                    </Text>
                     <Text style={[styles.cell, styles.colQty]}>—</Text>
                     <Text style={[styles.cell, styles.colRate]}>—</Text>
                     <Text style={[styles.cell, styles.colAmount]}>
@@ -486,7 +541,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
                 {props.deliveryFee > 0 ? (
                   <View style={styles.tableRow}>
                     <Text style={[styles.cell, styles.colDesc]}>
-                      Cargo por entrega
+                      {t.deliveryFee}
                     </Text>
                     <Text style={[styles.cell, styles.colQty]}>—</Text>
                     <Text style={[styles.cell, styles.colRate]}>—</Text>
@@ -498,7 +553,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
                 {props.pickupFee > 0 ? (
                   <View style={[styles.tableRow, styles.tableRowAlt]}>
                     <Text style={[styles.cell, styles.colDesc]}>
-                      Cargo por recogida
+                      {t.pickupFee}
                     </Text>
                     <Text style={[styles.cell, styles.colQty]}>—</Text>
                     <Text style={[styles.cell, styles.colRate]}>—</Text>
@@ -510,7 +565,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
                 {props.otherCharges > 0 ? (
                   <View style={styles.tableRow}>
                     <Text style={[styles.cell, styles.colDesc]}>
-                      Otros cargos
+                      {t.otherCharges}
                     </Text>
                     <Text style={[styles.cell, styles.colQty]}>—</Text>
                     <Text style={[styles.cell, styles.colRate]}>—</Text>
@@ -524,43 +579,37 @@ export function QuotePdfDocument(props: QuotePdfProps) {
         </View>
 
         <View style={styles.summaryBox}>
-          <ChargeRow label="Subtotal renta" value={props.subtotal} />
+          <ChargeRow label={t.subtotal} value={props.subtotal} />
           {props.insuranceAmount > 0 ? (
-            <ChargeRow label="Seguro" value={props.insuranceAmount} />
+            <ChargeRow label={t.insurance} value={props.insuranceAmount} />
           ) : null}
           {props.deliveryFee > 0 ? (
-            <ChargeRow label="Entrega" value={props.deliveryFee} />
+            <ChargeRow label={t.delivery} value={props.deliveryFee} />
           ) : null}
           {props.pickupFee > 0 ? (
-            <ChargeRow label="Recogida" value={props.pickupFee} />
+            <ChargeRow label={t.pickupShort} value={props.pickupFee} />
           ) : null}
           {props.otherCharges > 0 ? (
-            <ChargeRow label="Otros" value={props.otherCharges} />
+            <ChargeRow label={t.other} value={props.otherCharges} />
           ) : null}
           {props.discountAmount > 0 ? (
             <ChargeRow
-              label="Descuento"
+              label={t.discount}
               value={props.discountAmount}
               emphasize
             />
           ) : null}
           {props.taxAmount > 0 ? (
-            <ChargeRow label="Impuestos" value={props.taxAmount} />
+            <ChargeRow label={t.taxes} value={props.taxAmount} />
           ) : null}
           {props.depositAmount > 0 ? (
             <>
-              <ChargeRow
-                label="Depósito (garantía)"
-                value={props.depositAmount}
-              />
-              <Text style={styles.summaryNote}>
-                El depósito es una garantía reembolsable y no forma parte del
-                total a cobrar por el alquiler.
-              </Text>
+              <ChargeRow label={t.deposit} value={props.depositAmount} />
+              <Text style={styles.summaryNote}>{t.depositNote}</Text>
             </>
           ) : null}
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total a cobrar</Text>
+            <Text style={styles.totalLabel}>{t.totalDue}</Text>
             <Text style={styles.totalValue}>{formatMoney(props.total)}</Text>
           </View>
         </View>
@@ -568,16 +617,14 @@ export function QuotePdfDocument(props: QuotePdfProps) {
         {props.validUntilLabel ? (
           <View style={styles.validity}>
             <Text style={styles.validityText}>
-              Vigencia de esta cotización: hasta {props.validUntilLabel}
+              {t.validity} {props.validUntilLabel}
             </Text>
           </View>
         ) : null}
 
         {props.notes ? (
           <View style={[styles.section, { marginTop: 16 }]}>
-            <Text style={styles.sectionTitle}>
-              {props.language === "en" ? "Notes" : "Notas"}
-            </Text>
+            <Text style={styles.sectionTitle}>{t.notes}</Text>
             <View style={styles.notesBox}>
               <Text style={styles.notesText}>{props.notes}</Text>
             </View>
@@ -586,11 +633,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
 
         {props.paymentConditions ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {props.language === "en"
-                ? "Payment conditions"
-                : "Condiciones de pago"}
-            </Text>
+            <Text style={styles.sectionTitle}>{t.payment}</Text>
             <View style={styles.notesBox}>
               <Text style={styles.notesText}>{props.paymentConditions}</Text>
             </View>
@@ -599,11 +642,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
 
         {props.deliveryInstructions ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {props.language === "en"
-                ? "Delivery & return"
-                : "Entrega y devolución"}
-            </Text>
+            <Text style={styles.sectionTitle}>{t.deliveryReturn}</Text>
             <View style={styles.notesBox}>
               <Text style={styles.notesText}>{props.deliveryInstructions}</Text>
             </View>
@@ -612,11 +651,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
 
         {props.insurancePolicyText ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {props.language === "en"
-                ? "Insurance & deductibles"
-                : "Póliza de seguro y deducibles"}
-            </Text>
+            <Text style={styles.sectionTitle}>{t.insurancePolicy}</Text>
             <View style={styles.notesBox}>
               <Text style={styles.notesText}>{props.insurancePolicyText}</Text>
             </View>
@@ -625,11 +660,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
 
         {props.drivingGuidelines ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {props.language === "en"
-                ? "Driving guidelines"
-                : "Directrices de conducción"}
-            </Text>
+            <Text style={styles.sectionTitle}>{t.driving}</Text>
             <View style={styles.notesBox}>
               <Text style={styles.notesText}>{props.drivingGuidelines}</Text>
             </View>
@@ -638,9 +669,7 @@ export function QuotePdfDocument(props: QuotePdfProps) {
 
         {props.terms ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {props.language === "en" ? "Terms" : "Condiciones"}
-            </Text>
+            <Text style={styles.sectionTitle}>{t.terms}</Text>
             <View style={styles.notesBox}>
               <Text style={styles.notesText}>{props.terms}</Text>
             </View>
@@ -649,12 +678,12 @@ export function QuotePdfDocument(props: QuotePdfProps) {
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
-            {businessName} — Documento comercial
+            {businessName} — {t.footerDoc}
           </Text>
           <Text
             style={styles.footerText}
             render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
+              `${t.page} ${pageNumber} ${t.of} ${totalPages}`
             }
           />
         </View>

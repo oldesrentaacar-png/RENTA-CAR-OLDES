@@ -46,6 +46,10 @@ export default async function CotizacionDetailPage({
                 </div>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+                <p>
+                  <span className="text-muted">Idioma:</span>{" "}
+                  {quote.language === "en" ? "English" : "Español"}
+                </p>
                 <p><span className="text-muted">Periodo:</span> {formatAppDateTime(quote.start_at)} – {formatAppDateTime(quote.end_at)}</p>
                 <p><span className="text-muted">Días:</span> {quote.rental_days}</p>
                 <p><span className="text-muted">Tarifa/día:</span> {formatMoney(quote.daily_rate)}</p>

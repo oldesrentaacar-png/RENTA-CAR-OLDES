@@ -3,6 +3,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import {
   QuoteForm,
   type QuoteCatalogItem,
+  type QuoteVehicleTypeOption,
 } from "@/components/forms/quote-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
@@ -11,9 +12,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import {
   mapCustomerRow,
-  mapVehicleRow,
   type CustomerRow,
-  type VehicleRow,
 } from "@/lib/db/mappers";
 
 export default async function NuevaCotizacionPage({
@@ -25,16 +24,11 @@ export default async function NuevaCotizacionPage({
   const configured = isSupabaseConfigured();
 
   let customers: Array<{ id: string; label: string }> = [];
-  let vehicles: Array<{
-    id: string;
-    label: string;
-    dailyRate: number;
-    deposit: number;
-  }> = [];
+  let vehicleTypes: QuoteVehicleTypeOption[] = [];
   let catalogItems: QuoteCatalogItem[] = [];
   const defaults: {
     customerId?: string;
-    vehicleId?: string;
+    vehicleTypeId?: string;
     webRequestId?: string;
     startAt?: string;
     endAt?: string;
@@ -43,13 +37,13 @@ export default async function NuevaCotizacionPage({
     deliveryFee?: number;
     terms?: string;
     language?: "es" | "en";
-  } = { language: "en" };
+  } = { language: "es" };
 
   if (configured) {
     const supabase = await createClient();
     const [
       { data: customerRows },
-      { data: vehicleRows },
+      { data: typeRows },
       { data: settingsRow },
       catalogResult,
     ] = await Promise.all([
@@ -59,11 +53,14 @@ export default async function NuevaCotizacionPage({
         .is("deleted_at", null)
         .order("last_name"),
       supabase
-        .from("vehicles")
-        .select("*")
+        .from("vehicle_types")
+        .select(
+          "id, name, name_en, description, description_en, reference_models, reference_models_en, daily_rate",
+        )
         .is("deleted_at", null)
         .eq("is_active", true)
-        .order("brand"),
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true }),
       supabase.from("business_settings").select("*").limit(1).maybeSingle(),
       supabase
         .from("quote_catalog_items")
@@ -80,15 +77,27 @@ export default async function NuevaCotizacionPage({
       return { id: c.id, label: `${c.first_name} ${c.last_name}` };
     });
 
-    vehicles = ((vehicleRows ?? []) as VehicleRow[]).map((row) => {
-      const v = mapVehicleRow(row);
-      return {
-        id: v.id,
-        label: `${v.brand} ${v.model} ${v.year} · $${Number(v.daily_rate).toFixed(2)}/día`,
-        dailyRate: v.daily_rate,
-        deposit: v.deposit ?? 0,
-      };
-    });
+    vehicleTypes = (
+      (typeRows ?? []) as Array<{
+        id: string;
+        name: string;
+        name_en: string | null;
+        description: string | null;
+        description_en: string | null;
+        reference_models: string | null;
+        reference_models_en: string | null;
+        daily_rate: number;
+      }>
+    ).map((row) => ({
+      id: row.id,
+      name: row.name,
+      nameEn: row.name_en,
+      description: row.description,
+      descriptionEn: row.description_en,
+      referenceModels: row.reference_models,
+      referenceModelsEn: row.reference_models_en,
+      dailyRate: Number(row.daily_rate),
+    }));
 
     if (!catalogResult.error && catalogResult.data) {
       catalogItems = (
@@ -135,7 +144,6 @@ export default async function NuevaCotizacionPage({
         defaults.webRequestId = requestId;
         defaults.customerId =
           (req.customer_id ?? String(params.customerId ?? "")) || undefined;
-        defaults.vehicleId = req.vehicle_id ?? undefined;
         if (req.pickup_date && req.return_date) {
           const startUtc = appLocalDateTimeToUtc(
             req.pickup_date,
@@ -149,10 +157,34 @@ export default async function NuevaCotizacionPage({
           defaults.endAt = toDatetimeLocalValue(endUtc);
         }
 
-        if (req.vehicle_id) {
-          const vehicle = vehicles.find((v) => v.id === req.vehicle_id);
-          if (vehicle) {
-            defaults.depositAmount = vehicle.deposit;
+        const category = (req.vehicle_category ?? "").trim().toLowerCase();
+        if (category) {
+          const matched = vehicleTypes.find(
+            (t) =>
+              t.name.toLowerCase() === category ||
+              t.name.toLowerCase().includes(category) ||
+              category.includes(t.name.toLowerCase()) ||
+              (t.nameEn && t.nameEn.toLowerCase() === category),
+          );
+          if (matched) defaults.vehicleTypeId = matched.id;
+        }
+
+        if (!defaults.vehicleTypeId && req.vehicle_id) {
+          const { data: unit } = await supabase
+            .from("vehicles")
+            .select("vehicle_type_id, category")
+            .eq("id", req.vehicle_id)
+            .maybeSingle();
+          if (unit?.vehicle_type_id) {
+            defaults.vehicleTypeId = unit.vehicle_type_id as string;
+          } else if (unit?.category) {
+            const cat = String(unit.category).toLowerCase();
+            const matched = vehicleTypes.find(
+              (t) =>
+                t.name.toLowerCase() === cat ||
+                t.name.toLowerCase().includes(cat),
+            );
+            if (matched) defaults.vehicleTypeId = matched.id;
           }
         }
       }
@@ -176,10 +208,15 @@ export default async function NuevaCotizacionPage({
             Se requiere al menos un cliente registrado para crear una
             cotización.
           </p>
+        ) : vehicleTypes.length === 0 ? (
+          <p className="text-sm text-muted">
+            No hay tipos de vehículo activos. Configure el catálogo en
+            Configuración → Tipos de vehículo.
+          </p>
         ) : (
           <QuoteForm
             customers={customers}
-            vehicles={vehicles}
+            vehicleTypes={vehicleTypes}
             catalogItems={catalogItems}
             defaults={defaults}
           />

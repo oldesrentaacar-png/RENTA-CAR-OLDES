@@ -29,7 +29,7 @@ export default async function CotizacionesPage({
   return (
     <ModuleListShell
       title="Cotizaciones"
-      description="Cotizaciones generadas para clientes y solicitudes."
+      description="Cotice por tipo de vehículo (Sedán, Pick Up, etc.). Admin puede editar o borrar."
       permission="quotes.view"
       configured={configured}
       error={error}

@@ -94,6 +94,7 @@ type QuoteRow = {
   code: string;
   customer_id: string;
   vehicle_id: string | null;
+  vehicle_type_id?: string | null;
   web_request_id: string | null;
   status: Quote["status"];
   language?: string | null;
@@ -351,6 +352,7 @@ export function mapQuoteRow(row: QuoteRow): Quote {
     code: row.code,
     customer_id: row.customer_id,
     vehicle_id: row.vehicle_id,
+    vehicle_type_id: row.vehicle_type_id ?? null,
     web_request_id: row.web_request_id,
     status: row.status,
     language,

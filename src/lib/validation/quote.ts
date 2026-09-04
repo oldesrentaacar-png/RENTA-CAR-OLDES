@@ -34,7 +34,9 @@ export const quoteLineSchema = z.object({
 
 export const quoteFields = z.object({
   customerId: z.uuid("Cliente inválido."),
+  /** @deprecated Prefer vehicleTypeId — quotes by catalog type, not plate. */
   vehicleId: optionalUuid,
+  vehicleTypeId: optionalUuid,
   webRequestId: z.uuid().optional(),
   startAt: z.iso.datetime({ message: "Fecha de inicio inválida." }),
   endAt: z.iso.datetime({ message: "Fecha de fin inválida." }),
@@ -48,7 +50,7 @@ export const quoteFields = z.object({
   otherCharges: moneyField.default(0),
   /** Percent 0–100 in the form / calculation helpers */
   taxRate: z.coerce.number().min(0).max(100).default(0),
-  language: z.enum(["es", "en"]).default("en"),
+  language: z.enum(["es", "en"]).default("es"),
   notes: optionalText(2000),
   terms: optionalText(10000),
   validUntil: z.iso.datetime().optional(),

@@ -407,8 +407,10 @@ export interface Quote {
   id: string;
   code: string;
   customer_id: string;
-  /** Optional unit link — quotes may use catalog / custom lines only (RN-02). */
+  /** Optional unit link — legacy; prefer vehicle_type_id for quoting. */
   vehicle_id: string | null;
+  /** Catalog type quoted (Sedán, Pick Up, etc.) — not a specific plate. */
+  vehicle_type_id: string | null;
   web_request_id: string | null;
   status: QuoteStatus;
   language: "es" | "en";

@@ -6,10 +6,12 @@ import { useState } from "react";
 
 import {
   acceptQuote,
+  deleteQuote,
   getQuoteWhatsAppLink,
   sendQuoteEmail,
   updateQuoteStatus,
 } from "@/app/dashboard/cotizaciones/actions";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { Button } from "@/components/ui/button";
 import type { Quote } from "@/types/database";
 
@@ -17,11 +19,29 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleStatus(status: Quote["status"]) {
     const result = await updateQuoteStatus(quote.id, status);
     if (!result.success) setError(result.error);
     else router.refresh();
+  }
+
+  async function handleDelete() {
+    const ok = window.confirm(
+      `¿Borrar la cotización ${quote.code}? Esta acción la oculta del listado (no se puede deshacer desde la app).`,
+    );
+    if (!ok) return;
+    setDeleting(true);
+    setError(null);
+    const result = await deleteQuote(quote.id);
+    setDeleting(false);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    router.push("/dashboard/cotizaciones");
+    router.refresh();
   }
 
   return (
@@ -38,6 +58,26 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
+        <PermissionGuard permission="quotes.delete" fallback={null}>
+          <Link
+            href={`/dashboard/cotizaciones/${quote.id}/editar`}
+            className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+          >
+            Editar
+          </Link>
+        </PermissionGuard>
+
+        <PermissionGuard permission="quotes.delete" fallback={null}>
+          <Button
+            type="button"
+            variant="danger"
+            disabled={deleting}
+            onClick={() => void handleDelete()}
+          >
+            {deleting ? "Borrando…" : "Borrar"}
+          </Button>
+        </PermissionGuard>
+
         {quote.status === "DRAFT" ? (
           <Button type="button" variant="secondary" onClick={() => handleStatus("SENT")}>
             Marcar enviada

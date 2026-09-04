@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { createQuote } from "@/app/dashboard/cotizaciones/actions";
+import {
+  createQuote,
+  updateQuote,
+} from "@/app/dashboard/cotizaciones/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +26,17 @@ export type QuoteCatalogItem = {
   item_type: string;
 };
 
+export type QuoteVehicleTypeOption = {
+  id: string;
+  name: string;
+  nameEn: string | null;
+  description: string | null;
+  descriptionEn: string | null;
+  referenceModels: string | null;
+  referenceModelsEn: string | null;
+  dailyRate: number;
+};
+
 type QuoteLineDraft = {
   key: string;
   description: string;
@@ -32,28 +46,41 @@ type QuoteLineDraft = {
   catalog_item_id: string | null;
   item_code: string | null;
   tax_rate: number;
+  /** Marks the auto line tied to the selected vehicle type (for language refresh). */
+  from_vehicle_type?: boolean;
 };
 
 type QuoteFormProps = {
   customers: Array<{ id: string; label: string }>;
-  vehicles: Array<{
-    id: string;
-    label: string;
-    dailyRate: number;
-    deposit: number;
-  }>;
+  vehicleTypes: QuoteVehicleTypeOption[];
   catalogItems?: QuoteCatalogItem[];
+  mode?: "create" | "edit";
+  quoteId?: string;
   defaults?: {
     customerId?: string;
-    vehicleId?: string;
+    vehicleTypeId?: string;
     webRequestId?: string;
     startAt?: string;
     endAt?: string;
     insuranceAmount?: number;
     depositAmount?: number;
     deliveryFee?: number;
+    taxRate?: number;
+    discountPercent?: number;
+    notes?: string;
     terms?: string;
+    validUntil?: string;
     language?: "es" | "en";
+    lines?: Array<{
+      description: string;
+      quantity: number;
+      unit_price: number;
+      item_type?: QuoteLineDraft["item_type"];
+      catalog_item_id?: string | null;
+      item_code?: string | null;
+      tax_rate?: number;
+      from_vehicle_type?: boolean;
+    }>;
   };
 };
 
@@ -61,26 +88,215 @@ function newKey() {
   return `line-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function vehicleTypeDescription(
+  type: QuoteVehicleTypeOption,
+  language: "es" | "en",
+): string {
+  if (language === "en") {
+    const name = type.nameEn?.trim() || type.name;
+    const models = type.referenceModelsEn?.trim() || type.referenceModels?.trim();
+    const detail = type.descriptionEn?.trim() || type.description?.trim();
+    return [name, models, detail].filter(Boolean).join(" — ");
+  }
+  const models = type.referenceModels?.trim();
+  const detail = type.description?.trim();
+  return [type.name, models, detail].filter(Boolean).join(" — ");
+}
+
+/** Catalog line text follows selected language. */
+function catalogDescriptionText(
+  item: QuoteCatalogItem,
+  language: "es" | "en",
+): string {
+  if (language === "en") {
+    return [item.name_en, item.description_en].filter(Boolean).join(" — ");
+  }
+  return [item.name_es, item.description_es].filter(Boolean).join(" — ");
+}
+
+function catalogName(item: QuoteCatalogItem, language: "es" | "en"): string {
+  return language === "en" ? item.name_en : item.name_es;
+}
+
+function vehicleTypeName(
+  type: QuoteVehicleTypeOption,
+  language: "es" | "en",
+): string {
+  if (language === "en") return type.nameEn?.trim() || type.name;
+  return type.name;
+}
+
+const FORM_COPY = {
+  es: {
+    hint: "Seleccione el tipo de vehículo a cotizar (Sedán, Pick Up, SUV, etc.), no una unidad con placa. ES = cotización en español · EN = cotización en inglés (formulario y PDF).",
+    language: "Idioma de la cotización",
+    languageHint: "Cambia etiquetas, catálogo, descripciones y el PDF",
+    customer: "Cliente *",
+    selectCustomer: "Seleccionar…",
+    start: "Inicio *",
+    end: "Fin *",
+    vehicleType: "Tipo de vehículo cotizado *",
+    selectType: "Seleccionar tipo…",
+    perDay: "/día",
+    typeHint:
+      "Cotiza la categoría (p. ej. Pick Up), no un carro específico de la flota.",
+    catalog: "Catálogo (extras / servicios)",
+    addItem: "Agregar artículo…",
+    customLine: "Línea personalizada",
+    emptyLines:
+      "Elija un tipo de vehículo o agregue líneas del catálogo / personalizadas.",
+    description: "Descripción",
+    qty: "Cant.",
+    price: "Precio",
+    amount: "Importe",
+    remove: "Quitar",
+    tax: "Impuesto (%)",
+    discount: "Descuento (%)",
+    deposit: "Depósito / garantía (USD)",
+    validUntil: "Válida hasta",
+    summary: "Resumen automático",
+    subtotal: "Subtotal",
+    day: "día",
+    days: "días",
+    total: "Total",
+    depositNote: "Depósito garantía",
+    depositNoteExtra: "(no suma al total)",
+    fillDates: "Complete fechas y líneas para ver el total.",
+    notes: "Notas",
+    terms: "Términos",
+    create: "Crear cotización",
+    save: "Guardar cambios",
+    cancel: "Cancelar",
+    errLines: "Agregue al menos una línea de detalle.",
+    errDesc: "Cada línea necesita descripción.",
+  },
+  en: {
+    hint: "Select the vehicle type to quote (Sedan, Pick Up, SUV, etc.), not a specific plated unit. ES = Spanish quote · EN = English quote (form and PDF).",
+    language: "Quote language",
+    languageHint: "Changes labels, catalog, descriptions, and the PDF",
+    customer: "Customer *",
+    selectCustomer: "Select…",
+    start: "Start *",
+    end: "End *",
+    vehicleType: "Quoted vehicle type *",
+    selectType: "Select type…",
+    perDay: "/day",
+    typeHint:
+      "Quote the category (e.g. Pick Up), not a specific fleet unit.",
+    catalog: "Catalog (extras / services)",
+    addItem: "Add item…",
+    customLine: "Custom line",
+    emptyLines:
+      "Choose a vehicle type or add catalog / custom lines.",
+    description: "Description",
+    qty: "Qty",
+    price: "Price",
+    amount: "Amount",
+    remove: "Remove",
+    tax: "Tax (%)",
+    discount: "Discount (%)",
+    deposit: "Deposit / security (USD)",
+    validUntil: "Valid until",
+    summary: "Automatic summary",
+    subtotal: "Subtotal",
+    day: "day",
+    days: "days",
+    total: "Total",
+    depositNote: "Security deposit",
+    depositNoteExtra: "(not included in total)",
+    fillDates: "Complete dates and lines to see the total.",
+    notes: "Notes",
+    terms: "Terms",
+    create: "Create quote",
+    save: "Save changes",
+    cancel: "Cancel",
+    errLines: "Add at least one detail line.",
+    errDesc: "Each line needs a description.",
+  },
+} as const;
+
 export function QuoteForm({
   customers,
-  vehicles,
+  vehicleTypes,
   catalogItems = [],
+  mode = "create",
+  quoteId,
   defaults,
 }: QuoteFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState<"es" | "en">(
-    defaults?.language ?? "en",
+    defaults?.language ?? "es",
+  );
+  const [vehicleTypeId, setVehicleTypeId] = useState(
+    defaults?.vehicleTypeId ?? "",
   );
   const [startAt, setStartAt] = useState(defaults?.startAt ?? "");
   const [endAt, setEndAt] = useState(defaults?.endAt ?? "");
-  const [taxRate, setTaxRate] = useState("13");
-  const [discountPercent, setDiscountPercent] = useState("0");
+  const [taxRate, setTaxRate] = useState(
+    String(defaults?.taxRate ?? 13),
+  );
+  const [discountPercent, setDiscountPercent] = useState(
+    String(defaults?.discountPercent ?? 0),
+  );
   const [deposit, setDeposit] = useState(
     String(defaults?.depositAmount ?? 0),
   );
   const [catalogSelect, setCatalogSelect] = useState("");
-  const [lines, setLines] = useState<QuoteLineDraft[]>([]);
+  const [lines, setLines] = useState<QuoteLineDraft[]>(() =>
+    (defaults?.lines ?? []).map((line) => ({
+      key: newKey(),
+      description: line.description,
+      quantity: String(line.quantity),
+      unit_price: String(line.unit_price),
+      item_type: line.item_type ?? "CUSTOM",
+      catalog_item_id: line.catalog_item_id ?? null,
+      item_code: line.item_code ?? null,
+      tax_rate: line.tax_rate ?? 0,
+      from_vehicle_type: Boolean(line.from_vehicle_type),
+    })),
+  );
+
+  // Prefill vehicle-type line when creating from a solicitud / default type.
+  useEffect(() => {
+    if (mode !== "create") return;
+    if (!defaults?.vehicleTypeId) return;
+    if ((defaults.lines?.length ?? 0) > 0) return;
+    if (lines.some((l) => l.from_vehicle_type)) return;
+    applyVehicleType(defaults.vehicleTypeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectedType = useMemo(
+    () => vehicleTypes.find((t) => t.id === vehicleTypeId) ?? null,
+    [vehicleTypes, vehicleTypeId],
+  );
+
+  /** When language changes, refresh only description text of type/catalog-sourced lines. */
+  useEffect(() => {
+    setLines((prev) =>
+      prev.map((line) => {
+        if (line.from_vehicle_type && selectedType) {
+          return {
+            ...line,
+            description: vehicleTypeDescription(selectedType, language),
+          };
+        }
+        if (line.catalog_item_id) {
+          const item = catalogItems.find((c) => c.id === line.catalog_item_id);
+          if (item) {
+            return {
+              ...line,
+              description: catalogDescriptionText(item, language),
+            };
+          }
+        }
+        return line;
+      }),
+    );
+    // Intentionally only when language changes — not on every type/catalog update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   const preview = useMemo(() => {
     if (!startAt || !endAt || lines.length === 0) return null;
@@ -101,22 +317,36 @@ export function QuoteForm({
     }
   }, [startAt, endAt, lines, discountPercent, taxRate, deposit]);
 
-  function catalogLabel(item: QuoteCatalogItem) {
-    return language === "es" ? item.name_es : item.name_en;
-  }
+  function applyVehicleType(typeId: string) {
+    setVehicleTypeId(typeId);
+    if (!typeId) {
+      setLines((prev) => prev.filter((line) => !line.from_vehicle_type));
+      return;
+    }
+    const type = vehicleTypes.find((t) => t.id === typeId);
+    if (!type) return;
 
-  function catalogDescription(item: QuoteCatalogItem) {
-    return language === "es"
-      ? item.description_es
-      : item.description_en;
+    const vehicleLine: QuoteLineDraft = {
+      key: newKey(),
+      description: vehicleTypeDescription(type, language),
+      quantity: "1",
+      unit_price: String(type.dailyRate),
+      item_type: "VEHICLE",
+      catalog_item_id: null,
+      item_code: null,
+      tax_rate: parseMoneyInput(taxRate || "0") / 100,
+      from_vehicle_type: true,
+    };
+
+    setLines((prev) => {
+      const withoutType = prev.filter((line) => !line.from_vehicle_type);
+      return [vehicleLine, ...withoutType];
+    });
   }
 
   function addFromCatalog(itemId: string) {
     const item = catalogItems.find((c) => c.id === itemId);
     if (!item) return;
-    const desc = [catalogLabel(item), catalogDescription(item)]
-      .filter(Boolean)
-      .join(" — ");
     const itemType =
       item.item_type === "VEHICLE" || item.item_type === "SERVICE"
         ? item.item_type
@@ -125,7 +355,7 @@ export function QuoteForm({
       ...prev,
       {
         key: newKey(),
-        description: desc,
+        description: catalogDescriptionText(item, language),
         quantity: "1",
         unit_price: String(item.unit_price),
         item_type: itemType,
@@ -155,12 +385,25 @@ export function QuoteForm({
 
   function updateLine(key: string, patch: Partial<QuoteLineDraft>) {
     setLines((prev) =>
-      prev.map((line) => (line.key === key ? { ...line, ...patch } : line)),
+      prev.map((line) => {
+        if (line.key !== key) return line;
+        const next = { ...line, ...patch };
+        // Manual edit of description → stop auto-sync from language toggle
+        if (patch.description !== undefined) {
+          next.from_vehicle_type = false;
+          next.catalog_item_id = null;
+        }
+        return next;
+      }),
     );
   }
 
   function removeLine(key: string) {
-    setLines((prev) => prev.filter((line) => line.key !== key));
+    setLines((prev) => {
+      const removed = prev.find((line) => line.key === key);
+      if (removed?.from_vehicle_type) setVehicleTypeId("");
+      return prev.filter((line) => line.key !== key);
+    });
   }
 
   function lineAmount(line: QuoteLineDraft) {
@@ -174,20 +417,22 @@ export function QuoteForm({
 
   async function handleSubmit(formData: FormData) {
     setError(null);
+    const t = FORM_COPY[language];
     if (lines.length === 0) {
-      setError("Agregue al menos una línea de detalle.");
+      setError(t.errLines);
       return;
     }
     if (lines.some((l) => !l.description.trim())) {
-      setError("Cada línea necesita descripción.");
+      setError(t.errDesc);
       return;
     }
 
     formData.set("language", language);
+    formData.set("vehicleTypeId", vehicleTypeId);
     formData.set("taxRate", taxRate);
     formData.set("discountPercent", discountPercent);
     formData.set("depositAmount", deposit);
-    formData.set("dailyRate", "0");
+    formData.set("dailyRate", selectedType ? String(selectedType.dailyRate) : "0");
     formData.set(
       "lines",
       JSON.stringify(
@@ -204,7 +449,11 @@ export function QuoteForm({
       ),
     );
 
-    const result = await createQuote(formData);
+    const result =
+      mode === "edit" && quoteId
+        ? await updateQuote(quoteId, formData)
+        : await createQuote(formData);
+
     if (!result.success) {
       setError(result.error);
       return;
@@ -212,6 +461,8 @@ export function QuoteForm({
     router.push(`/dashboard/cotizaciones/${result.data.id}`);
     router.refresh();
   }
+
+  const t = FORM_COPY[language];
 
   return (
     <form action={handleSubmit} className="mx-auto max-w-3xl space-y-6">
@@ -222,8 +473,7 @@ export function QuoteForm({
       ) : null}
 
       <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">
-        Cliente → período → líneas del catálogo → impuestos → enviar. Meta: ≤ 3
-        minutos. El vehículo unidad es opcional.
+        {t.hint}
       </div>
 
       {defaults?.webRequestId ? (
@@ -231,15 +481,7 @@ export function QuoteForm({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-zinc-700">Idioma</span>
-        <Button
-          type="button"
-          size="sm"
-          variant={language === "en" ? "primary" : "secondary"}
-          onClick={() => setLanguage("en")}
-        >
-          EN
-        </Button>
+        <span className="text-sm font-medium text-zinc-700">{t.language}</span>
         <Button
           type="button"
           size="sm"
@@ -248,13 +490,22 @@ export function QuoteForm({
         >
           ES
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={language === "en" ? "primary" : "secondary"}
+          onClick={() => setLanguage("en")}
+        >
+          EN
+        </Button>
         <input type="hidden" name="language" value={language} />
+        <span className="text-xs text-muted">{t.languageHint}</span>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1 sm:col-span-2">
           <label className="block text-sm font-medium text-zinc-700">
-            Cliente *
+            {t.customer}
           </label>
           <select
             name="customerId"
@@ -262,7 +513,7 @@ export function QuoteForm({
             defaultValue={defaults?.customerId}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           >
-            <option value="">Seleccionar…</option>
+            <option value="">{t.selectCustomer}</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
@@ -273,7 +524,7 @@ export function QuoteForm({
 
         <Input
           name="startAt"
-          label="Inicio *"
+          label={t.start}
           type="datetime-local"
           value={startAt}
           onChange={(e) => setStartAt(e.target.value)}
@@ -281,7 +532,7 @@ export function QuoteForm({
         />
         <Input
           name="endAt"
-          label="Fin *"
+          label={t.end}
           type="datetime-local"
           value={endAt}
           onChange={(e) => setEndAt(e.target.value)}
@@ -290,24 +541,24 @@ export function QuoteForm({
 
         <div className="space-y-1 sm:col-span-2">
           <label className="block text-sm font-medium text-zinc-700">
-            Vehículo (opcional — unidad específica)
+            {t.vehicleType}
           </label>
           <select
-            name="vehicleId"
-            defaultValue={defaults?.vehicleId ?? ""}
-            onChange={(e) => {
-              const v = vehicles.find((item) => item.id === e.target.value);
-              if (v) setDeposit(String(v.deposit ?? 0));
-            }}
+            name="vehicleTypeId"
+            required
+            value={vehicleTypeId}
+            onChange={(e) => applyVehicleType(e.target.value)}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           >
-            <option value="">Sin unidad (solo tipo / líneas)</option>
-            {vehicles.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
+            <option value="">{t.selectType}</option>
+            {vehicleTypes.map((vt) => (
+              <option key={vt.id} value={vt.id}>
+                {vehicleTypeName(vt, language)} · {formatMoney(vt.dailyRate)}
+                {t.perDay}
               </option>
             ))}
           </select>
+          <p className="text-xs text-muted">{t.typeHint}</p>
         </div>
       </div>
 
@@ -315,7 +566,7 @@ export function QuoteForm({
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[14rem] flex-1 space-y-1">
             <label className="block text-sm font-medium text-zinc-700">
-              Catálogo
+              {t.catalog}
             </label>
             <select
               value={catalogSelect}
@@ -326,24 +577,21 @@ export function QuoteForm({
               }}
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
             >
-              <option value="">Agregar artículo…</option>
+              <option value="">{t.addItem}</option>
               {catalogItems.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {catalogLabel(item)} · {formatMoney(item.unit_price)}
+                  {catalogName(item, language)} · {formatMoney(item.unit_price)}
                 </option>
               ))}
             </select>
           </div>
           <Button type="button" variant="secondary" onClick={addCustomLine}>
-            Línea personalizada
+            {t.customLine}
           </Button>
         </div>
 
         {lines.length === 0 ? (
-          <p className="text-sm text-muted">
-            Agregue líneas desde el catálogo o una línea personalizada (p. ej.
-            tipo de vehículo).
-          </p>
+          <p className="text-sm text-muted">{t.emptyLines}</p>
         ) : (
           <div className="space-y-3">
             {lines.map((line) => (
@@ -353,7 +601,7 @@ export function QuoteForm({
               >
                 <div className="sm:col-span-5">
                   <label className="mb-1 block text-xs text-muted">
-                    Descripción
+                    {t.description}
                   </label>
                   <input
                     value={line.description}
@@ -365,7 +613,7 @@ export function QuoteForm({
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs text-muted">Cant.</label>
+                  <label className="mb-1 block text-xs text-muted">{t.qty}</label>
                   <input
                     type="number"
                     min="0.01"
@@ -379,7 +627,7 @@ export function QuoteForm({
                 </div>
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-xs text-muted">
-                    Precio
+                    {t.price}
                   </label>
                   <input
                     type="number"
@@ -394,7 +642,7 @@ export function QuoteForm({
                 </div>
                 <div className="flex items-end justify-between gap-2 sm:col-span-3">
                   <div>
-                    <p className="text-xs text-muted">Importe</p>
+                    <p className="text-xs text-muted">{t.amount}</p>
                     <p className="text-sm font-medium tabular-nums">
                       {formatMoney(lineAmount(line))}
                     </p>
@@ -405,7 +653,7 @@ export function QuoteForm({
                     size="sm"
                     onClick={() => removeLine(line.key)}
                   >
-                    Quitar
+                    {t.remove}
                   </Button>
                 </div>
               </div>
@@ -417,7 +665,7 @@ export function QuoteForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <label className="block text-sm font-medium text-zinc-700">
-            Impuesto (%)
+            {t.tax}
           </label>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -450,7 +698,7 @@ export function QuoteForm({
         </div>
         <Input
           name="discountPercent"
-          label="Descuento (%)"
+          label={t.discount}
           type="number"
           step="0.01"
           min="0"
@@ -460,26 +708,36 @@ export function QuoteForm({
         />
         <Input
           name="depositAmount"
-          label="Depósito / garantía (USD)"
+          label={t.deposit}
           type="number"
           step="0.01"
           min="0"
           value={deposit}
           onChange={(e) => setDeposit(e.target.value)}
         />
-        <Input name="validUntil" label="Válida hasta" type="datetime-local" />
+        <Input
+          name="validUntil"
+          label={t.validUntil}
+          type="datetime-local"
+          defaultValue={defaults?.validUntil ?? ""}
+        />
       </div>
 
       {preview ? (
         <div className="space-y-2 rounded-xl border border-border bg-surface-muted/40 p-4 text-sm">
-          <p className="mb-2 font-medium text-foreground">Resumen automático</p>
+          <p className="mb-2 font-medium text-foreground">{t.summary}</p>
           <div className="flex justify-between gap-4">
-            <span>Subtotal ({preview.rentalDays} día{preview.rentalDays === 1 ? "" : "s"})</span>
+            <span>
+              {t.subtotal} ({preview.rentalDays}{" "}
+              {preview.rentalDays === 1 ? t.day : t.days})
+            </span>
             <span className="tabular-nums">{formatMoney(preview.subtotal)}</span>
           </div>
           {preview.discountAmount > 0 ? (
             <div className="flex justify-between gap-4 text-muted">
-              <span>Descuento ({discountPercent}%)</span>
+              <span>
+                {t.discount.replace(" (%)", "")} ({discountPercent}%)
+              </span>
               <span className="tabular-nums">
                 − {formatMoney(preview.discountAmount)}
               </span>
@@ -487,42 +745,52 @@ export function QuoteForm({
           ) : null}
           {preview.taxAmount > 0 ? (
             <div className="flex justify-between gap-4">
-              <span>Impuesto ({taxRate}%)</span>
+              <span>
+                {t.tax.replace(" (%)", "")} ({taxRate}%)
+              </span>
               <span className="tabular-nums">{formatMoney(preview.taxAmount)}</span>
             </div>
           ) : null}
           <div className="flex justify-between gap-4 border-t border-border pt-2 text-base font-semibold">
-            <span>Total</span>
+            <span>{t.total}</span>
             <span className="tabular-nums">{formatMoney(preview.total)}</span>
           </div>
           {preview.depositAmount > 0 ? (
             <p className="pt-1 text-xs text-muted">
-              Depósito garantía: {formatMoney(preview.depositAmount)} (no suma
-              al total)
+              {t.depositNote}: {formatMoney(preview.depositAmount)}{" "}
+              {t.depositNoteExtra}
             </p>
           ) : null}
         </div>
       ) : (
-        <p className="text-sm text-muted">
-          Complete fechas y líneas para ver el total.
-        </p>
+        <p className="text-sm text-muted">{t.fillDates}</p>
       )}
 
-      <Textarea name="notes" label="Notas" />
+      <Textarea
+        name="notes"
+        label={t.notes}
+        defaultValue={defaults?.notes ?? ""}
+      />
       <Textarea
         name="terms"
-        label="Términos"
+        label={t.terms}
         defaultValue={defaults?.terms ?? ""}
       />
-      <input type="hidden" name="status" value="DRAFT" />
+      {mode === "create" ? (
+        <input type="hidden" name="status" value="DRAFT" />
+      ) : null}
 
       <div className="flex gap-3">
-        <SubmitButton>Crear cotización</SubmitButton>
+        <SubmitButton>{mode === "edit" ? t.save : t.create}</SubmitButton>
         <Link
-          href="/dashboard/cotizaciones"
+          href={
+            mode === "edit" && quoteId
+              ? `/dashboard/cotizaciones/${quoteId}`
+              : "/dashboard/cotizaciones"
+          }
           className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
         >
-          Cancelar
+          {t.cancel}
         </Link>
       </div>
     </form>
