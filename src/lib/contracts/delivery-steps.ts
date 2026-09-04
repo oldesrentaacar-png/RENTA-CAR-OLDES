@@ -45,15 +45,15 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
       href: checkOutId
         ? `/dashboard/inspecciones/${checkOutId}`
         : `/dashboard/inspecciones/nuevo?reservation_id=${reservationId}&type=CHECK_OUT`,
-      linkLabel: checkOutId ? "Ver inspección" : "Crear inspección",
+      linkLabel: checkOutId ? "Ver / Editar inspección" : "Crear inspección",
     },
     {
       id: "accesorios",
-      title: "Accesorios",
+      title: "Accesorios y mapa de daños",
       description: checkOutId
         ? checkOutChecklistCount > 0
-          ? `${checkOutChecklistCount} ítems en checklist de salida.`
-          : "Inspección sin checklist; complete los accesorios."
+          ? `${checkOutChecklistCount} ítems · puede revisar y corregir`
+          : "Complete checklist y mapa de daños."
         : "Disponible tras la inspección de salida.",
       status: !checkOutId
         ? "pending"
@@ -61,9 +61,9 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
           ? "done"
           : "partial",
       href: checkOutId
-        ? `/dashboard/inspecciones/${checkOutId}`
+        ? `/dashboard/inspecciones/${checkOutId}#accesorios`
         : `/dashboard/inspecciones/nuevo?reservation_id=${reservationId}&type=CHECK_OUT`,
-      linkLabel: checkOutId ? "Revisar checklist" : "Crear inspección",
+      linkLabel: checkOutId ? "Ver / Editar accesorios" : "Crear inspección",
     },
     {
       id: "facturacion",
@@ -74,17 +74,17 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
           : "Registre el abono inicial en la sección de recibos.",
       status: amountPaid > 0 ? "done" : "pending",
       href: `/dashboard/contratos/${contractId}#abonos`,
-      linkLabel: "Ir a abonos",
+      linkLabel: amountPaid > 0 ? "Ver / Editar abonos" : "Ir a abonos",
     },
     {
       id: "firma",
       title: "Términos y firma",
       description: hasClientSignature
-        ? "Cliente firmado. Operador registrado automáticamente."
+        ? "Cliente firmado. Puede revisar la firma."
         : "Pendiente firma del cliente.",
       status: hasClientSignature ? "done" : "pending",
       href: `/dashboard/contratos/${contractId}/sign`,
-      linkLabel: hasClientSignature ? "Ver firmas" : "Firmar cliente",
+      linkLabel: hasClientSignature ? "Ver / Editar firmas" : "Firmar cliente",
     },
     {
       id: "pdf",

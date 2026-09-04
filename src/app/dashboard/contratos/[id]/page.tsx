@@ -220,7 +220,7 @@ export default async function ContratoDetailPage({
               </CardContent>
             </Card>
 
-            {deliverySteps && canDeliver ? (
+            {deliverySteps ? (
               <ContractDeliveryNavigator
                 contractId={contract.id}
                 steps={deliverySteps}

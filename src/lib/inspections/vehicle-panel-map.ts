@@ -155,14 +155,19 @@ export function resolveBodyStyle(
   if (
     hay.includes("pickup") ||
     hay.includes("pick-up") ||
+    hay.includes("pick up") ||
     hay.includes("hilux") ||
     hay.includes("ranger") ||
+    hay.includes("l200") ||
+    hay.includes("np300") ||
     hay.includes("truck") ||
-    hay.includes("camioneta") ||
-    hay.includes("palangana")
+    hay.includes("palangana") ||
+    hay.includes("frontier") ||
+    hay.includes("mighty")
   ) {
     return "PICKUP";
   }
+  // Camioneta / SUV / minivan usan silueta sedán (mapa superior) hasta tener paneles propios.
   return "SEDAN";
 }
 
@@ -227,7 +232,7 @@ export function buildCarDiagramSvg(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${PANEL_VIEWBOX.width} ${PANEL_VIEWBOX.height}">
   <rect width="100%" height="100%" fill="${PAPER}"/>
-  <text x="170" y="24" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="${stroke}" font-weight="700">CARRO SEDAN</text>
+  <text x="170" y="24" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="${stroke}" font-weight="700">${bodyStyleTitle(style)}</text>
   ${legend}
   <path d="${paths.body}" fill="${FILL}" stroke="${stroke}" stroke-width="2.4"/>
   <path d="${paths.bumperFront}" fill="${FILL}" stroke="${stroke}" stroke-width="1.5"/>

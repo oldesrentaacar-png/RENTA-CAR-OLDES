@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getInspection } from "@/app/dashboard/inspecciones/actions";
 import { getDeliveryFlowForReservation } from "@/app/dashboard/contratos/actions";
-import { ChecklistForm } from "@/components/inspections/checklist-form";
-import { InspectionDamageEditor } from "@/components/inspections/inspection-damage-editor";
+import { InspectionAccessoriesPanel } from "@/components/inspections/inspection-accessories-panel";
 import { PhotoUploader } from "@/components/inspections/photo-uploader";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
 import { PermissionGuard } from "@/components/auth/permission-guard";
@@ -147,27 +146,17 @@ export default async function InspeccionDetailPage({
               </CardContent>
             </Card>
 
-            <Card>
+            <Card id="accesorios">
               <CardHeader>
-                <CardTitle className="text-base">Checklist</CardTitle>
+                <CardTitle className="text-base">
+                  Accesorios y mapa de daños
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChecklistForm
+                <InspectionAccessoriesPanel
                   inspectionId={inspection.id}
-                  items={inspection.checklist}
-                  readOnly={!canEdit}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Mapa de daños</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InspectionDamageEditor
-                  inspectionId={inspection.id}
-                  initialMarks={inspection.damageMarks}
+                  checklistItems={inspection.checklist}
+                  damageMarks={inspection.damageMarks}
                   readOnly={!canEdit}
                   vehiclePhotoUrl={inspection.vehiclePhotoUrl}
                   viewPhotos={inspection.viewPhotos}

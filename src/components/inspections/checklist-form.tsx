@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { saveChecklistItems } from "@/app/dashboard/inspecciones/actions";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,9 @@ type ChecklistFormProps = {
   inspectionId: string;
   items: InspectionChecklistItem[] | ChecklistItemDraft[];
   readOnly?: boolean;
+  /** When true, parent handles persistence (combined save). */
+  hideSaveButton?: boolean;
+  onDraftsChange?: (drafts: ChecklistItemDraft[]) => void;
 };
 
 const QUICK_STATUSES: {
@@ -66,13 +69,34 @@ function toDraft(item: InspectionChecklistItem | ChecklistItemDraft): ChecklistI
   return item;
 }
 
-export function ChecklistForm({ inspectionId, items, readOnly }: ChecklistFormProps) {
+export function ChecklistForm({
+  inspectionId,
+  items,
+  readOnly,
+  hideSaveButton,
+  onDraftsChange,
+}: ChecklistFormProps) {
   const [drafts, setDrafts] = useState<ChecklistItemDraft[]>(() =>
     items.map(toDraft),
   );
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    onDraftsChange?.(drafts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function updateDrafts(
+    updater: (current: ChecklistItemDraft[]) => ChecklistItemDraft[],
+  ) {
+    setDrafts((current) => {
+      const next = updater(current);
+      onDraftsChange?.(next);
+      return next;
+    });
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -101,12 +125,12 @@ export function ChecklistForm({ inspectionId, items, readOnly }: ChecklistFormPr
 
   return (
     <div className="space-y-4">
-      {error ? (
+      {error && !hideSaveButton ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </div>
       ) : null}
-      {saved ? (
+      {saved && !hideSaveButton ? (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           Checklist guardado.
         </div>
@@ -141,7 +165,7 @@ export function ChecklistForm({ inspectionId, items, readOnly }: ChecklistFormPr
                         type="button"
                         aria-pressed={active}
                         onClick={() =>
-                          setDrafts((current) =>
+                          updateDrafts((current) =>
                             current.map((row, rowIndex) =>
                               rowIndex === index
                                 ? { ...row, status: opt.value }
@@ -171,7 +195,7 @@ export function ChecklistForm({ inspectionId, items, readOnly }: ChecklistFormPr
                   rows={1}
                   value={item.notes ?? ""}
                   onChange={(event) =>
-                    setDrafts((current) =>
+                    updateDrafts((current) =>
                       current.map((row, rowIndex) =>
                         rowIndex === index
                           ? { ...row, notes: event.target.value }
@@ -188,7 +212,7 @@ export function ChecklistForm({ inspectionId, items, readOnly }: ChecklistFormPr
         ))}
       </div>
 
-      {!readOnly ? (
+      {!readOnly && !hideSaveButton ? (
         <Button type="button" onClick={handleSave} loading={saving}>
           Guardar checklist
         </Button>
