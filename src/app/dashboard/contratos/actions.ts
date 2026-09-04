@@ -1206,6 +1206,42 @@ export async function closeContract(
       );
     }
 
+    const checkInId = (checkInInspection as { id: string }).id;
+    const [{ data: checkInDetail }, { data: checklistRows }] = await Promise.all([
+      supabase
+        .from("inspections")
+        .select("id, mileage, fuel_level")
+        .eq("id", checkInId)
+        .maybeSingle(),
+      supabase
+        .from("inspection_checklist_items")
+        .select("id")
+        .eq("inspection_id", checkInId)
+        .limit(1),
+    ]);
+
+    const checkInInfo = checkInDetail as {
+      mileage: number | null;
+      fuel_level: string | null;
+    } | null;
+
+    if (checkInInfo?.mileage == null || !checkInInfo.fuel_level) {
+      return actionError(
+        "Complete kilometraje y combustible en la inspección de entrada antes de cerrar.",
+      );
+    }
+    if (!checklistRows || checklistRows.length === 0) {
+      return actionError(
+        "Complete el checklist de accesorios en la inspección de entrada antes de cerrar.",
+      );
+    }
+
+    if (String(formData.get("confirmClose") ?? "") !== "true") {
+      return actionError(
+        "Debe confirmar explícitamente el cierre del contrato.",
+      );
+    }
+
     const checkInDate = (checkInInspection as { inspection_date?: string })
       .inspection_date;
 
