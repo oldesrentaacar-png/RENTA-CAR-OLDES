@@ -10,6 +10,10 @@ import {
   PaymentReceiptPdfDocument,
   type PaymentReceiptPdfProps,
 } from "@/lib/pdf/payment-receipt-pdf";
+import {
+  CloseActPdfDocument,
+  type CloseActPdfProps,
+} from "@/lib/pdf/close-act-pdf";
 import { QuotePdfDocument, type QuotePdfProps } from "@/lib/pdf/quote-pdf";
 
 export async function renderPdfToBuffer(
@@ -46,4 +50,18 @@ export async function renderPaymentReceiptPdf(
   );
 }
 
-export type { ContractPdfProps, PaymentReceiptPdfProps, QuotePdfProps };
+export async function renderCloseActPdf(
+  props: CloseActPdfProps,
+): Promise<Buffer> {
+  const logoDataUrl = props.logoDataUrl ?? (await getBrandLogoDataUrl());
+  return renderPdfToBuffer(
+    createElement(CloseActPdfDocument, { ...props, logoDataUrl }),
+  );
+}
+
+export type {
+  CloseActPdfProps,
+  ContractPdfProps,
+  PaymentReceiptPdfProps,
+  QuotePdfProps,
+};

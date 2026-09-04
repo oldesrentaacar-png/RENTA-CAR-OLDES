@@ -143,6 +143,16 @@ export default async function ContratoDetailPage({
                   )}
                   className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"
                 />
+                {contract.closed_at || contract.status === "COMPLETED" ? (
+                  <a
+                    href={`/dashboard/contratos/${id}/acta-cierre/pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"
+                  >
+                    Acta de cierre PDF
+                  </a>
+                ) : null}
                 {canSign &&
                 contract.status !== "COMPLETED" &&
                 contract.status !== "CANCELLED" ? (

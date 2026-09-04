@@ -37,7 +37,7 @@ import {
   resolvePdfBusinessContact,
 } from "@/lib/contracts/oldes-terms";
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
-import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS } from "@/lib/inspections/defaults";
+import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS, DAMAGE_TYPE_LABELS } from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
 import { parseMoneyInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
@@ -1908,5 +1908,281 @@ export async function getContractPdfData(contractId: string) {
     annexPhotos,
     issuedPlace: "San Salvador",
     issuedDateLabel: `${formatAppDate(mapped.start_at)} - ${formatAppTime(mapped.start_at)}`,
+  };
+}
+
+export async function getContractCloseActPdfData(contractId: string) {
+  if (!isSupabaseConfigured()) return null;
+
+  const detail = await getContract(contractId);
+  if (!detail.success) return null;
+  const contract = detail.data;
+
+  const supabase = await createClient();
+
+  let inspections: unknown[] | null = null;
+  const withPhotos = await supabase
+    .from("inspections")
+    .select(
+      "id, type, mileage, fuel_level, notes, inspection_checklist_items(item_name, status), inspection_damage_marks(view, damage_type)",
+    )
+    .eq("reservation_id", contract.reservation_id)
+    .order("inspection_date", { ascending: true });
+  if (withPhotos.error) {
+    console.error("[getContractCloseActPdfData]", withPhotos.error.message);
+    return null;
+  }
+  inspections = withPhotos.data;
+
+  type InspBundle = {
+    id: string;
+    type: "CHECK_OUT" | "CHECK_IN";
+    mileage: number | null;
+    fuel_level: string | null;
+    notes: string | null;
+    inspection_checklist_items:
+      | Array<{ item_name: string; status: string }>
+      | null;
+    inspection_damage_marks:
+      | Array<{ view: string; damage_type: string }>
+      | null;
+  };
+  const bundles = (inspections ?? []) as InspBundle[];
+  const checkOut = bundles.find((i) => i.type === "CHECK_OUT") ?? null;
+  const checkIn = bundles.find((i) => i.type === "CHECK_IN") ?? null;
+
+  const outMap = new Map(
+    (checkOut?.inspection_checklist_items ?? []).map((i) => [
+      i.item_name,
+      i.status,
+    ]),
+  );
+  const inMap = new Map(
+    (checkIn?.inspection_checklist_items ?? []).map((i) => [
+      i.item_name,
+      i.status,
+    ]),
+  );
+  const names = new Set([...outMap.keys(), ...inMap.keys()]);
+  const accessoryComparison = [...names].map((itemName) => {
+    const checkOutStatus = outMap.get(itemName) ?? null;
+    const checkInStatus = inMap.get(itemName) ?? null;
+    return {
+      itemName,
+      checkOutStatus,
+      checkInStatus,
+      changed:
+        checkOutStatus != null &&
+        checkInStatus != null &&
+        checkOutStatus !== checkInStatus,
+    };
+  });
+
+  const { data: settings } = await supabase
+    .from("business_settings")
+    .select("*")
+    .limit(1)
+    .maybeSingle();
+  const settingsRow = settings as {
+    business_name?: string;
+    legal_name?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    whatsapp?: string | null;
+  } | null;
+
+  const contact = resolvePdfBusinessContact(settingsRow);
+
+  let operatorSignatureUrl: string | null = null;
+  let clientSignatureUrl: string | null = null;
+  let operatorName: string | null = null;
+  let clientSignedAt: string | null = null;
+
+  const clientSig = contract.signatures.find((s) => s.signer_type === "CLIENT");
+  const repSig = contract.signatures.find(
+    (s) => s.signer_type === "REPRESENTATIVE",
+  );
+
+  if (clientSig?.signature_path) {
+    clientSignatureUrl =
+      (await resolvePrivateFileUrl(clientSig.signature_path)) ??
+      clientSig.signature_path;
+    clientSignedAt = formatAppDateTime(clientSig.signed_at);
+  }
+  if (repSig?.signature_path) {
+    operatorSignatureUrl =
+      (await resolvePrivateFileUrl(repSig.signature_path)) ??
+      repSig.signature_path;
+    operatorName = repSig.signed_by_name;
+  }
+
+  if (!operatorName) {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    if (authUser) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, signature_url")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      if (profile) {
+        const op = profile as {
+          first_name: string;
+          last_name: string;
+          signature_url?: string | null;
+        };
+        operatorName = `${op.first_name} ${op.last_name}`.trim();
+        if (!operatorSignatureUrl && op.signature_url) {
+          operatorSignatureUrl =
+            (await resolvePrivateFileUrl(op.signature_url)) ?? op.signature_url;
+        }
+      }
+    }
+  }
+
+  const { data: customerRow } = await supabase
+    .from("customers")
+    .select("phone, email, identification, dui, passport")
+    .eq("id", contract.customer_id)
+    .maybeSingle();
+  const customer = customerRow as {
+    phone?: string | null;
+    email?: string | null;
+    identification?: string | null;
+    dui?: string | null;
+    passport?: string | null;
+  } | null;
+
+  const fuelOut = checkOut?.fuel_level
+    ? FUEL_LEVEL_LABELS[checkOut.fuel_level] ?? checkOut.fuel_level
+    : null;
+  const fuelIn = checkIn?.fuel_level
+    ? FUEL_LEVEL_LABELS[checkIn.fuel_level] ?? checkIn.fuel_level
+    : null;
+
+  const accessories = accessoryComparison.map((row) => ({
+    label: row.itemName,
+    returned: Boolean(
+      row.checkInStatus &&
+        row.checkInStatus !== "MISSING" &&
+        row.checkInStatus !== "NOT_APPLICABLE",
+    ),
+  }));
+
+  const accessoryChanges = accessoryComparison
+    .filter((row) => row.changed)
+    .map(
+      (row) =>
+        `${row.itemName}: ${row.checkOutStatus ?? "—"} → ${row.checkInStatus ?? "—"}`,
+    );
+
+  const checkInDamageNotes = (checkIn?.inspection_damage_marks ?? []).map(
+    (mark) =>
+      `${damageSymbol(mark.damage_type)} ${DAMAGE_TYPE_LABELS[mark.damage_type] ?? mark.damage_type} (${mark.view})`,
+  );
+
+  const bodyZoneMarks: Partial<
+    Record<"front" | "left" | "right" | "top" | "rear" | "glass", string>
+  > = {};
+  for (const mark of checkIn?.inspection_damage_marks ?? []) {
+    const view = String(mark.view || "").toUpperCase();
+    const key =
+      view === "FRONT"
+        ? "front"
+        : view === "LEFT"
+          ? "left"
+          : view === "RIGHT"
+            ? "right"
+            : view === "TOP"
+              ? "top"
+              : view === "REAR"
+                ? "rear"
+                : null;
+    if (!key) continue;
+    const symbol = damageSymbol(mark.damage_type);
+    bodyZoneMarks[key] = bodyZoneMarks[key]
+      ? `${bodyZoneMarks[key]} ${symbol}`
+      : symbol;
+  }
+
+  const newDamageNotes =
+    [...checkInDamageNotes, ...accessoryChanges].join("; ") ||
+    checkIn?.notes?.trim() ||
+    null;
+
+  const extraCharges = Number(contract.extra_charges ?? 0);
+  const damageCharges = Number(contract.damage_charges ?? 0);
+  const fuelCharges = Number(contract.fuel_charges ?? 0);
+  const complementaryAmount = Number(contract.complementary_amount ?? 0);
+  const totalOwed =
+    Number(contract.total) +
+    extraCharges +
+    damageCharges +
+    fuelCharges +
+    complementaryAmount;
+  const amountPaid = Number(contract.amount_paid ?? 0);
+  const balanceDue =
+    contract.balance_due != null
+      ? Number(contract.balance_due)
+      : Math.max(0, totalOwed - amountPaid);
+
+  const receiptCode = contract.code.replace(/^CTR/i, "REC");
+  const actualReturn =
+    contract.actual_return_at || contract.closed_at || contract.end_at;
+
+  return {
+    businessName: contact.businessName,
+    legalName: contact.legalName,
+    businessAddress: contact.businessAddress,
+    businessPhone: contact.businessPhone,
+    businessEmail: contact.businessEmail,
+    receiptCode,
+    issuedDateLabel: formatAppDate(
+      contract.closed_at || new Date().toISOString(),
+    ),
+    contractCode: contract.code,
+    customerName: contract.customerName,
+    customerPhone: customer?.phone ?? null,
+    customerEmail: customer?.email ?? null,
+    customerIdentification:
+      customer?.dui ||
+      customer?.passport ||
+      customer?.identification ||
+      null,
+    vehicleLabel: contract.vehicleLabel,
+    plate: contract.plate,
+    scheduledEndLabel: `${formatAppDate(contract.end_at)} · ${formatAppTime(contract.end_at)}`,
+    actualReturnLabel: `${formatAppDate(actualReturn)} · ${formatAppTime(actualReturn)}`,
+    returnPlace: contact.businessAddress,
+    mileageOut: checkOut?.mileage ?? null,
+    mileageIn: checkIn?.mileage ?? null,
+    fuelInLabel: fuelIn,
+    fuelSameLevel:
+      fuelOut && fuelIn ? fuelOut === fuelIn : fuelOut || fuelIn ? false : null,
+    accessories,
+    noNewDamage: !newDamageNotes,
+    newDamageNotes,
+    bodyZoneMarks,
+    extraCharges,
+    damageCharges,
+    fuelCharges,
+    complementaryAmount,
+    deposit: Number(contract.deposit ?? 0),
+    depositReturned: balanceDue <= 0,
+    chargeConcept: null as string | null,
+    amountPaid,
+    balanceDue,
+    totalOwed,
+    observations: contract.notes,
+    operatorName,
+    operatorSignatureUrl,
+    clientSignatureUrl,
+    clientSignedAt,
+    closedAtLabel: contract.closed_at
+      ? formatAppDateTime(contract.closed_at)
+      : null,
+    verificationId: `#${receiptCode}`,
   };
 }

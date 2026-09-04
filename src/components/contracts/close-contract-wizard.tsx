@@ -260,6 +260,11 @@ export function CloseContractWizard({
       return;
     }
 
+    window.open(
+      `/dashboard/contratos/${contract.id}/acta-cierre/pdf`,
+      "_blank",
+      "noopener,noreferrer",
+    );
     router.push(`/dashboard/contratos/${contract.id}`);
     router.refresh();
   }
