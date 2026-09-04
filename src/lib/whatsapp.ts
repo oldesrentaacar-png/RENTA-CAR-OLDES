@@ -73,8 +73,8 @@ export function buildPaymentReceiptWhatsAppMessage(input: {
     ? ` Concepto: ${input.concept}.`
     : "";
   const pdfPart = input.pdfUrl
-    ? ` Puede ver el PDF aquí: ${input.pdfUrl}`
-    : " El comprobante PDF está disponible con OLDES Rent-a-Car (+503 7435-0381); solicítelo al negocio si aún no lo tiene.";
+    ? ` Puede ver y descargar el PDF aquí: ${input.pdfUrl}`
+    : " El comprobante PDF se genera en el sistema OLDES; solicítelo al negocio si aún no lo recibió.";
 
   return [
     `Hola ${input.customerName},`,

@@ -6,7 +6,7 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/typ
 import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
 import { formatAppDate } from "@/lib/dates";
-import { env, isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney, toNumber } from "@/lib/money";
@@ -22,9 +22,11 @@ import {
   buildPaymentReceiptWhatsAppMessage,
   buildWaMeLink,
 } from "@/lib/whatsapp";
+import { buildReceiptPdfShareUrl } from "@/lib/receipts/share-token";
 import type { PaymentMethod, PaymentReceipt } from "@/types/database";
 import type { PaginatedResult } from "@/types/api";
 import type { PaymentReceiptPdfProps } from "@/lib/pdf/payment-receipt-pdf";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 function parseReceiptForm(formData: FormData) {
   return {
@@ -586,8 +588,7 @@ export async function getReceiptWhatsAppLink(
       );
     }
 
-    const appUrl = env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-    const pdfUrl = appUrl ? `${appUrl}/api/receipts/${id}/pdf` : null;
+    const pdfUrl = buildReceiptPdfShareUrl(id);
 
     const message = buildPaymentReceiptWhatsAppMessage({
       customerName: `${customer.first_name} ${customer.last_name}`.trim(),
@@ -606,10 +607,15 @@ export async function getReceiptWhatsAppLink(
 
 export async function getPaymentReceiptPdfData(
   receiptId: string,
+  options?: { publicAccess?: boolean },
 ): Promise<PaymentReceiptPdfProps | null> {
   if (!isSupabaseConfigured()) return null;
 
-  const supabase = await createClient();
+  const useAdmin = Boolean(options?.publicAccess) && isSupabaseAdminConfigured();
+  const supabase: SupabaseClient = useAdmin
+    ? createAdminClient()
+    : await createClient();
+
   const { data } = await supabase
     .from("payment_receipts")
     .select(
@@ -627,18 +633,32 @@ export async function getPaymentReceiptPdfData(
     .limit(1)
     .maybeSingle();
 
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
   let receivedByName: string | null = null;
-  if (authUser) {
-    const { data: profile } = await supabase
+  if (!useAdmin) {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    if (authUser) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      if (profile) {
+        const p = profile as { first_name: string; last_name: string };
+        receivedByName = `${p.first_name} ${p.last_name}`.trim();
+      }
+    }
+  }
+
+  if (!receivedByName && data.created_by) {
+    const { data: creator } = await supabase
       .from("profiles")
       .select("first_name, last_name")
-      .eq("id", authUser.id)
+      .eq("id", data.created_by as string)
       .maybeSingle();
-    if (profile) {
-      const p = profile as { first_name: string; last_name: string };
+    if (creator) {
+      const p = creator as { first_name: string; last_name: string };
       receivedByName = `${p.first_name} ${p.last_name}`.trim();
     }
   }
@@ -661,7 +681,6 @@ export async function getPaymentReceiptPdfData(
     reservations: { code: string } | null;
   };
 
-  // reservations may not be in select - fetch code if needed via contract only
   const settingsRow = settings as {
     business_name?: string;
     address?: string;

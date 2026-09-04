@@ -5,9 +5,10 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
 import { renderPaymentReceiptPdf } from "@/lib/pdf/render";
+import { verifyReceiptPdfShareToken } from "@/lib/receipts/share-token";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
@@ -19,23 +20,30 @@ export async function GET(
     );
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: { message: "No autenticado." } },
-      { status: 401 },
-    );
+  const token = new URL(request.url).searchParams.get("token");
+  const hasShareToken = verifyReceiptPdfShareToken(id, token);
+
+  if (!hasShareToken) {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: { message: "No autenticado." } },
+        { status: 401 },
+      );
+    }
+
+    const allowed = await hasPermission(user.id, "finance.view");
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: { message: "Sin permiso." } },
+        { status: 403 },
+      );
+    }
   }
 
-  const allowed = await hasPermission(user.id, "finance.view");
-  if (!allowed) {
-    return NextResponse.json(
-      { success: false, error: { message: "Sin permiso." } },
-      { status: 403 },
-    );
-  }
-
-  const pdfData = await getPaymentReceiptPdfData(id);
+  const pdfData = await getPaymentReceiptPdfData(id, {
+    publicAccess: hasShareToken,
+  });
   if (!pdfData) {
     return NextResponse.json(
       { success: false, error: { message: "Recibo no encontrado." } },
@@ -50,7 +58,9 @@ export async function GET(
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="recibo-${pdfData.receiptCode}.pdf"`,
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": hasShareToken
+          ? "public, max-age=300"
+          : "private, max-age=60",
       },
     });
   } catch {

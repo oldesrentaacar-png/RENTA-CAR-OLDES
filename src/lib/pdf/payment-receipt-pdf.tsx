@@ -363,7 +363,7 @@ export function PaymentReceiptPdfDocument(props: PaymentReceiptPdfProps) {
             <Text style={styles.line}>Entregado por: {props.customerName}</Text>
             <Text style={styles.muted}>Firma de conformidad</Text>
             <Text style={[styles.muted, { marginTop: 8 }]}>
-              Envío WhatsApp / correo disponible desde el panel.
+              Comprobante compartible por WhatsApp con enlace al PDF.
             </Text>
           </View>
         </View>
