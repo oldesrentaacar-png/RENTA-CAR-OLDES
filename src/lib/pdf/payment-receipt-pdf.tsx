@@ -226,7 +226,12 @@ export function PaymentReceiptPdfDocument(props: PaymentReceiptPdfProps) {
               // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
               <Image
                 src={props.logoDataUrl}
-                style={{ width: 72, height: 48, objectFit: "contain", marginBottom: 4 }}
+                style={{
+                  width: 96,
+                  height: 40,
+                  objectFit: "contain",
+                  marginBottom: 6,
+                }}
               />
             ) : null}
             <Text style={styles.brandName}>{businessName}</Text>

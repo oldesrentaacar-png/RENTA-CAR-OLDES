@@ -13,30 +13,43 @@ async function pngDataUrlFromBuffer(buffer: Buffer): Promise<string> {
 
 /**
  * Loads the OLDES logo as a PNG data URL for @react-pdf/renderer.
- * SVG sources are rasterized because react-pdf cannot render SVG text fonts.
+ * Prefers the official PNG badge; SVG is rasterized as fallback.
  */
 export async function getBrandLogoDataUrl(): Promise<string | null> {
   if (cachedLogoDataUrl !== undefined) {
     return cachedLogoDataUrl;
   }
 
-  const pngPath = path.join(process.cwd(), "public", "brand", "oldes-logo.png");
-  const svgPath = path.join(process.cwd(), "public", "brand", "oldes-logo.svg");
+  const brandDir = path.join(process.cwd(), "public", "brand");
+  const pngPath = path.join(brandDir, "oldes-logo.png");
+  const svgPath = path.join(brandDir, "oldes-logo.svg");
 
   try {
-    const buffer = await readFile(pngPath);
+    const buffer = await sharp(await readFile(pngPath))
+      .rotate()
+      .resize({
+        width: 480,
+        height: 180,
+        fit: "inside",
+        withoutEnlargement: false,
+      })
+      .png()
+      .toBuffer();
     cachedLogoDataUrl = await pngDataUrlFromBuffer(buffer);
     return cachedLogoDataUrl;
-  } catch {
-    // fall through
+  } catch (error) {
+    console.warn("[getBrandLogoDataUrl] PNG logo failed, trying SVG", error);
   }
 
   try {
-    const svgBuffer = await readFile(svgPath);
-    const pngBuffer = await sharp(svgBuffer).png().toBuffer();
+    const pngBuffer = await sharp(await readFile(svgPath))
+      .resize({ width: 480, height: 180, fit: "inside" })
+      .png()
+      .toBuffer();
     cachedLogoDataUrl = await pngDataUrlFromBuffer(pngBuffer);
     return cachedLogoDataUrl;
-  } catch {
+  } catch (error) {
+    console.error("[getBrandLogoDataUrl] logo unavailable", error);
     cachedLogoDataUrl = null;
     return null;
   }

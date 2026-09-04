@@ -97,12 +97,13 @@ const styles = StyleSheet.create({
     maxWidth: "62%",
   },
   logo: {
-    width: 78,
-    height: 52,
+    width: 92,
+    height: 40,
     objectFit: "contain",
   },
   brandText: {
     flexDirection: "column",
+    flexShrink: 1,
   },
   brandName: {
     fontSize: 16,

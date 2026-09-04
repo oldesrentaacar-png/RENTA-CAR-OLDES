@@ -151,8 +151,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   logo: {
-    width: 64,
-    height: 42,
+    width: 88,
+    height: 38,
     objectFit: "contain",
   },
   brandName: {
