@@ -15,6 +15,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
+import { getCustomerDisplayName } from "@/lib/customers";
 import { parseMoneyInput } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -28,7 +29,7 @@ import type { PaginatedResult } from "@/types/api";
 
 export async function listReservations(
   params: Record<string, string | string[] | undefined> = {},
-): Promise<ActionResult<PaginatedResult<Reservation>>> {
+): Promise<ActionResult<PaginatedResult<ReservationListItem>>> {
   try {
     await assertPermission("reservations.view");
     if (!isSupabaseConfigured()) {
@@ -47,9 +48,28 @@ export async function listReservations(
     });
 
     const supabase = await createClient();
+
+    let matchingCustomerIds: string[] | null = null;
+    if (filters.query) {
+      const term = filters.query.trim();
+      const { data: matchingCustomers } = await supabase
+        .from("customers")
+        .select("id")
+        .is("deleted_at", null)
+        .or(
+          `first_name.ilike.%${term}%,last_name.ilike.%${term}%,company_name.ilike.%${term}%`,
+        );
+      matchingCustomerIds = (matchingCustomers ?? []).map(
+        (row) => (row as { id: string }).id,
+      );
+    }
+
     let query = supabase
       .from("reservations")
-      .select("*", { count: "exact" })
+      .select(
+        "*, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, plate)",
+        { count: "exact" },
+      )
       .is("deleted_at", null)
       .order("start_at", { ascending: true });
 
@@ -59,7 +79,14 @@ export async function listReservations(
     if (filters.from) query = query.gte("start_at", filters.from);
     if (filters.to) query = query.lte("end_at", filters.to);
     if (filters.query) {
-      query = query.ilike("code", `%${filters.query}%`);
+      const term = filters.query.trim();
+      if (matchingCustomerIds && matchingCustomerIds.length > 0) {
+        query = query.or(
+          `code.ilike.%${term}%,customer_id.in.(${matchingCustomerIds.join(",")})`,
+        );
+      } else {
+        query = query.ilike("code", `%${term}%`);
+      }
     }
 
     const from = (filters.page - 1) * filters.pageSize;
@@ -68,8 +95,59 @@ export async function listReservations(
 
     if (error) throw mapPostgresError(error);
 
+    type Row = ReservationRow & {
+      customers:
+        | {
+            first_name: string | null;
+            last_name: string | null;
+            company_name: string | null;
+            customer_type: string | null;
+          }
+        | Array<{
+            first_name: string | null;
+            last_name: string | null;
+            company_name: string | null;
+            customer_type: string | null;
+          }>
+        | null;
+      vehicles:
+        | { brand: string | null; model: string | null; plate: string | null }
+        | Array<{ brand: string | null; model: string | null; plate: string | null }>
+        | null;
+    };
+
+    const items = ((data ?? []) as Row[]).map((row) => {
+      const customer = Array.isArray(row.customers)
+        ? row.customers[0]
+        : row.customers;
+      const vehicle = Array.isArray(row.vehicles)
+        ? row.vehicles[0]
+        : row.vehicles;
+      const reservation = mapReservationRow(row);
+      const customerName = customer
+        ? getCustomerDisplayName({
+            customer_type:
+              (customer.customer_type as "PERSON" | "COMPANY" | null) ??
+              "PERSON",
+            first_name: customer.first_name ?? "",
+            last_name: customer.last_name ?? "",
+            company_name: customer.company_name,
+          })
+        : "—";
+      const vehicleLabel =
+        [vehicle?.brand, vehicle?.model].filter(Boolean).join(" ").trim() ||
+        vehicle?.plate?.trim() ||
+        "—";
+
+      return {
+        ...reservation,
+        customerName,
+        vehicleLabel,
+      };
+    });
+
     return actionSuccess({
-      items: ((data ?? []) as ReservationRow[]).map(mapReservationRow),
+      items,
       total: count ?? 0,
       page: filters.page,
       pageSize: filters.pageSize,
@@ -79,6 +157,11 @@ export async function listReservations(
     return actionError(toUserMessage(error));
   }
 }
+
+export type ReservationListItem = Reservation & {
+  customerName: string;
+  vehicleLabel: string;
+};
 
 export async function getReservation(
   id: string,

@@ -28,7 +28,7 @@ export default async function ReservasPage({
   return (
     <ModuleListShell
       title="Reservas"
-      description="Reservas confirmadas y en curso."
+      description="Reservas confirmadas y en curso. Busque por nombre del cliente o código."
       permission="reservations.view"
       configured={configured}
       error={error}
@@ -48,6 +48,7 @@ export default async function ReservasPage({
           q={String(params.q ?? "")}
           status={String(params.status ?? "")}
           statusOptions={statusOptions}
+          searchPlaceholder="Nombre del cliente o código…"
         />
       </form>
 
@@ -58,13 +59,30 @@ export default async function ReservasPage({
         emptyDescription="Las reservas confirmadas se listarán aquí."
         columns={[
           {
+            key: "customer",
+            header: "Cliente",
+            cell: (row) => (
+              <Link
+                href={`/dashboard/reservas/${row.id}`}
+                className="font-medium hover:underline"
+              >
+                {row.customerName}
+              </Link>
+            ),
+          },
+          {
             key: "code",
             header: "Código",
             cell: (row) => (
-              <Link href={`/dashboard/reservas/${row.id}`} className="font-medium hover:underline">
-                {row.code}
-              </Link>
+              <span className="text-muted">{row.code}</span>
             ),
+            className: "hidden sm:table-cell",
+          },
+          {
+            key: "vehicle",
+            header: "Vehículo",
+            cell: (row) => row.vehicleLabel,
+            className: "hidden md:table-cell",
           },
           {
             key: "period",

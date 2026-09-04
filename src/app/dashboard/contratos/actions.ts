@@ -25,6 +25,7 @@ import {
   normalizeFormDateTimeToIso,
   rentalDaysBetween,
 } from "@/lib/dates";
+import { getCustomerDisplayName } from "@/lib/customers";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
@@ -37,9 +38,10 @@ import {
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
 import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS } from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
-import { parseMoneyInput } from "@/lib/money";
+import { formatMoney, parseMoneyInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
+import { firstRelation } from "@/lib/validation/form-helpers";
 import {
   contractSchema,
   contractSearchSchema,
@@ -334,6 +336,166 @@ export async function getContract(
       plate: vehicles.plate,
       reservationCode: reservations.code,
     });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export type ContractEligibleReservation = {
+  id: string;
+  code: string;
+  status: string;
+  start_at: string;
+  end_at: string;
+  customerName: string;
+  vehicleLabel: string;
+  total: number;
+};
+
+/** Active/confirmed reservations that do not yet have an open contract. */
+export async function listReservationsEligibleForContract(
+  params: { q?: string } = {},
+): Promise<ActionResult<ContractEligibleReservation[]>> {
+  try {
+    await assertPermission("contracts.create");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const queryText = params.q?.trim() ?? "";
+
+    let matchingCustomerIds: string[] = [];
+    if (queryText) {
+      const { data: matchingCustomers } = await supabase
+        .from("customers")
+        .select("id")
+        .is("deleted_at", null)
+        .or(
+          `first_name.ilike.%${queryText}%,last_name.ilike.%${queryText}%,company_name.ilike.%${queryText}%`,
+        );
+      matchingCustomerIds = (matchingCustomers ?? []).map(
+        (row) => (row as { id: string }).id,
+      );
+    }
+
+    let query = supabase
+      .from("reservations")
+      .select(
+        "id, code, status, start_at, end_at, total, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, plate, year)",
+      )
+      .is("deleted_at", null)
+      .in("status", ["CONFIRMED", "ACTIVE"])
+      .order("start_at", { ascending: true })
+      .limit(80);
+
+    if (queryText) {
+      if (matchingCustomerIds.length > 0) {
+        query = query.or(
+          `code.ilike.%${queryText}%,customer_id.in.(${matchingCustomerIds.join(",")})`,
+        );
+      } else {
+        query = query.ilike("code", `%${queryText}%`);
+      }
+    }
+
+    const { data, error } = await query;
+    if (error) throw mapPostgresError(error);
+
+    const reservationIds = (data ?? []).map(
+      (row) => (row as { id: string }).id,
+    );
+
+    const blocked = new Set<string>();
+    if (reservationIds.length > 0) {
+      const { data: existingContracts, error: contractsError } = await supabase
+        .from("contracts")
+        .select("reservation_id, status")
+        .in("reservation_id", reservationIds)
+        .is("deleted_at", null)
+        .neq("status", "CANCELLED");
+
+      if (contractsError) throw mapPostgresError(contractsError);
+      for (const row of existingContracts ?? []) {
+        const reservationId = (row as { reservation_id: string }).reservation_id;
+        if (reservationId) blocked.add(reservationId);
+      }
+    }
+
+    const items: ContractEligibleReservation[] = [];
+    for (const raw of data ?? []) {
+      const row = raw as {
+        id: string;
+        code: string;
+        status: string;
+        start_at: string;
+        end_at: string;
+        total: number;
+        customers:
+          | {
+              first_name: string | null;
+              last_name: string | null;
+              company_name: string | null;
+              customer_type: string | null;
+            }
+          | Array<{
+              first_name: string | null;
+              last_name: string | null;
+              company_name: string | null;
+              customer_type: string | null;
+            }>
+          | null;
+        vehicles:
+          | {
+              brand: string | null;
+              model: string | null;
+              plate: string | null;
+              year: number | null;
+            }
+          | Array<{
+              brand: string | null;
+              model: string | null;
+              plate: string | null;
+              year: number | null;
+            }>
+          | null;
+      };
+
+      if (blocked.has(row.id)) continue;
+
+      const customer = firstRelation(row.customers);
+      const vehicle = firstRelation(row.vehicles);
+      const customerName = customer
+        ? getCustomerDisplayName({
+            customer_type:
+              (customer.customer_type as "PERSON" | "COMPANY" | null) ??
+              "PERSON",
+            first_name: customer.first_name ?? "",
+            last_name: customer.last_name ?? "",
+            company_name: customer.company_name,
+          })
+        : "Cliente";
+      const vehicleLabel =
+        [vehicle?.brand, vehicle?.model, vehicle?.year]
+          .filter(Boolean)
+          .join(" ")
+          .trim() ||
+        vehicle?.plate?.trim() ||
+        "Vehículo";
+
+      items.push({
+        id: row.id,
+        code: row.code,
+        status: row.status,
+        start_at: row.start_at,
+        end_at: row.end_at,
+        customerName,
+        vehicleLabel,
+        total: Number(row.total ?? 0),
+      });
+    }
+
+    return actionSuccess(items);
   } catch (error) {
     return actionError(toUserMessage(error));
   }
