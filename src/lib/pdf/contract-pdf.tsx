@@ -128,9 +128,9 @@ const LIGHT = "#f1f5f9";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 18,
-    paddingBottom: 40,
-    paddingHorizontal: 22,
+    paddingTop: 14,
+    paddingBottom: 36,
+    paddingHorizontal: 20,
     fontSize: 8,
     fontFamily: "Helvetica",
     color: "#0f172a",
@@ -284,21 +284,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   photoPanel: {
-    width: "52%",
+    width: "48%",
     borderWidth: 1,
     borderColor: LINE,
-    padding: 4,
+    padding: 3,
     alignItems: "center",
   },
   heroPhoto: {
     width: "100%",
-    height: 168,
+    height: 128,
     objectFit: "contain",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   wireframeDiagram: {
     width: "100%",
-    maxHeight: 155,
+    maxHeight: 120,
     objectFit: "contain",
     marginBottom: 2,
   },
@@ -307,34 +307,34 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   checklistPanel: {
-    width: "100%",
+    width: "52%",
     borderWidth: 1,
     borderColor: LINE,
     padding: 3,
   },
   checklistColumns: {
     flexDirection: "row",
-    gap: 6,
+    gap: 4,
   },
   checklistColumn: {
     flex: 1,
   },
   checklistItem: {
     flexDirection: "row",
-    gap: 3,
-    marginBottom: 1.5,
+    gap: 2,
+    marginBottom: 1,
     alignItems: "flex-start",
   },
   checklistMark: {
-    width: 28,
-    fontSize: 7,
+    width: 26,
+    fontSize: 6.5,
     fontFamily: "Helvetica-Bold",
     color: NAVY,
   },
   checklistLabel: {
     flex: 1,
-    fontSize: 7,
-    lineHeight: 1.3,
+    fontSize: 6.5,
+    lineHeight: 1.2,
   },
   fuelRow: {
     width: "100%",
@@ -618,8 +618,8 @@ export function ContractPdfDocument(props: ContractPdfProps) {
       author={businessName}
       subject="Contrato de alquiler de vehículo OLDES"
     >
-      {/* ===================== ANVERSO ===================== */}
-      <Page size="LETTER" style={styles.page}>
+      {/* ===================== ANVERSO (una sola página, sin wrap) ===================== */}
+      <Page size="LETTER" style={styles.page} wrap={false}>
         <View style={styles.headerRow}>
           <View style={styles.companyBlock}>
             <View style={styles.brandRow}>
@@ -746,16 +746,16 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             </Text>
           ) : null}
           <Text style={[styles.disclaimer, { marginHorizontal: 6, marginBottom: 4 }]}>
-            ESTE DOCUMENTO NO ES UNA FACTURA; EXÍJALA CUANDO SU SERVICIO ESTÉ FINALIZADO
+            {OLDES_CONTRACT_FOOTER_NOTE}
           </Text>
         </MachoteSection>
 
         <MachoteSection title="3. Inspección de estado del vehículo y combustible">
-          <Text style={{ fontSize: 6.5, color: MUTED, paddingHorizontal: 6, paddingTop: 4 }}>
+          <Text style={{ fontSize: 6.5, color: MUTED, paddingHorizontal: 6, paddingTop: 3 }}>
             Simbología: (X) Rayón · (O) Golpe · (*) Cristal · (△) Faltante
           </Text>
-          <View style={[styles.inspectionStack, { paddingHorizontal: 4, paddingBottom: 4 }]}>
-            <View style={[styles.photoPanel, { width: "100%" }]}>
+          <View style={[styles.twoColMain, { paddingHorizontal: 4, paddingBottom: 3 }]}>
+            <View style={styles.photoPanel}>
               {props.inspectionWireframeUrl ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
                 <Image
@@ -779,7 +779,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               />
             </View>
             <View style={styles.checklistPanel}>
-              <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 4 }}>
+              <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 3 }}>
                 CHECKLIST INVENTARIO (SALIDA) — SÍ / NO / DAÑ.
               </Text>
               <View style={styles.checklistColumns}>
@@ -819,23 +819,12 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </MachoteSection>
 
         <MachoteSection title="4. Observaciones">
-          <View style={{ paddingHorizontal: 5, paddingVertical: 4 }}>
-            <Text style={{ fontSize: 7.5, minHeight: 16 }}>
+          <View style={{ paddingHorizontal: 5, paddingVertical: 3 }}>
+            <Text style={{ fontSize: 7.5, minHeight: 12 }}>
               {props.observations || props.notes || "—"}
             </Text>
           </View>
         </MachoteSection>
-
-        <Text
-          style={{
-            fontSize: 6.5,
-            marginTop: 2,
-            color: MUTED,
-            textAlign: "center",
-          }}
-        >
-          {OLDES_CONTRACT_FOOTER_NOTE}
-        </Text>
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
@@ -889,12 +878,18 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           <Text
             key={`clause-${index}`}
             style={[styles.clause, { fontSize: 7, marginBottom: 5 }]}
+            wrap
+            minPresenceAhead={18}
           >
             {clause}
           </Text>
         ))}
 
-        <View wrap={false} style={{ marginTop: 8 }}>
+        <View
+          wrap={false}
+          minPresenceAhead={120}
+          style={{ marginTop: 8 }}
+        >
           <Text
             style={{
               fontSize: 7.5,
