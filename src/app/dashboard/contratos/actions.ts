@@ -64,6 +64,12 @@ export type ContractDetail = Contract & {
   reservationCode: string;
 };
 
+export type ContractListItem = Contract & {
+  customerName: string;
+  vehicleLabel: string;
+  plate: string;
+};
+
 function nextStatusAfterSign(
   hasClient: boolean,
   hasRepresentative: boolean,
@@ -226,7 +232,7 @@ export async function getDeliveryFlowForReservation(
 
 export async function listContracts(
   params: Record<string, string | string[] | undefined> = {},
-): Promise<ActionResult<PaginatedResult<Contract>>> {
+): Promise<ActionResult<PaginatedResult<ContractListItem>>> {
   try {
     await assertPermission("contracts.view");
     if (!isSupabaseConfigured()) {
@@ -243,16 +249,44 @@ export async function listContracts(
     });
 
     const supabase = await createClient();
+
+    let matchingCustomerIds: string[] | null = null;
+    if (filters.query) {
+      const term = filters.query.trim();
+      const { data: matchingCustomers } = await supabase
+        .from("customers")
+        .select("id")
+        .is("deleted_at", null)
+        .or(
+          `first_name.ilike.%${term}%,last_name.ilike.%${term}%,company_name.ilike.%${term}%`,
+        );
+      matchingCustomerIds = (matchingCustomers ?? []).map(
+        (row) => (row as { id: string }).id,
+      );
+    }
+
     let query = supabase
       .from("contracts")
-      .select("*", { count: "exact" })
+      .select(
+        "*, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, plate)",
+        { count: "exact" },
+      )
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (filters.status) query = query.eq("status", filters.status);
     if (filters.customerId) query = query.eq("customer_id", filters.customerId);
     if (filters.vehicleId) query = query.eq("vehicle_id", filters.vehicleId);
-    if (filters.query) query = query.ilike("code", `%${filters.query}%`);
+    if (filters.query) {
+      const term = filters.query.trim();
+      if (matchingCustomerIds && matchingCustomerIds.length > 0) {
+        query = query.or(
+          `code.ilike.%${term}%,customer_id.in.(${matchingCustomerIds.join(",")})`,
+        );
+      } else {
+        query = query.ilike("code", `%${term}%`);
+      }
+    }
 
     const from = (filters.page - 1) * filters.pageSize;
     const to = from + filters.pageSize - 1;
@@ -260,8 +294,75 @@ export async function listContracts(
 
     if (error) throw mapPostgresError(error);
 
+    type Row = ContractRow & {
+      customers:
+        | {
+            first_name: string | null;
+            last_name: string | null;
+            company_name: string | null;
+            customer_type: string | null;
+          }
+        | Array<{
+            first_name: string | null;
+            last_name: string | null;
+            company_name: string | null;
+            customer_type: string | null;
+          }>
+        | null;
+      vehicles:
+        | {
+            brand: string | null;
+            model: string | null;
+            plate: string | null;
+          }
+        | Array<{
+            brand: string | null;
+            model: string | null;
+            plate: string | null;
+          }>
+        | null;
+    };
+
+    const items: ContractListItem[] = ((data ?? []) as Row[]).map((row) => {
+      const contract = mapContractRow(row);
+      const customer = Array.isArray(row.customers)
+        ? row.customers[0]
+        : row.customers;
+      const vehicle = Array.isArray(row.vehicles)
+        ? row.vehicles[0]
+        : row.vehicles;
+
+      const customerName = customer
+        ? getCustomerDisplayName({
+            customer_type:
+              (customer.customer_type as "PERSON" | "COMPANY" | null) ??
+              "PERSON",
+            first_name: customer.first_name ?? "",
+            last_name: customer.last_name ?? "",
+            company_name: customer.company_name,
+          })
+        : "—";
+
+      const vehicleParts = [vehicle?.brand, vehicle?.model]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      const plate = vehicle?.plate?.trim() || "";
+      const vehicleLabel =
+        vehicleParts && plate
+          ? `${vehicleParts} · ${plate}`
+          : vehicleParts || plate || "—";
+
+      return {
+        ...contract,
+        customerName,
+        vehicleLabel,
+        plate: plate || "—",
+      };
+    });
+
     return actionSuccess({
-      items: ((data ?? []) as ContractRow[]).map(mapContractRow),
+      items,
       total: count ?? 0,
       page: filters.page,
       pageSize: filters.pageSize,
