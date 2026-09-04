@@ -1,11 +1,13 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { DamageMarkPanel } from "@/components/inspections/damage-mark-panel";
 import { CHECKLIST_STATUS_LABELS } from "@/lib/inspections/defaults";
 import {
   INSPECTION_WIREFRAME_LABELS,
+  INSPECTION_WIREFRAME_TYPES,
   inspectionWireframePublicPath,
   resolveInspectionWireframe,
   type InspectionWireframeType,
@@ -60,14 +62,22 @@ export function DamageMap2D({
   vehicleTypeName,
   wireframeType: wireframeTypeProp,
 }: DamageMap2DProps) {
+  const autoWireframeType = useMemo(
+    () =>
+      resolveInspectionWireframe({
+        category: vehicleCategory,
+        model: vehicleModel,
+        typeSlug: vehicleTypeSlug,
+        typeName: vehicleTypeName,
+      }),
+    [vehicleCategory, vehicleModel, vehicleTypeSlug, vehicleTypeName],
+  );
+
+  const [manualWireframeType, setManualWireframeType] =
+    useState<InspectionWireframeType | null>(null);
+
   const wireframeType =
-    wireframeTypeProp ??
-    resolveInspectionWireframe({
-      category: vehicleCategory,
-      model: vehicleModel,
-      typeSlug: vehicleTypeSlug,
-      typeName: vehicleTypeName,
-    });
+    wireframeTypeProp ?? manualWireframeType ?? autoWireframeType;
   const wireframeSrc = inspectionWireframePublicPath(wireframeType);
   const wireframeLabel = INSPECTION_WIREFRAME_LABELS[wireframeType];
 
@@ -115,6 +125,7 @@ export function DamageMap2D({
   }
 
   const selected = selectedIndex != null ? marks[selectedIndex] : null;
+  const diagramLocked = Boolean(wireframeTypeProp);
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -132,9 +143,40 @@ export function DamageMap2D({
             </span>
           ))}
         </div>
-        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
-          Diagrama: {wireframeLabel}
-        </span>
+
+        {diagramLocked ? (
+          <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
+            Diagrama: {wireframeLabel}
+          </span>
+        ) : (
+          <label className="relative inline-flex items-center">
+            <span className="sr-only">Cambiar tipo de diagrama</span>
+            <select
+              value={wireframeType}
+              onChange={(event) =>
+                setManualWireframeType(
+                  event.target.value as InspectionWireframeType,
+                )
+              }
+              className="cursor-pointer appearance-none rounded-full bg-slate-900 py-1.5 pl-3 pr-8 text-xs font-semibold text-white shadow-sm outline-none ring-offset-1 hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-brand"
+              title="Si el sistema eligió mal el diagrama, cámbielo aquí"
+            >
+              {INSPECTION_WIREFRAME_TYPES.map((type) => (
+                <option
+                  key={type}
+                  value={type}
+                  className="bg-white text-slate-900"
+                >
+                  Diagrama: {INSPECTION_WIREFRAME_LABELS[type]}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 text-white/90"
+              aria-hidden
+            />
+          </label>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-300 bg-white p-3 shadow-sm">
@@ -185,6 +227,12 @@ export function DamageMap2D({
         <p className="mt-2 text-center text-xs text-slate-600">
           {wireframeLabel} · 5 vistas · clic para marcar daño (0 golpe, + rayón,
           x faltante)
+          {!diagramLocked ? (
+            <>
+              {" "}
+              · si el diagrama no coincide, cámbielo en el botón de arriba
+            </>
+          ) : null}
         </p>
       </div>
 

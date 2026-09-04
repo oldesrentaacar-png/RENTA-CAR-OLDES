@@ -2,6 +2,13 @@
 
 export type InspectionWireframeType = "SEDAN" | "PICKUP" | "MINIVAN" | "SUV";
 
+export const INSPECTION_WIREFRAME_TYPES: InspectionWireframeType[] = [
+  "SEDAN",
+  "PICKUP",
+  "MINIVAN",
+  "SUV",
+];
+
 const WIREFRAME_FILES: Record<InspectionWireframeType, string> = {
   SEDAN: "sedan.png",
   PICKUP: "pickup.png",
