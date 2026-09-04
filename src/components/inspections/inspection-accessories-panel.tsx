@@ -34,6 +34,8 @@ type InspectionAccessoriesPanelProps = {
   >;
   vehicleCategory?: string | null;
   vehicleModel?: string | null;
+  vehicleTypeSlug?: string | null;
+  vehicleTypeName?: string | null;
 };
 
 /**
@@ -48,6 +50,8 @@ export function InspectionAccessoriesPanel({
   viewPhotos,
   vehicleCategory,
   vehicleModel,
+  vehicleTypeSlug,
+  vehicleTypeName,
 }: InspectionAccessoriesPanelProps) {
   const router = useRouter();
   const [drafts, setDrafts] = useState<ChecklistItemDraft[]>(() =>
@@ -145,6 +149,8 @@ export function InspectionAccessoriesPanel({
           viewPhotos={viewPhotos}
           vehicleCategory={vehicleCategory}
           vehicleModel={vehicleModel}
+          vehicleTypeSlug={vehicleTypeSlug}
+          vehicleTypeName={vehicleTypeName}
           defaultMode="2d"
         />
       </div>

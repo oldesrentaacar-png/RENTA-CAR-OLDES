@@ -24,6 +24,8 @@ type InspectionDamageEditorProps = {
   >;
   vehicleCategory?: string | null;
   vehicleModel?: string | null;
+  vehicleTypeSlug?: string | null;
+  vehicleTypeName?: string | null;
 };
 
 export function InspectionDamageEditor({
@@ -35,6 +37,8 @@ export function InspectionDamageEditor({
   viewPhotos,
   vehicleCategory,
   vehicleModel,
+  vehicleTypeSlug,
+  vehicleTypeName,
 }: InspectionDamageEditorProps) {
   const router = useRouter();
   const [marks, setMarks] = useState<DamageMarkDraft[]>(() =>
@@ -74,6 +78,8 @@ export function InspectionDamageEditor({
         viewPhotos={viewPhotos}
         vehicleCategory={vehicleCategory}
         vehicleModel={vehicleModel}
+        vehicleTypeSlug={vehicleTypeSlug}
+        vehicleTypeName={vehicleTypeName}
         defaultMode="2d"
       />
       {!readOnly ? (

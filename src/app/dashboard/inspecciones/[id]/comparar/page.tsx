@@ -88,6 +88,10 @@ export default async function InspeccionCompararPage({
                         readOnly
                         vehiclePhotoUrl={comparison.checkOut.vehiclePhotoUrl}
                         viewPhotos={comparison.checkOut.viewPhotos}
+                        vehicleCategory={comparison.checkOut.vehicleCategory}
+                        vehicleModel={comparison.checkOut.vehicleModel}
+                        vehicleTypeSlug={comparison.checkOut.vehicleTypeSlug}
+                        vehicleTypeName={comparison.checkOut.vehicleTypeName}
                       />
                     </>
                   ) : (
@@ -120,6 +124,10 @@ export default async function InspeccionCompararPage({
                         highlightOnly
                         vehiclePhotoUrl={comparison.checkIn.vehiclePhotoUrl}
                         viewPhotos={comparison.checkIn.viewPhotos}
+                        vehicleCategory={comparison.checkIn.vehicleCategory}
+                        vehicleModel={comparison.checkIn.vehicleModel}
+                        vehicleTypeSlug={comparison.checkIn.vehicleTypeSlug}
+                        vehicleTypeName={comparison.checkIn.vehicleTypeName}
                       />
                       <p className="text-xs text-muted">
                         Mapa de entrada resaltando solo daños nuevos respecto a la salida.

@@ -162,6 +162,8 @@ export default async function InspeccionDetailPage({
                   viewPhotos={inspection.viewPhotos}
                   vehicleCategory={inspection.vehicleCategory}
                   vehicleModel={inspection.vehicleModel}
+                  vehicleTypeSlug={inspection.vehicleTypeSlug}
+                  vehicleTypeName={inspection.vehicleTypeName}
                 />
               </CardContent>
             </Card>

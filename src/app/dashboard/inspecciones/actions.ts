@@ -49,6 +49,8 @@ export type InspectionDetail = Inspection & {
   vehicleLabel: string;
   vehicleModel: string;
   vehicleCategory: string | null;
+  vehicleTypeSlug: string | null;
+  vehicleTypeName: string | null;
   vehiclePhotoUrl: string | null;
   viewPhotos: Partial<
     Record<"TOP" | "FRONT" | "REAR" | "LEFT" | "RIGHT", string>
@@ -121,7 +123,7 @@ async function loadInspectionDetail(
   const { data, error } = await supabase
     .from("inspections")
     .select(
-      "*, customers(first_name, last_name), vehicles(brand, model, year, category), reservations(code)",
+      "*, customers(first_name, last_name), vehicles(brand, model, year, category, vehicle_type_id, vehicle_types(slug, name)), reservations(code)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -136,6 +138,8 @@ async function loadInspectionDetail(
       model: string;
       year: number;
       category: string | null;
+      vehicle_type_id: string | null;
+      vehicle_types: { slug: string; name: string } | { slug: string; name: string }[] | null;
     };
     reservations: { code: string };
   };
@@ -182,6 +186,10 @@ async function loadInspectionDetail(
     vehiclePhotoUrl = (vehicleImages[0] as { url: string }).url;
   }
 
+  const vehicleType = Array.isArray(row.vehicles.vehicle_types)
+    ? row.vehicles.vehicle_types[0]
+    : row.vehicles.vehicle_types;
+
   return {
     ...inspection,
     checklist: (checklist ?? []).map(mapInspectionChecklistRow),
@@ -192,6 +200,8 @@ async function loadInspectionDetail(
     vehicleLabel: `${row.vehicles.brand} ${row.vehicles.model} ${row.vehicles.year}`,
     vehicleModel: row.vehicles.model,
     vehicleCategory: row.vehicles.category,
+    vehicleTypeSlug: vehicleType?.slug ?? null,
+    vehicleTypeName: vehicleType?.name ?? null,
     vehiclePhotoUrl,
     viewPhotos,
   };

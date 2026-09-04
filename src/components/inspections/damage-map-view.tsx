@@ -24,6 +24,8 @@ type DamageMapViewProps = {
   >;
   vehicleCategory?: string | null;
   vehicleModel?: string | null;
+  vehicleTypeSlug?: string | null;
+  vehicleTypeName?: string | null;
 };
 
 /**
@@ -38,6 +40,8 @@ export function DamageMapView({
   viewPhotos,
   vehicleCategory,
   vehicleModel,
+  vehicleTypeSlug,
+  vehicleTypeName,
 }: DamageMapViewProps) {
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -82,6 +86,8 @@ export function DamageMapView({
         viewPhotos={viewPhotos}
         vehicleCategory={vehicleCategory}
         vehicleModel={vehicleModel}
+        vehicleTypeSlug={vehicleTypeSlug}
+        vehicleTypeName={vehicleTypeName}
       />
     </div>
   );
