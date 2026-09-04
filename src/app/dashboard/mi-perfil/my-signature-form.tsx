@@ -68,8 +68,9 @@ export function MySignatureForm({
       <div>
         <h2 className="text-base font-semibold">Firma digital</h2>
         <p className="text-sm text-muted">
-          Operador: {operatorName}. Esta firma aparece sola en los contratos
-          que usted gestiona.
+          Operador: {operatorName}. Este nombre y esta firma aparecen en el
+          bloque &quot;Por la empresa arrendadora&quot; de los contratos y
+          actas que usted gestiona.
         </p>
       </div>
 

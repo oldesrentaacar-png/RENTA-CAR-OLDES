@@ -1,3 +1,4 @@
+import { MyProfileNameForm } from "@/app/dashboard/mi-perfil/my-profile-name-form";
 import { MySignatureForm } from "@/app/dashboard/mi-perfil/my-signature-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
@@ -23,15 +24,11 @@ export default async function MiPerfilPage() {
         <SetupBanner />
       ) : (
         <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-surface p-6 text-sm">
-            <p>
-              <span className="text-muted">Nombre:</span> {operatorName}
-            </p>
-            <p>
-              <span className="text-muted">Correo:</span>{" "}
-              {profile?.email ?? "—"}
-            </p>
-          </div>
+          <MyProfileNameForm
+            firstName={profile?.first_name ?? ""}
+            lastName={profile?.last_name ?? ""}
+            email={profile?.email ?? ""}
+          />
           <MySignatureForm
             operatorName={operatorName}
             currentSignatureUrl={profile?.signature_url ?? null}

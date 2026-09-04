@@ -89,12 +89,10 @@ async function ensureRepresentativeSignature(
 ): Promise<string | undefined> {
   const { data: existing } = await supabase
     .from("contract_signatures")
-    .select("id")
+    .select("id, signed_by_user_id, signature_path")
     .eq("contract_id", contractId)
     .eq("signer_type", "REPRESENTATIVE")
     .maybeSingle();
-
-  if (existing) return undefined;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -103,7 +101,7 @@ async function ensureRepresentativeSignature(
     .maybeSingle();
 
   if (!profile) {
-    return "Configure su nombre y firma en Usuarios → su perfil.";
+    return "Configure su nombre y firma en Mi perfil (menú de usuario).";
   }
 
   const operator = profile as {
@@ -113,7 +111,53 @@ async function ensureRepresentativeSignature(
   };
   const operatorName = `${operator.first_name} ${operator.last_name}`.trim();
   if (!operatorName) {
-    return "Configure su nombre en el perfil para registrar la firma del operador.";
+    return "Configure su nombre en Mi perfil para registrar la firma del operador.";
+  }
+
+  if (existing) {
+    const row = existing as {
+      id: string;
+      signed_by_user_id: string | null;
+      signature_path: string | null;
+    };
+    // Keep open contracts in sync with Mi perfil when the same operator signed.
+    if (!row.signed_by_user_id || row.signed_by_user_id === userId) {
+      const patch: {
+        signed_by_name: string;
+        signed_by_user_id: string;
+        signature_path?: string;
+      } = {
+        signed_by_name: operatorName,
+        signed_by_user_id: userId,
+      };
+      if (
+        !row.signature_path &&
+        (operatorSignatureDataUrl?.startsWith("data:") ||
+          operator.signature_url)
+      ) {
+        const sourceDataUrl =
+          operatorSignatureDataUrl?.startsWith("data:")
+            ? operatorSignatureDataUrl
+            : operator.signature_url?.startsWith("data:")
+              ? operator.signature_url
+              : null;
+        if (sourceDataUrl) {
+          const upload = await uploadSignatureImage(
+            contractId,
+            "REPRESENTATIVE",
+            sourceDataUrl,
+          );
+          patch.signature_path = upload.storagePath;
+        } else if (operator.signature_url) {
+          patch.signature_path = operator.signature_url;
+        }
+      }
+      await supabase
+        .from("contract_signatures")
+        .update(patch)
+        .eq("id", row.id);
+    }
+    return undefined;
   }
 
   let signaturePath: string | null = null;
@@ -1745,27 +1789,40 @@ export async function getContractPdfData(contractId: string) {
       repSig.signature_path;
   }
 
-  if (!operatorName) {
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-    if (authUser) {
-      const { data: operatorProfile } = await supabase
-        .from("profiles")
-        .select("first_name, last_name, signature_url")
-        .eq("id", authUser.id)
-        .maybeSingle();
-      if (operatorProfile) {
-        const op = operatorProfile as {
-          first_name: string;
-          last_name: string;
-          signature_url?: string | null;
-        };
-        operatorName = `${op.first_name} ${op.last_name}`.trim();
-        if (!operatorSignatureUrl && op.signature_url) {
-          operatorSignatureUrl =
-            (await resolvePrivateFileUrl(op.signature_url)) ?? op.signature_url;
-        }
+  // Mi perfil: nombre + firma del operador actual para vista previa
+  // y como respaldo si aún no hay firma de empresa en el contrato.
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+  if (authUser) {
+    const { data: operatorProfile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name, signature_url")
+      .eq("id", authUser.id)
+      .maybeSingle();
+    if (operatorProfile) {
+      const op = operatorProfile as {
+        first_name: string;
+        last_name: string;
+        signature_url?: string | null;
+      };
+      const profileName = `${op.first_name} ${op.last_name}`.trim();
+      if (!operatorName && profileName) {
+        operatorName = profileName;
+      }
+      // Contratos abiertos: si la firma de empresa es del usuario actual,
+      // refrescar nombre desde Mi perfil (p. ej. corrigió Oldes → Jaime).
+      if (
+        profileName &&
+        repSig?.signed_by_user_id === authUser.id &&
+        row.status !== "COMPLETED" &&
+        row.status !== "CANCELLED"
+      ) {
+        operatorName = profileName;
+      }
+      if (!operatorSignatureUrl && op.signature_url) {
+        operatorSignatureUrl =
+          (await resolvePrivateFileUrl(op.signature_url)) ?? op.signature_url;
       }
     }
   }
@@ -2017,7 +2074,7 @@ export async function getContractCloseActPdfData(contractId: string) {
     operatorName = repSig.signed_by_name;
   }
 
-  if (!operatorName) {
+  {
     const {
       data: { user: authUser },
     } = await supabase.auth.getUser();
@@ -2033,7 +2090,18 @@ export async function getContractCloseActPdfData(contractId: string) {
           last_name: string;
           signature_url?: string | null;
         };
-        operatorName = `${op.first_name} ${op.last_name}`.trim();
+        const profileName = `${op.first_name} ${op.last_name}`.trim();
+        if (!operatorName && profileName) {
+          operatorName = profileName;
+        }
+        if (
+          profileName &&
+          repSig?.signed_by_user_id === authUser.id &&
+          contract.status !== "COMPLETED" &&
+          contract.status !== "CANCELLED"
+        ) {
+          operatorName = profileName;
+        }
         if (!operatorSignatureUrl && op.signature_url) {
           operatorSignatureUrl =
             (await resolvePrivateFileUrl(op.signature_url)) ?? op.signature_url;

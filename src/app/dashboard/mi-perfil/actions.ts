@@ -9,6 +9,52 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
+/** Any logged-in user can update their own display name. */
+export async function saveMyProfileName(
+  formData: FormData,
+): Promise<ActionResult<{ saved: boolean }>> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const user = await getCurrentUser();
+    if (!user) return actionError("No autenticado.");
+
+    const firstName = String(formData.get("firstName") ?? "").trim();
+    const lastName = String(formData.get("lastName") ?? "").trim();
+    if (!firstName || !lastName) {
+      return actionError("Ingrese nombre y apellido.");
+    }
+    if (firstName.length > 80 || lastName.length > 80) {
+      return actionError("Nombre o apellido demasiado largo.");
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({ first_name: firstName, last_name: lastName })
+      .eq("id", user.id);
+
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "profile.name_update",
+      entityType: "profile",
+      entityId: user.id,
+      metadata: { firstName, lastName },
+    });
+
+    revalidatePath("/dashboard/mi-perfil");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/contratos");
+    return actionSuccess({ saved: true });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
 /** Any logged-in user can update their own operator signature. */
 export async function saveMySignature(
   formData: FormData,
