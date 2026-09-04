@@ -112,6 +112,12 @@ export type ContractPdfProps = {
   billingLineItems?: Array<{ label: string; amount: number }>;
   issuedPlace?: string | null;
   issuedDateLabel?: string | null;
+  /** Pagaré mercantil aparte (solo clientes locales). */
+  includePagare?: boolean;
+  pagareAmount?: number | null;
+  pagareAmountWords?: string | null;
+  pagareSignatureUrl?: string | null;
+  pagareSignedAt?: string | null;
 };
 
 const NAVY = PDF_BRAND.navy;
@@ -122,26 +128,26 @@ const LIGHT = "#f1f5f9";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 28,
-    paddingBottom: 52,
-    paddingHorizontal: 28,
+    paddingTop: 18,
+    paddingBottom: 40,
+    paddingHorizontal: 22,
     fontSize: 8,
     fontFamily: "Helvetica",
     color: "#0f172a",
   },
   pageBack: {
-    paddingTop: 32,
-    paddingBottom: 52,
-    paddingHorizontal: 32,
+    paddingTop: 22,
+    paddingBottom: 40,
+    paddingHorizontal: 22,
     fontSize: 8,
     fontFamily: "Helvetica",
     color: "#0f172a",
-    lineHeight: 1.35,
+    lineHeight: 1.3,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   companyBlock: {
     width: "62%",
@@ -149,42 +155,42 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
+    gap: 6,
+    marginBottom: 2,
   },
   logo: {
-    width: 88,
-    height: 38,
+    width: 72,
+    height: 32,
     objectFit: "contain",
   },
   brandName: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Helvetica-Bold",
     color: NAVY,
   },
   slogan: {
-    fontSize: 7,
+    fontSize: 6.5,
     color: RED,
     fontFamily: "Helvetica-Oblique",
   },
   meta: {
-    fontSize: 7,
+    fontSize: 6.5,
     color: MUTED,
-    marginBottom: 1,
+    marginBottom: 0,
   },
   titleBlock: {
     width: "36%",
     alignItems: "flex-end",
   },
   title: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: "Helvetica-Bold",
     color: NAVY,
     textAlign: "right",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   contractNo: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: "Helvetica-Bold",
     color: RED,
   },
@@ -292,31 +298,31 @@ const styles = StyleSheet.create({
   },
   wireframeDiagram: {
     width: "100%",
-    maxHeight: 280,
+    maxHeight: 155,
     objectFit: "contain",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   inspectionStack: {
     width: "100%",
-    gap: 6,
+    gap: 4,
   },
   checklistPanel: {
     width: "100%",
     borderWidth: 1,
     borderColor: LINE,
-    padding: 4,
+    padding: 3,
   },
   checklistColumns: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   checklistColumn: {
     flex: 1,
   },
   checklistItem: {
     flexDirection: "row",
-    gap: 4,
-    marginBottom: 3,
+    gap: 3,
+    marginBottom: 1.5,
     alignItems: "flex-start",
   },
   checklistMark: {
@@ -405,15 +411,15 @@ const styles = StyleSheet.create({
   },
   signRow: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 10,
+    gap: 10,
+    marginTop: 6,
   },
   signBox: {
     flex: 1,
     borderTopWidth: 1,
     borderTopColor: LINE,
-    paddingTop: 4,
-    minHeight: 40,
+    paddingTop: 3,
+    minHeight: 32,
   },
   clause: {
     fontSize: 7.2,
@@ -435,12 +441,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: "absolute",
-    bottom: 16,
-    left: 28,
-    right: 28,
+    bottom: 12,
+    left: 22,
+    right: 22,
     borderTopWidth: 0.8,
     borderTopColor: LINE,
-    paddingTop: 4,
+    paddingTop: 3,
     flexDirection: "row",
     justifyContent: "space-between",
   },
@@ -553,18 +559,17 @@ export function ContractPdfDocument(props: ContractPdfProps) {
     "";
 
   const clauses =
-    props.clauses && props.clauses.trim().length > 40
-      ? props.clauses.split(/\n+/).filter(Boolean)
-      : OLDES_CONTRACT_CLAUSES;
+    props.clauses && props.clauses.trim().length > 80
+      ? props.clauses
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+      : [...OLDES_CONTRACT_CLAUSES];
 
   const subtotalRental = props.dailyRate * props.rentalDays;
   const billingLines = props.billingLineItems ?? [];
-  const extrasTotal = billingLines.reduce((sum, line) => sum + line.amount, 0);
-  const displayedTotal =
-    subtotalRental +
-    (props.insurance > 0 ? props.insurance : 0) +
-    extrasTotal +
-    (props.otherCharges ?? 0);
+  // Authoritative total from the contract record — never invent from line sums.
+  const displayedTotal = props.total;
 
   const openingAccessories = accessories.filter(
     (item) => item.checkOut && item.checkOut !== "☐",
@@ -696,6 +701,18 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             <Text style={styles.totalStrong}>MONTO TOTAL</Text>
             <Text style={styles.totalStrong}>{formatMoney(displayedTotal)}</Text>
           </View>
+          {props.totalInWords ? (
+            <Text
+              style={{
+                fontSize: 6.5,
+                color: MUTED,
+                paddingHorizontal: 6,
+                marginBottom: 2,
+              }}
+            >
+              Son: {props.totalInWords}
+            </Text>
+          ) : null}
           {props.deposit > 0 ? (
             <Text style={[styles.disclaimer, { marginHorizontal: 6, marginBottom: 2 }]}>
               Depósito en garantía (no forma parte del total de renta):{" "}
@@ -765,122 +782,18 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           </View>
         </MachoteSection>
 
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>
-            {businessName} · {CONTRACT_PDF_TEMPLATE_VERSION}
-          </Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
-      </Page>
-
-      {/* ===================== FIRMAS APERTURA ===================== */}
-      <Page size="LETTER" style={styles.page}>
-        <Text style={[styles.sectionTitle, { marginTop: 0 }]}>
-          Términos y condiciones generales
-        </Text>
-        {clauses.slice(0, 3).map((clause) => (
-          <Text key={clause.slice(0, 24)} style={[styles.clause, { fontSize: 7 }]}>
-            {clause}
-          </Text>
-        ))}
-        <Text style={{ fontSize: 7, marginTop: 6, fontFamily: "Helvetica-Bold", color: NAVY }}>
-          {props.clientSignedAt
-            ? "☑ He leído y acepto los términos y condiciones, inventario y estado del vehículo registrados en este contrato."
-            : "☐ He leído y acepto los términos y condiciones (se marca al firmar electrónicamente)."}
-        </Text>
-
-        <Text style={styles.sectionTitle}>Observaciones</Text>
-        <View
-          style={{
-            minHeight: 36,
-            borderWidth: 1,
-            borderColor: LINE,
-            padding: 4,
-          }}
-        >
-          <Text style={{ fontSize: 7.5 }}>
-            {props.observations || props.notes || " "}
-          </Text>
-        </View>
-
-        <View style={styles.signRow}>
-          <View style={styles.signBox}>
-            <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
-              FIRMA DEL ARRENDATARIO
+        <MachoteSection title="4. Observaciones">
+          <View style={{ paddingHorizontal: 5, paddingVertical: 4 }}>
+            <Text style={{ fontSize: 7.5, minHeight: 16 }}>
+              {props.observations || props.notes || "—"}
             </Text>
-            <Text style={{ fontSize: 7 }}>
-              Nombre: {props.customerName}
-            </Text>
-            {props.clientSignatureUrl ? (
-              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
-              <Image
-                src={props.clientSignatureUrl}
-                style={{ width: 120, height: 36, objectFit: "contain", marginTop: 4 }}
-              />
-            ) : (
-              <Text style={{ fontSize: 7 }}>
-                Firma:{" "}
-                {props.clientSignedAt
-                  ? `Firmado ${props.clientSignedAt}`
-                  : "________________"}
-              </Text>
-            )}
-            {props.clientSignedAt ? (
-              <Text style={{ fontSize: 6.5, color: MUTED, marginTop: 2 }}>
-                {props.clientSignedAt}
-              </Text>
-            ) : null}
           </View>
-          <View style={styles.signBox}>
-            <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
-              POR LA EMPRESA ARRENDADORA
-            </Text>
-            <Text style={{ fontSize: 7 }}>
-              Nombre:{" "}
-              {props.operatorName?.trim()
-                ? props.operatorName
-                : "____________________"}
-            </Text>
-            {props.operatorSignatureUrl ? (
-              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
-              <Image
-                src={props.operatorSignatureUrl}
-                style={{ width: 120, height: 36, objectFit: "contain", marginTop: 4 }}
-              />
-            ) : (
-              <Text style={{ fontSize: 7 }}>
-                Firma:{" "}
-                {props.representativeSignedAt
-                  ? `Firmado ${props.representativeSignedAt}`
-                  : "________________"}
-              </Text>
-            )}
-          </View>
-        </View>
-
-        <Text
-          style={{
-            fontSize: 7,
-            marginTop: 8,
-            fontFamily: "Helvetica-Bold",
-            textAlign: "center",
-            color: NAVY,
-          }}
-        >
-          {(props.annexPhotos?.length ?? 0) > 0
-            ? "Las fotos de comprobación se anexan al final de este documento."
-            : "Puede adjuntar fotos de comprobación desde la inspección; se imprimirán al final."}
-        </Text>
+        </MachoteSection>
 
         <Text
           style={{
             fontSize: 6.5,
-            marginTop: 6,
+            marginTop: 2,
             color: MUTED,
             textAlign: "center",
           }}
@@ -901,58 +814,132 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </View>
       </Page>
 
-      {/* ===================== REVERSO ===================== */}
-      <Page size="LETTER" style={styles.pageBack}>
+      {/* ===================== CLÁUSULAS + FIRMAS DEL CONTRATO ===================== */}
+      <Page size="LETTER" style={styles.pageBack} wrap>
         <Text
           style={{
-            fontSize: 12,
+            fontSize: 11,
             fontFamily: "Helvetica-Bold",
             color: NAVY,
             textAlign: "center",
-            marginBottom: 8,
+            marginBottom: 2,
           }}
         >
-          CONTRATO DE ARRENDAMIENTO — CONDICIONES GENERALES
+          CONTRATO DIGITAL DE ARRENDAMIENTO DE VEHÍCULO
+        </Text>
+        <Text
+          style={{
+            fontSize: 9,
+            fontFamily: "Helvetica-Bold",
+            color: NAVY,
+            textAlign: "center",
+            marginBottom: 6,
+          }}
+        >
+          {OLDES_COMPANY.legalNameShort}
         </Text>
         <Text
           style={{
             fontSize: 8,
-            textAlign: "center",
-            marginBottom: 10,
-            color: MUTED,
+            fontFamily: "Helvetica-Bold",
+            color: NAVY,
+            marginBottom: 6,
           }}
         >
-          {legalName}
+          CLÁUSULAS DEL CONTRATO — {props.contractCode}
         </Text>
 
-        {clauses.map((clause) => (
-          <Text key={clause.slice(0, 24)} style={styles.clause}>
+        {clauses.map((clause, index) => (
+          <Text
+            key={`clause-${index}`}
+            style={[styles.clause, { fontSize: 7, marginBottom: 5 }]}
+          >
             {clause}
           </Text>
         ))}
 
-        <Text
-          style={{
-            fontSize: 8,
-            marginTop: 12,
-            fontFamily: "Helvetica-Bold",
-            color: NAVY,
-          }}
-        >
-          {props.clientSignedAt
-            ? "☑ El arrendatario declaró haber leído y aceptado estos términos al firmar electrónicamente."
-            : "☐ Pendiente aceptación electrónica de términos por el arrendatario."}
-        </Text>
-        {props.clientSignedAt ? (
-          <Text style={{ fontSize: 7, marginTop: 4, color: MUTED }}>
-            Aceptación registrada: {props.clientSignedAt}
-            {props.customerName ? ` · ${props.customerName}` : ""}
+        <View wrap={false} style={{ marginTop: 8 }}>
+          <Text
+            style={{
+              fontSize: 7.5,
+              fontFamily: "Helvetica-Bold",
+              color: NAVY,
+              marginBottom: 6,
+            }}
+          >
+            {props.clientSignedAt
+              ? "☑ He leído y acepto las cláusulas (términos y condiciones) de este contrato de arrendamiento."
+              : "☐ He leído y acepto las cláusulas (términos y condiciones) de este contrato de arrendamiento."}
           </Text>
-        ) : null}
+
+          <View style={styles.signRow}>
+            <View style={styles.signBox}>
+              <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
+                FIRMA DEL ARRENDATARIO
+              </Text>
+              <Text style={{ fontSize: 7 }}>
+                Nombre: {props.customerName}
+              </Text>
+              {props.clientSignatureUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+                <Image
+                  src={props.clientSignatureUrl}
+                  style={{
+                    width: 120,
+                    height: 36,
+                    objectFit: "contain",
+                    marginTop: 4,
+                  }}
+                />
+              ) : (
+                <Text style={{ fontSize: 7, marginTop: 10 }}>
+                  Firma: ________________
+                </Text>
+              )}
+              {props.clientSignedAt ? (
+                <Text style={{ fontSize: 6.5, color: MUTED, marginTop: 2 }}>
+                  {props.clientSignedAt}
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.signBox}>
+              <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
+                POR LA EMPRESA ARRENDADORA
+              </Text>
+              <Text style={{ fontSize: 7 }}>
+                Nombre:{" "}
+                {props.operatorName?.trim()
+                  ? props.operatorName
+                  : "____________________"}
+              </Text>
+              {props.operatorSignatureUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+                <Image
+                  src={props.operatorSignatureUrl}
+                  style={{
+                    width: 120,
+                    height: 36,
+                    objectFit: "contain",
+                    marginTop: 4,
+                  }}
+                />
+              ) : (
+                <Text style={{ fontSize: 7, marginTop: 10 }}>
+                  Firma: ________________
+                </Text>
+              )}
+              {props.representativeSignedAt ? (
+                <Text style={{ fontSize: 6.5, color: MUTED, marginTop: 2 }}>
+                  {props.representativeSignedAt}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </View>
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
-            Términos — {props.contractCode}
+            Cláusulas — {props.contractCode}
           </Text>
           <Text
             style={styles.footerText}
@@ -963,21 +950,122 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </View>
       </Page>
 
+      {props.includePagare ? (
+        <Page size="LETTER" style={styles.pageBack} wrap>
+          <View style={styles.pagareBox}>
+            <Text style={styles.pagareTitle}>PAGARÉ MERCANTIL</Text>
+            <Text
+              style={{
+                fontSize: 7,
+                color: MUTED,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              Documento independiente del contrato de arrendamiento (no es una
+              cláusula). Solo aplica a clientes locales.
+            </Text>
+            <Text style={{ fontSize: 8, marginBottom: 6 }}>
+              Por{" "}
+              {props.pagareAmount != null
+                ? formatMoney(props.pagareAmount)
+                : "$ __________________"}{" "}
+              USD (Monto según deducible o valor del servicio)
+            </Text>
+            <Text style={{ fontSize: 7.5, marginBottom: 4, lineHeight: 1.4 }}>
+              Por este PAGARÉ, Yo:{" "}
+              {props.customerName ||
+                "____________________________________________________"}
+              , del domicilio de:{" "}
+              {props.customerAddress ||
+                "______________________________________________________"}
+              , portador de mi Documento de Identidad (DUI / Pasaporte) N°:{" "}
+              {props.customerDui ||
+                props.customerPassport ||
+                props.customerIdentification ||
+                "________________________"}
+              ;
+            </Text>
+            <Text style={{ fontSize: 7.5, marginBottom: 4, lineHeight: 1.4 }}>
+              Reconozco deber y me comprometo a pagar incondicionalmente a la
+              orden de la sociedad {OLDES_COMPANY.legalName}, en la ciudad de San
+              Salvador, la cantidad de:{" "}
+              {props.pagareAmountWords ||
+                "______________________________________"}{" "}
+              (US${" "}
+              {props.pagareAmount != null
+                ? props.pagareAmount.toFixed(2)
+                : "____________"}
+              ).
+            </Text>
+            <Text style={{ fontSize: 7.5, marginBottom: 4, lineHeight: 1.4 }}>
+              En caso de mora, acepto pagar un interés moratorio del DOS POR
+              CIENTO (2%) MENSUAL sobre el saldo pendiente. Para los efectos de
+              esta obligación mercantil, fijo como domicilio especial la ciudad
+              de San Salvador, a cuyos tribunales me someto expresamente.
+            </Text>
+            <Text style={{ fontSize: 7.5, marginBottom: 10 }}>
+              En la ciudad de San Salvador, a los ______ días del mes de
+              __________________ de 20____.
+            </Text>
+
+            <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
+              FIRMA DEL ACEPTANTE / DEUDOR (PAGARÉ)
+            </Text>
+            {props.pagareSignatureUrl ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+              <Image
+                src={props.pagareSignatureUrl}
+                style={{
+                  width: 160,
+                  height: 48,
+                  objectFit: "contain",
+                  marginTop: 6,
+                }}
+              />
+            ) : (
+              <Text style={{ fontSize: 8, marginTop: 16 }}>
+                ____________________________________
+              </Text>
+            )}
+            <Text style={{ fontSize: 7, marginTop: 4 }}>
+              Nombre: {props.customerName}
+            </Text>
+            {props.pagareSignedAt ? (
+              <Text style={{ fontSize: 6.5, color: MUTED, marginTop: 2 }}>
+                Firmado electrónicamente: {props.pagareSignedAt}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.footer} fixed>
+            <Text style={styles.footerText}>
+              Pagaré — {props.contractCode}
+            </Text>
+            <Text
+              style={styles.footerText}
+              render={({ pageNumber, totalPages }) =>
+                `Página ${pageNumber} de ${totalPages}`
+              }
+            />
+          </View>
+        </Page>
+      ) : null}
+
       {(props.annexPhotos?.length ?? 0) > 0 ? (
         <Page size="LETTER" style={styles.page}>
           <Text
             style={{
-              fontSize: 12,
+              fontSize: 11,
               fontFamily: "Helvetica-Bold",
               color: NAVY,
-              marginBottom: 8,
+              marginBottom: 6,
             }}
           >
             ANEXO — Fotos de comprobación
           </Text>
-          <Text style={{ fontSize: 8, color: MUTED, marginBottom: 10 }}>
-            Contrato {props.contractCode} · Evidencia fotográfica adjunta al
-            final del documento.
+          <Text style={{ fontSize: 8, color: MUTED, marginBottom: 8 }}>
+            Contrato {props.contractCode}
           </Text>
           <View
             style={{
@@ -1003,13 +1091,15 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                   style={{ width: "100%", height: 180, objectFit: "contain" }}
                 />
                 <Text style={{ fontSize: 7, marginTop: 4, color: MUTED }}>
-                  {photo.label}
+                  {photo.label || `Foto ${index + 1}`}
                 </Text>
               </View>
             ))}
           </View>
           <View style={styles.footer} fixed>
-            <Text style={styles.footerText}>Anexos — {props.contractCode}</Text>
+            <Text style={styles.footerText}>
+              Anexo — {props.contractCode}
+            </Text>
             <Text
               style={styles.footerText}
               render={({ pageNumber, totalPages }) =>

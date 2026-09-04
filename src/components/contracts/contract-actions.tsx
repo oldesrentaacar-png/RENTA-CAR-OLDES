@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { OLDES_CONTRACT_CLAUSES } from "@/lib/contracts/oldes-terms";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 type ContractDetailActionsProps = {
@@ -46,12 +47,18 @@ export function ContractDetailActions({
   const [signing, setSigning] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [scrolledTerms, setScrolledTerms] = useState(false);
+  const [pagareSignatureDataUrl, setPagareSignatureDataUrl] = useState<
+    string | null
+  >(null);
+  const [signingPagare, setSigningPagare] = useState(false);
   const termsRef = useRef<HTMLDivElement>(null);
 
   const clientSigned = contract.signatures.some((s) => s.signer_type === "CLIENT");
   const repSigned = contract.signatures.some(
     (s) => s.signer_type === "REPRESENTATIVE",
   );
+  const pagareSigned = contract.signatures.some((s) => s.signer_type === "PAGARE");
+  const includePagare = Boolean(contract.includePagare);
   const repName =
     contract.signatures.find((s) => s.signer_type === "REPRESENTATIVE")
       ?.signed_by_name ??
@@ -129,6 +136,27 @@ export function ContractDetailActions({
     if (result.data.warning) setWarning(result.data.warning);
     setSignatureDataUrl(null);
     setOperatorSignatureDataUrl(null);
+    router.refresh();
+  }
+
+  async function handlePagareSign() {
+    if (!pagareSignatureDataUrl) {
+      setError("Dibuje la firma del pagaré mercantil.");
+      return;
+    }
+    setSigningPagare(true);
+    setError(null);
+    const fd = new FormData();
+    fd.set("signerType", "PAGARE");
+    fd.set("signedBy", signedBy.trim() || contract.customerName);
+    fd.set("signatureDataUrl", pagareSignatureDataUrl);
+    const result = await signContract(contract.id, fd);
+    setSigningPagare(false);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    setPagareSignatureDataUrl(null);
     router.refresh();
   }
 
@@ -252,14 +280,20 @@ export function ContractDetailActions({
               ) : null}
 
               <div>
-                <p className="mb-2 text-sm font-medium">Términos y condiciones</p>
+                <p className="mb-1 text-sm font-medium">
+                  Términos y condiciones (cláusulas del contrato)
+                </p>
+                <p className="mb-2 text-xs text-muted">
+                  El cliente debe leer hasta el final, marcar aceptación y luego
+                  firmar.
+                </p>
                 <div
                   ref={termsRef}
                   onScroll={handleTermsScroll}
-                  className="max-h-56 overflow-y-auto rounded-lg border border-border bg-white p-3 text-xs leading-relaxed text-foreground"
+                  className="max-h-72 overflow-y-auto rounded-lg border border-border bg-white p-3 text-xs leading-relaxed text-foreground whitespace-pre-wrap"
                 >
                   {termsClauses.map((clause) => (
-                    <p key={clause.slice(0, 32)} className="mb-2 last:mb-0">
+                    <p key={clause.slice(0, 40)} className="mb-3 last:mb-0">
                       {clause}
                     </p>
                   ))}
@@ -271,22 +305,30 @@ export function ContractDetailActions({
                   )}
                 >
                   {scrolledTerms
-                    ? "Lectura completa registrada."
-                    : "Desplace hasta el final para habilitar la aceptación."}
+                    ? "Lectura completa registrada. Ya puede marcar la aceptación."
+                    : "Desplace hasta el final para habilitar la casilla de aceptación."}
                 </p>
               </div>
 
-              <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
+              <label
+                className={cn(
+                  "flex items-start gap-3 rounded-lg border p-3 text-sm",
+                  acceptedTerms
+                    ? "border-green-300 bg-green-50"
+                    : "border-border bg-white",
+                  !scrolledTerms && "opacity-70",
+                )}
+              >
                 <input
                   type="checkbox"
-                  className="mt-1 h-4 w-4"
+                  className="mt-1 h-4 w-4 accent-brand"
                   checked={acceptedTerms}
                   disabled={!scrolledTerms}
                   onChange={(event) => setAcceptedTerms(event.target.checked)}
                 />
                 <span>
-                  He leído y acepto los términos y condiciones del contrato de
-                  arrendamiento.
+                  <strong>He leído y acepto</strong> los términos y condiciones
+                  (cláusulas 1 a 10) de este contrato de arrendamiento.
                 </span>
               </label>
 
@@ -294,14 +336,20 @@ export function ContractDetailActions({
                 label="Nombre del cliente (firmante)"
                 value={signedBy}
                 onChange={(event) => setSignedBy(event.target.value)}
+                disabled={!acceptedTerms}
               />
-              <SignaturePad
-                onConfirm={setSignatureDataUrl}
-                disabled={signing || !acceptedTerms}
-              />
+              <div className={!acceptedTerms ? "pointer-events-none opacity-50" : undefined}>
+                <p className="mb-2 text-sm font-medium">
+                  Firma del contrato (después de aceptar términos)
+                </p>
+                <SignaturePad
+                  onConfirm={setSignatureDataUrl}
+                  disabled={signing || !acceptedTerms}
+                />
+              </div>
               {signatureDataUrl ? (
                 <p className="text-sm text-muted">
-                  Firma capturada. Confirme para registrar.
+                  Firma del contrato capturada. Confirme para registrar.
                 </p>
               ) : null}
               <Button
@@ -315,9 +363,52 @@ export function ContractDetailActions({
                   (!operatorHasSignature && !operatorSignatureDataUrl)
                 }
               >
-                Registrar firma del cliente
+                Registrar firma del contrato
               </Button>
             </>
+          ) : null}
+
+          {clientSigned && includePagare && !pagareSigned ? (
+            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+              <div>
+                <p className="text-sm font-medium text-amber-950">
+                  Pagaré mercantil (documento aparte)
+                </p>
+                <p className="mt-1 text-xs text-amber-900">
+                  Solo para clientes locales. No forma parte de las cláusulas del
+                  contrato. Monto sugerido (deducible):{" "}
+                  {formatMoney(contract.pagareAmount)}.
+                </p>
+              </div>
+              <SignaturePad
+                onConfirm={setPagareSignatureDataUrl}
+                disabled={signingPagare}
+              />
+              {pagareSignatureDataUrl ? (
+                <p className="text-xs text-success">Firma del pagaré capturada.</p>
+              ) : null}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handlePagareSign()}
+                loading={signingPagare}
+                disabled={!pagareSignatureDataUrl}
+              >
+                Registrar firma del pagaré
+              </Button>
+            </div>
+          ) : null}
+
+          {clientSigned && includePagare && pagareSigned ? (
+            <p className="text-sm text-success">
+              Pagaré mercantil firmado (documento independiente).
+            </p>
+          ) : null}
+
+          {clientSigned && !includePagare ? (
+            <p className="text-xs text-muted">
+              Este cliente no requiere pagaré mercantil (turista / extranjero).
+            </p>
           ) : null}
         </div>
       ) : null}

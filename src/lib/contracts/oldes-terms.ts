@@ -1,7 +1,8 @@
 /** Contenido legal y catálogo alineados al contrato físico OLDES Renta Autos. */
 
 export const OLDES_COMPANY = {
-  legalName: "OPERADOR LOGISTICO DE EL SALVADOR, S.A. DE C.V.",
+  legalName: "OPERADOR LOGISTICO DE EL SALVADOR, SOCIEDAD ANÓNIMA DE CAPITAL VARIABLE (OLDES, S.A. DE C.V.)",
+  legalNameShort: "OLDES, S.A. DE C.V.",
   brandName: "OLDES Rent-a-Car",
   slogan: "¡Ofreciéndote siempre lo mejor!",
   address: "CWXV+297, San Luis Talpa",
@@ -10,10 +11,63 @@ export const OLDES_COMPANY = {
   phones: ["+503 7435-0381"],
   whatsapp: "+503 7435-0381",
   social: "@OLDES RENTA AUTOSV",
+  /** Fallback / pérdida total mínima */
   deductibleUsd: 1500,
+  deductibleSedanUsd: 490,
+  deductibleSuvMinivanUsd: 800,
+  deductiblePickupUsd: 1500,
+  photoFineAdminFeeUsd: 15,
   registrationCardLossFeeUsd: 350,
   lateInterestMonthlyPercent: 2,
+  totalLossMinUsd: 1500,
+  totalLossPercent: 25,
 } as const;
+
+/** Deducible por categoría de vehículo (póliza). */
+export function deductibleForVehicleType(
+  typeSlugOrName?: string | null,
+): number {
+  const hay = (typeSlugOrName ?? "").toLowerCase();
+  if (hay.includes("pickup") || hay.includes("pick-up") || hay.includes("pick up")) {
+    return OLDES_COMPANY.deductiblePickupUsd;
+  }
+  if (
+    hay.includes("suv") ||
+    hay.includes("camioneta") ||
+    hay.includes("minivan") ||
+    hay.includes("mini van")
+  ) {
+    return OLDES_COMPANY.deductibleSuvMinivanUsd;
+  }
+  return OLDES_COMPANY.deductibleSedanUsd;
+}
+
+/**
+ * Pagaré mercantil solo para clientes locales (El Salvador / DUI).
+ * Turistas con pasaporte extranjero / USA: no se imprime ni se exige.
+ */
+export function shouldIncludePagare(customer: {
+  country?: string | null;
+  dui?: string | null;
+  passport?: string | null;
+}): boolean {
+  const country = (customer.country ?? "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  if (
+    country.includes("united states") ||
+    country.includes("estados unidos") ||
+    country.includes("ee.uu") ||
+    country.includes("eeuu") ||
+    country === "us" ||
+    country === "usa"
+  ) {
+    return false;
+  }
+  if (customer.dui?.trim()) return true;
+  if (country.includes("salvador") || country === "sv") return true;
+  // Pasaporte sin DUI → turista / extranjero
+  if (customer.passport?.trim() && !customer.dui?.trim()) return false;
+  return false;
+}
 
 /** Treat empty / seed placeholders as missing so PDFs use OLDES defaults. */
 function isUsableContactValue(value?: string | null): value is string {
@@ -130,27 +184,26 @@ export function damageSymbol(type?: string): string {
 }
 
 /**
- * Cláusulas del reverso del contrato físico OLDES.
- * Montos de deducible / tarjeta alineados al documento original.
+ * Contrato digital de arrendamiento — cláusulas oficiales OLDES, S.A. DE C.V.
+ * Orden: 1–10. El pagaré NO forma parte de estas cláusulas (documento aparte).
  */
 export const OLDES_CONTRACT_CLAUSES: string[] = [
-  "1. El ARRENDATARIO recibe el vehículo en buen estado de funcionamiento y se obliga a devolverlo en las mismas condiciones, salvo el desgaste normal por uso.",
-  "2. El ARRENDATARIO reconoce haber revisado el vehículo al momento de la entrega (salida) y acepta el inventario de accesorios y el estado de carrocería consignados en este contrato.",
-  "3. El ARRENDATARIO es responsable de todo faltante, daño, deterioro o pérdida de partes, accesorios o documentos del vehículo ocurridos durante el período de arrendamiento.",
-  "4. El vehículo únicamente podrá ser conducido por las personas nombradas en este contrato, mayores de 21 años, con licencia vigente y válida para el territorio de El Salvador.",
-  "5. Queda prohibido usar el vehículo para actos ilícitos, carreras, remolque, subarrendarlo, cruzar fronteras sin autorización escrita de OLDES, o conducirlo bajo influencia de alcohol o drogas.",
-  `6. La pérdida de la tarjeta de circulación genera un cargo de US$ ${OLDES_COMPANY.registrationCardLossFeeUsd.toFixed(2)}, sin perjuicio de otros daños y perjuicios.`,
-  "7. En caso de accidente, el ARRENDATARIO deberá dar aviso inmediato a la Policía Nacional Civil y a OLDES, y no deberá admitir responsabilidad ni efectuar arreglos particulares sin autorización.",
-  "8. El ARRENDATARIO se obliga a mantener niveles adecuados de agua, aceite y presión de llantas, y a no continuar la marcha si detecta fallas mecánicas graves.",
-  "9. OLDES no se hace responsable por objetos personales dejados dentro del vehículo.",
-  "10. El ARRENDATARIO acepta que no se hacen reintegros por combustible no utilizado.",
-  `11. CONDICIONES DE SEGURO: aplica deducible de US$ ${OLDES_COMPANY.deductibleUsd.toFixed(2)} en caso de accidente o robo según póliza vigente. Quedan excluidos, entre otros: uso off-road, caminos no pavimentados no autorizados, daños intencionales, conducción ebria y uso por persona no autorizada.`,
-  "12. Para la interpretación y cumplimiento de este contrato, las partes se someten a los tribunales de San Salvador, República de El Salvador.",
-  "13. El ARRENDATARIO declara haber leído y aceptado todas las condiciones del anverso y reverso de este contrato, firmándolo en señal de conformidad.",
-] as const;
+  "CONTRATO DIGITAL DE ARRENDAMIENTO DE VEHÍCULO — OLDES, S.A. DE C.V.",
+  "CLÁUSULAS DEL CONTRATO",
+  '1. PARTES Y OBJETO\nEl presente contrato se celebra entre OLDES, S.A. DE C.V. (en adelante "La Arrendadora") y la persona natural o jurídica identificada como cliente en el formulario de recepción/anverso digital (en adelante "El Arrendatario"). La Arrendadora entrega en arrendamiento a El Arrendatario, y este recibe a título de depósito y bajo su entera responsabilidad, el vehículo automotor y sus accesorios descritos en la ficha técnica del servicio.',
+  "2. PLAZO, ENTREGA Y DEVOLUCIÓN\n2.1. Plazo: El plazo del arrendamiento será el estipulado en la recepción del servicio, computado por horas, días, semanas o meses.\n2.2. Devolución: El Arrendatario se obliga a devolver el vehículo en la fecha, hora y lugar convenidos (incluyendo gasolineras, residenciales o las instalaciones de La Arrendadora) en las mismas condiciones mecánicas, estéticas y de limpieza en que lo recibió.\n2.3. Retrasos y Apropiación Indebida: Si El Arrendatario no devuelve el vehículo dentro del plazo pactado ni solicita una extensión autorizada por escrito, incurrirá en mora y facultará a La Arrendadora para reposesionarlo en el lugar donde se encuentre, sin necesidad de requerimiento judicial previo. El Arrendatario responderá por los días adicionales, cargos por mora y reajustes de tarifa aplicables.",
+  "3. CONDICIONES DE PAGO Y DEPÓSITO DE GARANTÍA\n3.1. Formas de Pago: El pago total del alquiler debe realizarse al momento de recibir el vehículo. Se acepta efectivo y tarjetas de crédito/débito.\n3.2. Depósito de Garantía: El Arrendatario debe constituir un depósito de garantía o preautorización en tarjeta de crédito. La Arrendadora queda expresamente autorizada para cargar a la tarjeta de crédito suministrada cualquier saldo pendiente por: excedente de tiempo, combustible, faltantes de accesorios, daños ocultos, reparaciones menores y multas de tránsito.",
+  `4. FOTO-MULTAS, INFRACCIONES DE TRÁNSITO Y MULTAS EXTEMPORÁNEAS\n4.1. Responsabilidad Directa: El Arrendatario es el único responsable por las infracciones, esquelas y multas de tránsito cometidas durante el periodo de arrendamiento.\n4.2. Notificación Diferida (Sistema SERTRASEN/VMT): El Arrendatario reconoce y acepta que las foto-multas e infracciones de tránsito pueden tardar de 3 a 5 días hábiles (o más) en verse reflejadas en el sistema de SERTRASEN u organismos correspondientes.\n4.3. Autorización de Cobro Post-Alquiler: El Arrendatario autoriza a La Arrendadora a realizar el cobro posterior a su tarjeta de crédito/débito por el valor de cualquier esquela o foto-multa imputada al vehículo dentro de la fecha y hora comprendidas en su contrato, sumando un cargo administrativo de US$ ${OLDES_COMPANY.photoFineAdminFeeUsd.toFixed(2)} por gestión del trámite. La Arrendadora remitirá al cliente el comprobante de la multa emitida por la autoridad competente.`,
+  "5. CONDICIONES Y RESTRICCIONES DE USO\nEl vehículo será conducido exclusivamente por El Arrendatario o los conductores adicionales registrados digitalmente. Se prohíbe estrictamente:\na) Permitir la conducción a personas no autorizadas en el contrato o menores de 21 años.\nb) Conducir sin la licencia de conducir vigente correspondiente al tipo de vehículo.\nc) Conducir bajo los efectos del alcohol, drogas o sustancias psicotrópicas.\nd) Destinar el vehículo al transporte remunerado de pasajeros o carga sin autorización por escrito.\ne) Transportar carga pesada que exceda la capacidad del vehículo o remolcar otros automotores.\nf) Transitar fuera del territorio de la República de El Salvador, salvo autorización notarial expresa emitida por La Arrendadora.\ng) Exceder los límites de velocidad legales (máximo 90 km/h o lo regulado por la Ley de Tránsito).\nh) Circular por vías no pavimentadas, inapropiadas o inaccesibles que pongan en riesgo la integridad mecánica o estética de la unidad.\ni) Incurrir en negligencia, como no revisar los niveles de aceite, líquido refrigerante o ignorar testigos de alerta en el tablero.\nEl incumplimiento de cualquiera de estas restricciones anula automáticamente toda cobertura de seguro o protección contratada, haciendo a El Arrendatario responsable del 100% de los daños, pérdidas y responsabilidades civiles o penales.",
+  `6. PÓLIZA DE SEGURO, DEDUCIBLES Y PÉRDIDA TOTAL / ROBO\n6.1. Deducible por Colisión y Daños Reparables: En caso de accidente o colisión que requiera reparación mecánica o de carrocería, y siempre que el cliente cumpla con el procedimiento policial y del contrato, El Arrendatario pagará el deducible correspondiente a la categoría del vehículo:\n• Vehículos Sedán: US$ ${OLDES_COMPANY.deductibleSedanUsd.toFixed(2)}\n• Camionetas (SUV) y Minivans: US$ ${OLDES_COMPANY.deductibleSuvMinivanUsd.toFixed(2)}\n• Pick-Up: US$ ${OLDES_COMPANY.deductiblePickupUsd.toFixed(2)}\n6.2. Deducible por Pérdida Total o Robo Total: En caso de Pérdida Total del vehículo (declarada por la compañía aseguradora a consecuencia de accidente, vuelco o destrucción) o Robo Total de la unidad, El Arrendatario responderá por el equivalente al ${OLDES_COMPANY.totalLossPercent}% del valor comercial o de factura del vehículo, con un monto mínimo cobrable de US$ ${OLDES_COMPANY.totalLossMinUsd.toFixed(2)}. Este valor cubre la franquicia del seguro, así como los gastos administrativos e indemnización por el tiempo de inactividad de la unidad (lucro cesante) durante el proceso de liquidación del siniestro.\n6.3. Daños Menores: Los daños que no requieran reclamo formal ante la aseguradora (tales como rayones leves, abolladuras menores o piezas de desgaste rápido) serán asumidos directamente por El Arrendatario según la cotización real de reparación efectuada por La Arrendadora.\n6.4. Exclusiones de la Cobertura: La cobertura no aplica para: daños en la parte inferior del vehículo (chasis, cárter, suspensión); robo parcial de piezas, accesorios, llantas o llaves de encendido; daños causados por conducir en estado de ebriedad o bajo efectos de drogas; pérdida o extravío de la tarjeta de circulación (costo de reposición y compensación por inmovilización: US$ ${OLDES_COMPANY.registrationCardLossFeeUsd.toFixed(2)}).`,
+  "7. PROCEDIMIENTO EN CASO DE ACCIDENTE O SINIESTRO\nEn caso de colisión, robo o incidente vial, El Arrendatario se obliga a: (1) dar aviso inmediato a La Arrendadora; (2) permanecer en el lugar del siniestro y solicitar la inspección de la Policía Nacional Civil (PNC) y de la aseguradora; (3) obtener la certificación o constancia de la inspección policial. La omisión de estos pasos invalidará la cobertura del seguro, trasladando la responsabilidad total de los costos de reparación, indemnizaciones a terceros y lucro cesante a El Arrendatario.",
+  "8. AUTORIZACIÓN DE CARGOS A TARJETA Y COBROS POSTERIORES\nEl Arrendatario autoriza de manera expresa e irrevocable a OLDES, S.A. DE C.V. a cargar a la tarjeta de crédito o débito registrada al momento de la apertura del contrato o recepción del vehículo, todos los valores pendientes derivados de la prestación del servicio, tales como: extensiones de tiempo, combustible, deducibles de seguro, faltantes de accesorios, daños ocultos, reparaciones menores, así como el monto de esquelas, foto-multas o infracciones de tránsito cometidas durante el periodo de arrendamiento. La firma del presente contrato constituye autorización suficiente de cobro ante la entidad emisora del plástico.",
+  "9. PERTENENCIAS PERSONALES\nLa Arrendadora no se hace responsable por la pérdida, olvido o daño de objetos personales, equipaje o valores dejados en el interior del vehículo durante o al finalizar el periodo de arrendamiento.",
+  "10. JURISDICCIÓN Y LEGISLACIÓN\nPara la interpretación y cumplimiento de este contrato, las partes se someten a las leyes de la República de El Salvador y a la jurisdicción de los tribunales de la ciudad de San Salvador, renunciando al fuero de sus domicilios.",
+];
 
 export const OLDES_CONTRACT_FOOTER_NOTE =
-  "ESTIMADO CLIENTE: FAVOR LEER REVERSO DE ESTE CONTRATO. ESTE DOCUMENTO NO ES UNA FACTURA; EXÍJALA CUANDO SU SERVICIO ESTÉ FINALIZADO.";
+  "ESTE DOCUMENTO NO ES UNA FACTURA; EXÍJALA CUANDO SU SERVICIO ESTÉ FINALIZADO.";
 
 /** Convierte un monto USD a texto en español (para el pagaré). */
 export function amountToSpanishUsd(amount: number): string {

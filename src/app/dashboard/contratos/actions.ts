@@ -34,11 +34,14 @@ import {
   OLDES_CONTRACT_CLAUSES,
   amountToSpanishUsd,
   damageSymbol,
+  deductibleForVehicleType,
   resolvePdfBusinessContact,
+  shouldIncludePagare,
 } from "@/lib/contracts/oldes-terms";
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
 import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS, DAMAGE_TYPE_LABELS } from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
+import { buildContractBillingBreakdown } from "@/lib/pdf/contract-billing";
 import { parseMoneyInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
@@ -62,6 +65,9 @@ export type ContractDetail = Contract & {
   vehicleLabel: string;
   plate: string;
   reservationCode: string;
+  /** Pagaré mercantil (solo clientes locales). */
+  includePagare: boolean;
+  pagareAmount: number;
 };
 
 export type ContractListItem = Contract & {
@@ -445,7 +451,7 @@ export async function getContract(
     const { data, error } = await supabase
       .from("contracts")
       .select(
-        "*, customers(first_name, last_name), vehicles(brand, model, year, plate), reservations(code)",
+        "*, customers(first_name, last_name, country, dui, passport), vehicles(brand, model, year, plate, category, vehicle_types(slug, name)), reservations(code)",
       )
       .eq("id", id)
       .is("deleted_at", null)
@@ -456,11 +462,37 @@ export async function getContract(
 
     const row = data as ContractRow & {
       customers:
-        | { first_name: string; last_name: string }
-        | Array<{ first_name: string; last_name: string }>;
+        | {
+            first_name: string;
+            last_name: string;
+            country: string | null;
+            dui: string | null;
+            passport: string | null;
+          }
+        | Array<{
+            first_name: string;
+            last_name: string;
+            country: string | null;
+            dui: string | null;
+            passport: string | null;
+          }>;
       vehicles:
-        | { brand: string; model: string; year: number; plate: string }
-        | Array<{ brand: string; model: string; year: number; plate: string }>;
+        | {
+            brand: string;
+            model: string;
+            year: number;
+            plate: string;
+            category: string | null;
+            vehicle_types: { slug: string; name: string } | null;
+          }
+        | Array<{
+            brand: string;
+            model: string;
+            year: number;
+            plate: string;
+            category: string | null;
+            vehicle_types: { slug: string; name: string } | null;
+          }>;
       reservations: { code: string } | Array<{ code: string }>;
     };
 
@@ -486,6 +518,16 @@ export async function getContract(
     if (sigError) throw mapPostgresError(sigError);
 
     const contract = mapContractRow(row);
+    const includePagare = shouldIncludePagare({
+      country: customers.country,
+      dui: customers.dui,
+      passport: customers.passport,
+    });
+    const pagareAmount = deductibleForVehicleType(
+      vehicles.vehicle_types?.slug ??
+        vehicles.vehicle_types?.name ??
+        vehicles.category,
+    );
 
     return actionSuccess({
       ...contract,
@@ -496,6 +538,8 @@ export async function getContract(
       vehicleLabel: `${vehicles.brand} ${vehicles.model} ${vehicles.year}`,
       plate: vehicles.plate,
       reservationCode: reservations.code,
+      includePagare,
+      pagareAmount,
     });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -1475,6 +1519,20 @@ export async function signContract(
       return actionError("Este contrato ya no admite firmas.");
     }
 
+    if (parsed.data.signerType === "PAGARE") {
+      const { data: clientSigRow } = await supabase
+        .from("contract_signatures")
+        .select("id")
+        .eq("contract_id", contractId)
+        .eq("signer_type", "CLIENT")
+        .maybeSingle();
+      if (!clientSigRow) {
+        return actionError(
+          "Primero firme el contrato (términos y condiciones). El pagaré es un documento aparte.",
+        );
+      }
+    }
+
     const upload = await uploadSignatureImage(
       contractId,
       parsed.data.signerType,
@@ -1636,6 +1694,7 @@ export async function getContractPdfData(contractId: string) {
 
   const clientSig = sigRows.find((s) => s.signer_type === "CLIENT");
   const repSig = sigRows.find((s) => s.signer_type === "REPRESENTATIVE");
+  const pagareSig = sigRows.find((s) => s.signer_type === "PAGARE");
 
   type InspectionBundle = {
     id: string;
@@ -1776,6 +1835,7 @@ export async function getContractPdfData(contractId: string) {
   let operatorName: string | null = repSig?.signed_by_name ?? null;
   let operatorSignatureUrl: string | null = null;
   let clientSignatureUrl: string | null = null;
+  let pagareSignatureUrl: string | null = null;
 
   if (clientSig?.signature_path) {
     clientSignatureUrl =
@@ -1787,6 +1847,12 @@ export async function getContractPdfData(contractId: string) {
     operatorSignatureUrl =
       (await resolvePrivateFileUrl(repSig.signature_path)) ??
       repSig.signature_path;
+  }
+
+  if (pagareSig?.signature_path) {
+    pagareSignatureUrl =
+      (await resolvePrivateFileUrl(pagareSig.signature_path)) ??
+      pagareSig.signature_path;
   }
 
   // Mi perfil: nombre + firma del operador actual para vista previa
@@ -1849,46 +1915,30 @@ export async function getContractPdfData(contractId: string) {
     .eq("id", row.reservation_id)
     .maybeSingle();
 
-  const billingLineItems: Array<{ label: string; amount: number }> = [];
   const quoteId = (reservationRow as { quote_id?: string | null } | null)
     ?.quote_id;
+  let quoteLines: Array<{
+    description?: string | null;
+    amount?: number | null;
+    item_type?: string | null;
+  }> = [];
   if (quoteId) {
     const { data: quoteItems } = await supabase
       .from("quote_items")
       .select("description, amount, item_type")
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true });
-    for (const item of quoteItems ?? []) {
-      const rowItem = item as {
-        description?: string | null;
-        amount?: number | null;
-        item_type?: string | null;
-      };
-      const itemType = String(rowItem.item_type ?? "CUSTOM").toUpperCase();
-      // VEHICLE duplicates "Renta (días × tarifa)"; TAX/DISCOUNT handled elsewhere.
-      if (itemType === "VEHICLE" || itemType === "TAX" || itemType === "DISCOUNT") {
-        continue;
-      }
-      const amount = Number(rowItem.amount ?? 0);
-      const label = String(rowItem.description ?? "").trim();
-      if (!label || amount <= 0) continue;
-      // Skip lines that clearly repeat the base rental description.
-      const lower = label.toLowerCase();
-      if (
-        lower.includes("renta") &&
-        (lower.includes("vehículo") ||
-          lower.includes("vehiculo") ||
-          lower.includes("sedan") ||
-          lower.includes("sedán") ||
-          lower.includes("pickup") ||
-          lower.includes("camioneta") ||
-          lower.includes("minivan"))
-      ) {
-        continue;
-      }
-      billingLineItems.push({ label, amount });
-    }
+    quoteLines = (quoteItems ?? []) as typeof quoteLines;
   }
+
+  const rentalDays = rentalDaysBetween(mapped.start_at, mapped.end_at);
+  const billing = buildContractBillingBreakdown({
+    rentalDays,
+    dailyRate: mapped.agreed_rate,
+    insurance: mapped.insurance,
+    contractTotal: mapped.total,
+    quoteLines,
+  });
 
   const additionalDriverName =
     checkOut?.additional_driver_name?.trim() ||
@@ -1933,14 +1983,14 @@ export async function getContractPdfData(contractId: string) {
     startTimeLabel: formatAppTime(mapped.start_at),
     endDateLabel: formatAppDate(mapped.end_at),
     endTimeLabel: formatAppTime(mapped.end_at),
-    rentalDays: rentalDaysBetween(mapped.start_at, mapped.end_at),
+    rentalDays,
     dailyRate: mapped.agreed_rate,
     otherCharges: 0,
-    billingLineItems,
+    billingLineItems: billing.extraLines,
     deposit: mapped.deposit,
     insurance: mapped.insurance,
-    total: mapped.total,
-    totalInWords: amountToSpanishUsd(mapped.total),
+    total: billing.total,
+    totalInWords: amountToSpanishUsd(billing.total),
     fuelOutLabel: fuelOut,
     fuelInLabel: fuelIn,
     mileageOut: checkOut?.mileage ?? null,
@@ -1951,7 +2001,7 @@ export async function getContractPdfData(contractId: string) {
     primaryPhotoUrl,
     observations: mapped.notes,
     terms: mapped.terms,
-    clauses: mapped.clauses || OLDES_CONTRACT_CLAUSES.join("\n"),
+    clauses: mapped.clauses || OLDES_CONTRACT_CLAUSES.join("\n\n"),
     notes: mapped.notes,
     clientSignedAt: clientSig
       ? formatAppDateTime(clientSig.signed_at)
@@ -1962,6 +2012,27 @@ export async function getContractPdfData(contractId: string) {
     operatorName,
     operatorSignatureUrl,
     clientSignatureUrl,
+    includePagare: shouldIncludePagare({
+      country: customer.country,
+      dui: customer.dui,
+      passport: customer.passport,
+    }),
+    pagareAmount: deductibleForVehicleType(
+      row.vehicles.vehicle_types?.slug ??
+        row.vehicles.vehicle_types?.name ??
+        row.vehicles.category,
+    ),
+    pagareAmountWords: amountToSpanishUsd(
+      deductibleForVehicleType(
+        row.vehicles.vehicle_types?.slug ??
+          row.vehicles.vehicle_types?.name ??
+          row.vehicles.category,
+      ),
+    ),
+    pagareSignatureUrl,
+    pagareSignedAt: pagareSig
+      ? formatAppDateTime(pagareSig.signed_at)
+      : null,
     annexPhotos,
     issuedPlace: "San Salvador",
     issuedDateLabel: `${formatAppDate(mapped.start_at)} - ${formatAppTime(mapped.start_at)}`,
