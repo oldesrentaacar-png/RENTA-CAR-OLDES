@@ -517,11 +517,11 @@ export function ContractPdfDocument(props: ContractPdfProps) {
   const businessName = props.businessName || OLDES_COMPANY.brandName;
   const address = props.businessAddress || OLDES_COMPANY.address;
   const email = props.businessEmail || OLDES_COMPANY.email;
-  const phones =
+  const phone =
     props.businessPhone ||
-    OLDES_COMPANY.phones.join(" / ");
+    props.businessWhatsapp ||
+    OLDES_COMPANY.phones[0];
   const website = props.businessWebsite || OLDES_COMPANY.website;
-  const social = props.businessWhatsapp || OLDES_COMPANY.social;
 
   const accessories =
     props.accessories && props.accessories.length > 0
@@ -584,9 +584,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             <Text style={styles.meta}>
               {email} · {website}
             </Text>
-            <Text style={styles.meta}>
-              Tel: {phones} · {social}
-            </Text>
+            <Text style={styles.meta}>Tel / WhatsApp: {phone}</Text>
           </View>
           <View style={styles.titleBlock}>
             <Text style={styles.title}>

@@ -692,16 +692,18 @@ export async function getPaymentReceiptPdfData(
     ? `${vehicle.brand} ${vehicle.model}`.trim()
     : null;
 
-  const { amountToSpanishUsd } = await import("@/lib/contracts/oldes-terms");
+  const { amountToSpanishUsd, resolvePdfBusinessContact } = await import(
+    "@/lib/contracts/oldes-terms"
+  );
+  const contact = resolvePdfBusinessContact(settingsRow);
 
   return {
-    businessName: settingsRow?.business_name ?? "OLDES Rent-a-Car",
-    businessAddress: settingsRow?.address ?? null,
-    businessPhone: settingsRow?.phone ?? null,
-    businessEmail: settingsRow?.email ?? null,
-    businessWhatsapp: settingsRow?.whatsapp ?? null,
-    contactPhone:
-      settingsRow?.whatsapp || settingsRow?.phone || "+503 7435-0381",
+    businessName: contact.businessName,
+    businessAddress: contact.businessAddress,
+    businessPhone: contact.businessPhone,
+    businessEmail: contact.businessEmail,
+    businessWhatsapp: contact.businessWhatsapp,
+    contactPhone: contact.businessWhatsapp || contact.businessPhone,
     receiptCode: row.code,
     issuedAtLabel: formatAppDate(row.issued_at),
     customerName: `${row.customers.first_name} ${row.customers.last_name}`,

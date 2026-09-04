@@ -2,17 +2,94 @@
 
 export const OLDES_COMPANY = {
   legalName: "OPERADOR LOGISTICO DE EL SALVADOR, S.A. DE C.V.",
-  brandName: "OLDES Renta Autos",
+  brandName: "OLDES Rent-a-Car",
   slogan: "¡Ofreciéndote siempre lo mejor!",
-  address: "31 Calle ote. Col. La Rábida # 421, San Salvador",
-  email: "administracion@oldes.com.sv",
+  address: "CWXV+297, San Luis Talpa",
+  email: "soporte@oldesrentacar.com",
   website: "www.oldes.com.sv",
-  phones: ["2101-3383", "7435-0381"],
+  phones: ["+503 7435-0381"],
+  whatsapp: "+503 7435-0381",
   social: "@OLDES RENTA AUTOSV",
   deductibleUsd: 1500,
   registrationCardLossFeeUsd: 350,
   lateInterestMonthlyPercent: 2,
 } as const;
+
+/** Treat empty / seed placeholders as missing so PDFs use OLDES defaults. */
+function isUsableContactValue(value?: string | null): value is string {
+  if (!value?.trim()) return false;
+  const normalized = value.trim().toLowerCase();
+  return !(
+    normalized.includes("0000-0000") ||
+    normalized === "n/a" ||
+    normalized === "-"
+  );
+}
+
+function isUsableAddress(value?: string | null): value is string {
+  if (!isUsableContactValue(value)) return false;
+  const normalized = value.trim().toLowerCase();
+  return !(
+    normalized.includes("la rábida") ||
+    normalized.includes("la rabida") ||
+    normalized.includes("31 calle") ||
+    normalized.includes("san antonio, san miguel")
+  );
+}
+
+function isUsableEmail(value?: string | null): value is string {
+  if (!isUsableContactValue(value)) return false;
+  const normalized = value.trim().toLowerCase();
+  return !(
+    normalized === "info@oldesrentacar.com" ||
+    normalized === "administracion@oldes.com.sv"
+  );
+}
+
+export type PdfBusinessContact = {
+  businessName: string;
+  legalName: string | null;
+  businessAddress: string;
+  businessPhone: string;
+  businessEmail: string;
+  businessWhatsapp: string;
+  businessWebsite: string;
+};
+
+/** Resolve contact block for every generated PDF (settings + hard defaults). */
+export function resolvePdfBusinessContact(settings?: {
+  business_name?: string | null;
+  legal_name?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  whatsapp?: string | null;
+} | null): PdfBusinessContact {
+  const phone = isUsableContactValue(settings?.phone)
+    ? settings.phone.trim()
+    : OLDES_COMPANY.phones[0];
+  const whatsapp = isUsableContactValue(settings?.whatsapp)
+    ? settings.whatsapp.trim()
+    : OLDES_COMPANY.whatsapp;
+
+  return {
+    businessName: isUsableContactValue(settings?.business_name)
+      ? settings.business_name.trim()
+      : OLDES_COMPANY.brandName,
+    legalName: isUsableContactValue(settings?.legal_name)
+      ? settings.legal_name.trim()
+      : OLDES_COMPANY.legalName,
+    businessAddress: isUsableAddress(settings?.address)
+      ? settings.address.trim()
+      : OLDES_COMPANY.address,
+    businessPhone: phone,
+    businessEmail: isUsableEmail(settings?.email)
+      ? settings.email.trim()
+      : OLDES_COMPANY.email,
+    businessWhatsapp: whatsapp,
+    businessWebsite: OLDES_COMPANY.website,
+  };
+}
 
 /** Accesorios exactos del formulario físico (Salida / Entrada). */
 export const OLDES_ACCESSORIES = [

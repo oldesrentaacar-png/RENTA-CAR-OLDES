@@ -34,6 +34,7 @@ import {
   OLDES_CONTRACT_CLAUSES,
   amountToSpanishUsd,
   damageSymbol,
+  resolvePdfBusinessContact,
 } from "@/lib/contracts/oldes-terms";
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
 import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS } from "@/lib/inspections/defaults";
@@ -1637,13 +1638,16 @@ export async function getContractPdfData(contractId: string) {
     customer.additional_driver_name?.trim() ||
     null;
 
+  const contact = resolvePdfBusinessContact(settingsRow);
+
   return {
-    businessName: settingsRow?.business_name ?? "OLDES Renta Autos",
-    legalName: settingsRow?.legal_name ?? null,
-    businessAddress: settingsRow?.address ?? null,
-    businessPhone: settingsRow?.phone ?? null,
-    businessEmail: settingsRow?.email ?? null,
-    businessWhatsapp: settingsRow?.whatsapp ?? null,
+    businessName: contact.businessName,
+    legalName: contact.legalName,
+    businessAddress: contact.businessAddress,
+    businessPhone: contact.businessPhone,
+    businessEmail: contact.businessEmail,
+    businessWhatsapp: contact.businessWhatsapp,
+    businessWebsite: contact.businessWebsite,
     contractCode: row.code,
     customerName: `${customer.first_name} ${customer.last_name}`,
     billingName: `${customer.first_name} ${customer.last_name}`,

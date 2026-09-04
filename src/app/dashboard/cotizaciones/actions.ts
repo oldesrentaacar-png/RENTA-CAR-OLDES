@@ -18,6 +18,7 @@ import { getCustomerDisplayName } from "@/lib/customers";
 import { sendEmail } from "@/lib/email/resend";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
+import { resolvePdfBusinessContact } from "@/lib/contracts/oldes-terms";
 import { formatMoney, multiply, toNumber } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
@@ -958,13 +959,14 @@ export async function getQuotePdfData(quoteId: string) {
         ? "Vehicle type"
         : "Tipo de vehículo");
 
+  const contact = resolvePdfBusinessContact(settingsRow);
+
   return {
-    businessName:
-      settingsRow?.business_name ?? "OLDES Rent a Car El Salvador",
-    businessAddress: settingsRow?.address ?? null,
-    businessPhone: settingsRow?.phone ?? "+503 7435-0381",
-    businessEmail: settingsRow?.email ?? null,
-    businessWhatsapp: settingsRow?.whatsapp ?? "+503 7435-0381",
+    businessName: contact.businessName,
+    businessAddress: contact.businessAddress,
+    businessPhone: contact.businessPhone,
+    businessEmail: contact.businessEmail,
+    businessWhatsapp: contact.businessWhatsapp,
     quoteCode: q.code,
     issuedAtLabel: formatAppDate(mapped.created_at),
     language: mapped.language === "es" ? ("es" as const) : ("en" as const),
