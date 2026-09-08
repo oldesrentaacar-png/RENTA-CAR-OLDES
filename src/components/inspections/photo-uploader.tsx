@@ -1,13 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { uploadInspectionPhotoAction } from "@/app/dashboard/inspecciones/actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { PHOTO_CATEGORY_LABELS } from "@/lib/inspections/defaults";
-import type { InspectionPhoto, InspectionPhotoCategory } from "@/types/database";
+import type { InspectionPhoto } from "@/types/database";
 
 type PhotoUploaderProps = {
   inspectionId: string;
@@ -63,35 +61,68 @@ function photoSrc(path: string) {
 }
 
 export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderProps) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [category, setCategory] = useState<InspectionPhotoCategory>("FRONT");
-  const [caption, setCaption] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
 
-  async function handleUpload(file: File) {
+  async function handleUploadBatch(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+
+    const files = Array.from(fileList).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (files.length === 0) {
+      setError("Seleccione solo imágenes.");
+      return;
+    }
+
     setUploading(true);
     setError(null);
     setWarning(null);
 
-    const compressed = await compressImage(file);
-    const fd = new FormData();
-    fd.set("file", compressed);
-    fd.set("category", category);
-    if (caption) fd.set("caption", caption);
+    let ok = 0;
+    const failures: string[] = [];
+    const warnings: string[] = [];
 
-    const result = await uploadInspectionPhotoAction(inspectionId, fd);
-    setUploading(false);
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      setProgress(`Subiendo ${index + 1} de ${files.length}…`);
+      try {
+        const compressed = await compressImage(file);
+        const fd = new FormData();
+        fd.set("file", compressed);
+        // Entrega rápida en parqueo: sin categoría por foto.
+        fd.set("category", "OTHER");
 
-    if (!result.success) {
-      setError(result.error);
-      return;
+        const result = await uploadInspectionPhotoAction(inspectionId, fd);
+        if (!result.success) {
+          failures.push(`${file.name}: ${result.error}`);
+          continue;
+        }
+        ok += 1;
+        if (result.data.warning) warnings.push(result.data.warning);
+      } catch {
+        failures.push(`${file.name}: error al procesar`);
+      }
     }
 
-    if (result.data.warning) setWarning(result.data.warning);
-    setCaption("");
-    window.location.reload();
+    setUploading(false);
+    setProgress(null);
+    if (inputRef.current) inputRef.current.value = "";
+
+    if (failures.length > 0) {
+      setError(
+        ok > 0
+          ? `Se subieron ${ok}. Fallaron ${failures.length}: ${failures[0]}`
+          : failures[0] ?? "No se pudieron subir las fotos.",
+      );
+    }
+    if (warnings.length > 0) setWarning(warnings[0] ?? null);
+
+    if (ok > 0) router.refresh();
   }
 
   return (
@@ -108,41 +139,39 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
       ) : null}
 
       {!readOnly ? (
-        <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
-          <Select
-            label="Categoría"
-            value={category}
-            onChange={(event) =>
-              setCategory(event.target.value as InspectionPhotoCategory)
-            }
-            options={Object.entries(PHOTO_CATEGORY_LABELS).map(([value, label]) => ({
-              value,
-              label,
-            }))}
-          />
-          <Input
-            label="Descripción"
-            value={caption}
-            onChange={(event) => setCaption(event.target.value)}
-          />
+        <div className="space-y-3 rounded-xl border border-border p-4">
+          <p className="text-sm text-muted">
+            Seleccione varias fotos a la vez (por ejemplo 10). Se suben de
+            inmediato, sin categoría ni descripción por foto — pensado para
+            entrega rápida en parqueo.
+          </p>
           <input
             ref={inputRef}
             type="file"
             accept="image/*"
+            multiple
+            capture="environment"
             className="hidden"
             onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void handleUpload(file);
+              void handleUploadBatch(event.target.files);
             }}
           />
-          <div className="flex items-end">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
               onClick={() => inputRef.current?.click()}
               loading={uploading}
             >
-              Subir foto
+              {uploading ? "Subiendo…" : "Adjuntar fotos"}
             </Button>
+            {progress ? (
+              <span className="text-sm text-muted">{progress}</span>
+            ) : (
+              <span className="text-sm text-muted">
+                {photos.length} foto{photos.length === 1 ? "" : "s"} en esta
+                inspección
+              </span>
+            )}
           </div>
         </div>
       ) : null}
@@ -151,7 +180,7 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
         <p className="text-sm text-muted">Sin fotos registradas.</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {photos.map((photo) => (
+          {photos.map((photo, index) => (
             <figure
               key={photo.id}
               className="overflow-hidden rounded-xl border border-border bg-surface"
@@ -160,22 +189,20 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={photoSrc(photo.storage_path)}
-                  alt={photo.caption ?? photo.file_name ?? "Foto"}
+                  alt={photo.caption ?? photo.file_name ?? `Foto ${index + 1}`}
                   className="h-40 w-full object-cover"
                 />
               ) : (
                 <div className="flex h-40 items-center justify-center bg-surface-muted text-sm text-muted">
-                  {PHOTO_CATEGORY_LABELS[photo.category] ?? photo.category}
+                  Foto {index + 1}
                   <br />
-                  {photo.file_name ?? photo.storage_path}
+                  {photo.file_name ?? "Archivo privado"}
                 </div>
               )}
               <figcaption className="p-3 text-sm">
-                <p className="font-medium">
-                  {PHOTO_CATEGORY_LABELS[photo.category] ?? photo.category}
-                </p>
-                {photo.caption ? (
-                  <p className="text-muted">{photo.caption}</p>
+                <p className="font-medium">Foto {index + 1}</p>
+                {photo.file_name ? (
+                  <p className="truncate text-muted">{photo.file_name}</p>
                 ) : null}
               </figcaption>
             </figure>

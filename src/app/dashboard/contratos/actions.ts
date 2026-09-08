@@ -1788,7 +1788,7 @@ export async function getContractPdfData(contractId: string) {
     supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description), inspection_photos(storage_path, category, caption)",
+        "id, type, mileage, fuel_level, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description, severity, mark_number), inspection_photos(storage_path, category, caption)",
       )
       .eq("reservation_id", row.reservation_id)
       .order("inspection_date", { ascending: true }),
@@ -1832,6 +1832,8 @@ export async function getContractPdfData(contractId: string) {
           y: number;
           damage_type: string;
           description?: string | null;
+          severity?: string | null;
+          mark_number?: number | null;
         }>
       | null;
   };
@@ -1892,7 +1894,7 @@ export async function getContractPdfData(contractId: string) {
   applyChecklist(checkIn?.inspection_checklist_items, "checkIn");
 
   const damageMarks = [
-    ...(checkOut?.inspection_damage_marks ?? []).map((mark) => ({
+    ...(checkOut?.inspection_damage_marks ?? []).map((mark, index) => ({
       view: mark.view,
       x: Number(mark.x),
       y: Number(mark.y),
@@ -1900,8 +1902,10 @@ export async function getContractPdfData(contractId: string) {
       phase: "OUT" as const,
       damageType: mark.damage_type,
       description: mark.description ?? null,
+      severity: mark.severity ?? "LOW",
+      markNumber: Number(mark.mark_number ?? index + 1),
     })),
-    ...(checkIn?.inspection_damage_marks ?? []).map((mark) => ({
+    ...(checkIn?.inspection_damage_marks ?? []).map((mark, index) => ({
       view: mark.view,
       x: Number(mark.x),
       y: Number(mark.y),
@@ -1909,6 +1913,8 @@ export async function getContractPdfData(contractId: string) {
       phase: "IN" as const,
       damageType: mark.damage_type,
       description: mark.description ?? null,
+      severity: mark.severity ?? "LOW",
+      markNumber: Number(mark.mark_number ?? index + 1),
     })),
   ];
 

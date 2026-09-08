@@ -34,10 +34,16 @@ export type WireframeDamageMark = {
   y: number;
   symbol: string;
   phase?: "OUT" | "IN";
+  severity?: string;
+  markNumber?: number;
 };
 
 /** Draw mark glyphs as vectors (no system fonts — sharp/librsvg often skips text). */
-function damageMarkSvg(symbol: string, diameter: number, fill: string): Buffer {
+function damageMarkSvg(
+  symbol: string,
+  diameter: number,
+  fill: string,
+): Buffer {
   const r = diameter / 2;
   const stroke = Math.max(2.2, diameter * 0.12);
   const pad = Math.max(4, diameter * 0.22);
@@ -114,7 +120,18 @@ export async function compositeDamageMarksOnWireframe(
     usable.map(async (mark) => {
       const cx = Math.round(mark.x * width);
       const cy = Math.round(mark.y * height);
-      const fill = mark.phase === "IN" ? "#b91c1c" : "#0f2747";
+      // Severidad pinta el pin; fase IN fuerza rojo si no hay severidad alta.
+      const bySeverity =
+        mark.severity === "HIGH"
+          ? "#b91c1c"
+          : mark.severity === "MEDIUM"
+            ? "#c2410c"
+            : mark.severity === "LOW"
+              ? "#15803d"
+              : null;
+      const fill =
+        bySeverity ??
+        (mark.phase === "IN" ? "#b91c1c" : "#0f2747");
       const svg = damageMarkSvg(mark.symbol || "0", diameter, fill);
 
       const left = Math.max(

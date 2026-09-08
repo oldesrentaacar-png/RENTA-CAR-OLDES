@@ -7,6 +7,9 @@ import { DamageMarkPanel } from "@/components/inspections/damage-mark-panel";
 import {
   CHECKLIST_STATUS_LABELS,
   DAMAGE_MARK_TOOLS,
+  DAMAGE_SEVERITY_COLORS,
+  DAMAGE_SEVERITY_LABELS,
+  DAMAGE_TYPE_LABELS,
 } from "@/lib/inspections/defaults";
 import {
   INSPECTION_WIREFRAME_LABELS,
@@ -209,6 +212,12 @@ export function DamageMap2D({
               </button>
             );
           })}
+          <span className="ml-1 text-xs text-slate-500">
+            Color = severidad:{" "}
+            <span className="font-medium text-green-700">Leve</span> ·{" "}
+            <span className="font-medium text-orange-700">Media</span> ·{" "}
+            <span className="font-medium text-red-700">Grave</span>
+          </span>
         </div>
       ) : null}
 
@@ -231,21 +240,26 @@ export function DamageMap2D({
             const globalIndex = marks.indexOf(mark);
             const isSelected = globalIndex === selectedIndex;
             const glyph = panelDamageGlyph(mark.damageType);
+            const severityColor =
+              DAMAGE_SEVERITY_COLORS[mark.severity] ??
+              DAMAGE_SEVERITY_COLORS.LOW;
             return (
               <button
                 key={`${mark.view}-${mark.markNumber}-${mark.x}-${mark.y}`}
                 type="button"
+                title={`#${mark.markNumber} ${DAMAGE_TYPE_LABELS[mark.damageType] ?? mark.damageType} · ${DAMAGE_SEVERITY_LABELS[mark.severity] ?? mark.severity}`}
                 className={cn(
-                  "absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-sm font-bold text-white shadow",
-                  highlightOnly
-                    ? "bg-red-600"
-                    : isSelected
-                      ? "bg-blue-700"
-                      : "bg-slate-900",
+                  "absolute flex h-8 min-w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-0.5 rounded-full border-2 px-1 text-[10px] font-bold text-white shadow",
+                  highlightOnly ? "bg-red-600 border-white" : null,
+                  isSelected ? "ring-2 ring-blue-400 ring-offset-1" : null,
                 )}
                 style={{
                   left: `${mark.x * 100}%`,
                   top: `${mark.y * 100}%`,
+                  backgroundColor: highlightOnly
+                    ? undefined
+                    : severityColor.fill,
+                  borderColor: isSelected ? "#1d4ed8" : "#ffffff",
                 }}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -253,14 +267,17 @@ export function DamageMap2D({
                   setActiveTool(mark.damageType);
                 }}
               >
-                {glyph}
+                <span className="font-mono leading-none">{glyph}</span>
+                <span className="leading-none opacity-95">
+                  {mark.markNumber}
+                </span>
               </button>
             );
           })}
         </div>
         <p className="mt-2 text-center text-xs text-slate-600">
           {wireframeLabel} · 5 vistas · elija herramienta y haga clic (0 golpe, +
-          rayón, x faltante, · marcado libre)
+          rayón, x faltante, · marcado libre). Cada pin muestra símbolo + #.
           {!diagramLocked ? (
             <>
               {" "}
@@ -269,6 +286,64 @@ export function DamageMap2D({
           ) : null}
         </p>
       </div>
+
+      {marks.length > 0 ? (
+        <div className="overflow-hidden rounded-xl border border-border">
+          <div className="border-b border-border bg-surface-muted/50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
+            Marcas registradas ({marks.length})
+          </div>
+          <ul className="divide-y divide-border">
+            {marks.map((mark, index) => {
+              const glyph = panelDamageGlyph(mark.damageType);
+              const severity =
+                DAMAGE_SEVERITY_LABELS[mark.severity] ?? mark.severity;
+              const typeLabel =
+                DAMAGE_TYPE_LABELS[mark.damageType] ?? mark.damageType;
+              const severityColor =
+                DAMAGE_SEVERITY_COLORS[mark.severity] ??
+                DAMAGE_SEVERITY_COLORS.LOW;
+              const isSelected = index === selectedIndex;
+              return (
+                <li key={`${mark.markNumber}-${mark.x}-${mark.y}`}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-start gap-3 px-3 py-2.5 text-left text-sm hover:bg-surface-muted/60",
+                      isSelected ? "bg-blue-50" : null,
+                    )}
+                    onClick={() => {
+                      setSelectedIndex(index);
+                      setActiveTool(mark.damageType);
+                    }}
+                  >
+                    <span
+                      className="mt-0.5 inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white"
+                      style={{ backgroundColor: severityColor.fill }}
+                    >
+                      {glyph}
+                      {mark.markNumber}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium text-foreground">
+                        #{mark.markNumber} · {typeLabel} · {severity}
+                      </span>
+                      {mark.description?.trim() ? (
+                        <span className="mt-0.5 block text-xs text-muted">
+                          {mark.description.trim()}
+                        </span>
+                      ) : (
+                        <span className="mt-0.5 block text-xs text-muted">
+                          Sin descripción
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
 
       {selected && !readOnly ? (
         <DamageMarkPanel

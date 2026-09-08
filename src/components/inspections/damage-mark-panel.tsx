@@ -41,7 +41,7 @@ export function DamageMarkPanel({
         }))}
       />
       <Select
-        label="Severidad"
+        label="Severidad (Leve / Media / Grave)"
         value={mark.severity}
         onChange={(event) =>
           onChange({ severity: event.target.value as DamageSeverity })

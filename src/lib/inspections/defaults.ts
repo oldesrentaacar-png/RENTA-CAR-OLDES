@@ -115,9 +115,19 @@ export const DAMAGE_TYPE_DESCRIPTION_HINTS: Record<string, string> = {
 };
 
 export const DAMAGE_SEVERITY_LABELS: Record<string, string> = {
-  LOW: "Baja",
+  LOW: "Leve",
   MEDIUM: "Media",
-  HIGH: "Alta",
+  HIGH: "Grave",
+};
+
+/** Colores de pin según severidad (distinguibles en mapa y PDF). */
+export const DAMAGE_SEVERITY_COLORS: Record<
+  string,
+  { fill: string; ring: string; label: string }
+> = {
+  LOW: { fill: "#15803d", ring: "#bbf7d0", label: "Leve" },
+  MEDIUM: { fill: "#c2410c", ring: "#fed7aa", label: "Media" },
+  HIGH: { fill: "#b91c1c", ring: "#fecaca", label: "Grave" },
 };
 
 export const INSPECTION_TYPE_LABELS: Record<string, string> = {

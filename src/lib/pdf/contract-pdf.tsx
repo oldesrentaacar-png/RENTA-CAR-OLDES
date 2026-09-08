@@ -14,6 +14,10 @@ import {
   OLDES_CONTRACT_CLAUSES,
   OLDES_CONTRACT_FOOTER_NOTE,
 } from "@/lib/contracts/oldes-terms";
+import {
+  DAMAGE_SEVERITY_LABELS,
+  DAMAGE_TYPE_LABELS,
+} from "@/lib/inspections/defaults";
 import { formatMoney } from "@/lib/money";
 import { PDF_BRAND } from "@/lib/pdf/brand-assets";
 import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
@@ -39,6 +43,8 @@ export type ContractDamageMarkPdf = {
   phase?: "OUT" | "IN";
   damageType?: string;
   description?: string | null;
+  severity?: "LOW" | "MEDIUM" | "HIGH" | string;
+  markNumber?: number;
 };
 
 export type ContractPdfProps = {
@@ -590,7 +596,6 @@ export function ContractPdfDocument(props: ContractPdfProps) {
     return mark.x >= 0 && mark.x <= 1 && mark.y >= 0 && mark.y <= 1;
   });
   const outMarks = mapMarks.filter((m) => m.phase !== "IN");
-  const inMarks = mapMarks.filter((m) => m.phase === "IN");
   const marksOnDiagram = outMarks.length > 0 ? outMarks : mapMarks;
 
   function accessoryMark(raw?: string | null): { text: string; color: string } {
@@ -768,10 +773,8 @@ export function ContractPdfDocument(props: ContractPdfProps) {
 
         <MachoteSection title="3. Inspección de estado del vehículo y combustible">
           <Text style={{ fontSize: 6.5, color: MUTED, paddingHorizontal: 6, paddingTop: 3 }}>
-            Simbología mapa: (0) Golpe · (+) Rayón · (x) Faltante · (·) Marcado libre
-            {inMarks.length > 0 && outMarks.length > 0
-              ? " · marcas de salida en el diagrama"
-              : ""}
+            Simbología: (0) Golpe · (+) Rayón · (x) Faltante · (·) Libre · color
+            Leve/Media/Grave · cada pin lleva #
           </Text>
           <View style={[styles.twoColMain, { paddingHorizontal: 4, paddingBottom: 3 }]}>
             <View style={styles.photoPanel}>
@@ -793,20 +796,38 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                 </View>
               )}
               {marksOnDiagram.length > 0 ? (
-                <Text style={styles.damageNotes}>
-                  {marksOnDiagram.length} marca
-                  {marksOnDiagram.length === 1 ? "" : "s"} en mapa
-                  {marksOnDiagram
-                    .slice(0, 6)
-                    .map((mark) => {
-                      const note = mark.description?.trim();
-                      return note
-                        ? ` · ${mark.symbol} ${note}`
-                        : ` · ${mark.symbol}`;
-                    })
-                    .join("")}
-                  {marksOnDiagram.length > 6 ? "…" : ""}
-                </Text>
+                <View style={{ marginTop: 2, gap: 1 }}>
+                  <Text style={styles.damageNotes}>
+                    {marksOnDiagram.length} marca
+                    {marksOnDiagram.length === 1 ? "" : "s"} en mapa (salida)
+                  </Text>
+                  {marksOnDiagram.slice(0, 10).map((mark, index) => {
+                    const typeLabel =
+                      DAMAGE_TYPE_LABELS[mark.damageType ?? ""] ??
+                      mark.damageType ??
+                      "Daño";
+                    const severityLabel =
+                      DAMAGE_SEVERITY_LABELS[mark.severity ?? "LOW"] ??
+                      mark.severity ??
+                      "Leve";
+                    const note = mark.description?.trim();
+                    return (
+                      <Text
+                        key={`note-${mark.markNumber ?? index}`}
+                        style={styles.damageNotes}
+                      >
+                        #{mark.markNumber ?? index + 1} {mark.symbol} {typeLabel} ·{" "}
+                        {severityLabel}
+                        {note ? ` — ${note}` : ""}
+                      </Text>
+                    );
+                  })}
+                  {marksOnDiagram.length > 10 ? (
+                    <Text style={styles.damageNotes}>
+                      … y {marksOnDiagram.length - 10} más
+                    </Text>
+                  ) : null}
+                </View>
               ) : (
                 <Text style={styles.damageNotes}>
                   Sin marcas de daño registradas en la inspección de salida.
