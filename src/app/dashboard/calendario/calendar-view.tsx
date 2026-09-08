@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export type CalendarReservation = {
   id: string;
@@ -259,18 +260,17 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
           placeholder="Buscar cliente, vehículo o código"
           className="min-w-[220px] flex-1 rounded-lg border border-border px-3 py-1.5 text-sm"
         />
-        <select
+        <SearchableSelect
           value={vehicleFilter}
-          onChange={(e) => setVehicleFilter(e.target.value)}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm"
-        >
-          <option value="">Todos los vehículos</option>
-          {vehicles.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.label}
-            </option>
-          ))}
-        </select>
+          onChange={setVehicleFilter}
+          placeholder="Todos los vehículos"
+          searchPlaceholder="Buscar vehículo…"
+          className="min-w-[12rem]"
+          options={[
+            { value: "", label: "Todos los vehículos" },
+            ...vehicles.map((v) => ({ value: v.id, label: v.label })),
+          ]}
+        />
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}

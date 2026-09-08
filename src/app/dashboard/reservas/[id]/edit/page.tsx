@@ -13,6 +13,7 @@ import {
   type CustomerRow,
   type VehicleRow,
 } from "@/lib/db/mappers";
+import { toCustomerSelectOption } from "@/lib/customers";
 
 export default async function EditarReservaPage({
   params,
@@ -41,10 +42,9 @@ export default async function EditarReservaPage({
       supabase.from("customers").select("*").is("deleted_at", null).order("last_name"),
       supabase.from("vehicles").select("*").is("deleted_at", null).order("brand"),
     ]);
-    customers = ((customerRows ?? []) as CustomerRow[]).map((row) => {
-      const c = mapCustomerRow(row);
-      return { id: c.id, label: `${c.first_name} ${c.last_name}` };
-    });
+    customers = ((customerRows ?? []) as CustomerRow[]).map((row) =>
+      toCustomerSelectOption(mapCustomerRow(row)),
+    );
     vehicles = ((vehicleRows ?? []) as VehicleRow[]).map((row) => {
       const v = mapVehicleRow(row);
       return {

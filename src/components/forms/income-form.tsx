@@ -7,6 +7,7 @@ import { useState } from "react";
 import { createIncomeTransaction } from "@/app/dashboard/ingresos/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -106,28 +107,34 @@ export function IncomeForm({ income, options, redirectTo }: IncomeFormProps) {
             required
           />
         ) : null}
-        <Select
+        <SearchableSelect
           name="vehicleId"
           label="Vehículo"
           defaultValue={income?.vehicle_id ?? ""}
+          placeholder="Ninguno"
+          searchPlaceholder="Buscar vehículo…"
           options={[
             { value: "", label: "Ninguno" },
             ...options.vehicles.map((v) => ({ value: v.id, label: v.label })),
           ]}
         />
-        <Select
+        <SearchableSelect
           name="customerId"
           label="Cliente"
           defaultValue={income?.customer_id ?? ""}
+          placeholder="Ninguno"
+          searchPlaceholder="Buscar cliente…"
           options={[
             { value: "", label: "Ninguno" },
             ...options.customers.map((c) => ({ value: c.id, label: c.label })),
           ]}
         />
-        <Select
+        <SearchableSelect
           name="reservationId"
           label="Reserva"
           defaultValue={income?.reservation_id ?? ""}
+          placeholder="Ninguna"
+          searchPlaceholder="Buscar reserva…"
           options={[
             { value: "", label: "Ninguna" },
             ...options.reservations.map((r) => ({ value: r.id, label: r.label })),

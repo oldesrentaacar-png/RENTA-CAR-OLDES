@@ -10,6 +10,7 @@ import {
 } from "@/app/dashboard/gastos/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/labels";
@@ -82,10 +83,12 @@ export function ExpenseForm({ expense, vehicles, redirectTo }: ExpenseFormProps)
           defaultValue={expense?.expense_date ?? today}
           required
         />
-        <Select
+        <SearchableSelect
           name="vehicleId"
           label="Vehículo"
           defaultValue={expense?.vehicle_id ?? ""}
+          placeholder="Ninguno"
+          searchPlaceholder="Buscar vehículo…"
           options={[
             { value: "", label: "Ninguno" },
             ...vehicles.map((v) => ({ value: v.id, label: v.label })),

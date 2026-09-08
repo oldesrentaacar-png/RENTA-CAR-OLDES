@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Input } from "@/components/ui/input";
 import {
   EXPENSE_CATEGORY_LABELS,
@@ -144,10 +145,12 @@ export function ReportesClient({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Input label="Desde" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
             <Input label="Hasta" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            <Select
+            <SearchableSelect
               label="Vehículo"
               value={vehicleId}
-              onChange={(e) => setVehicleId(e.target.value)}
+              onChange={setVehicleId}
+              placeholder="Todos"
+              searchPlaceholder="Buscar vehículo…"
               options={[
                 { value: "", label: "Todos" },
                 ...data.vehicles.map((v) => ({ value: v.id, label: v.label })),

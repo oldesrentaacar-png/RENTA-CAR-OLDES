@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { createInspection } from "@/app/dashboard/inspecciones/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toDatetimeLocalValue } from "@/lib/dates";
@@ -73,13 +74,17 @@ export function InspectionCreateForm({
         </div>
       ) : null}
 
-      <Select
+      <SearchableSelect
         label="Reserva *"
+        required
         value={reservationId}
-        onChange={(event) => setReservationId(event.target.value)}
+        onChange={(next) => setReservationId(next)}
+        placeholder="Seleccione una reserva…"
+        searchPlaceholder="Buscar por código, cliente o vehículo…"
         options={reservations.map((reservation) => ({
           value: reservation.id,
           label: reservation.label,
+          searchText: reservation.code,
         }))}
       />
 

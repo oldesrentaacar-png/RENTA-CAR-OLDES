@@ -14,6 +14,7 @@ import {
   mapCustomerRow,
   type CustomerRow,
 } from "@/lib/db/mappers";
+import { toCustomerSelectOption } from "@/lib/customers";
 
 export default async function NuevaCotizacionPage({
   searchParams,
@@ -72,10 +73,9 @@ export default async function NuevaCotizacionPage({
         .order("sort_order"),
     ]);
 
-    customers = ((customerRows ?? []) as CustomerRow[]).map((row) => {
-      const c = mapCustomerRow(row);
-      return { id: c.id, label: `${c.first_name} ${c.last_name}` };
-    });
+    customers = ((customerRows ?? []) as CustomerRow[]).map((row) =>
+      toCustomerSelectOption(mapCustomerRow(row)),
+    );
 
     vehicleTypes = (
       (typeRows ?? []) as Array<{

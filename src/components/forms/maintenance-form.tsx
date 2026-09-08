@@ -10,6 +10,7 @@ import {
 } from "@/app/dashboard/mantenimiento/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -72,15 +73,14 @@ export function MaintenanceForm({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Select
+        <SearchableSelect
           name="vehicleId"
           label="Vehículo *"
-          defaultValue={record?.vehicle_id ?? ""}
-          options={[
-            { value: "", label: "Seleccione…" },
-            ...vehicles.map((v) => ({ value: v.id, label: v.label })),
-          ]}
           required
+          defaultValue={record?.vehicle_id ?? ""}
+          placeholder="Seleccione…"
+          searchPlaceholder="Buscar vehículo…"
+          options={vehicles.map((v) => ({ value: v.id, label: v.label }))}
         />
         <Select
           name="type"

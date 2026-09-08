@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, parseMoneyInput, toNumber, multiply } from "@/lib/money";
@@ -110,10 +111,14 @@ export function VehicleForm({ vehicle, vehicleTypes = [] }: VehicleFormProps) {
         <Input name="year" label="Año *" type="number" defaultValue={vehicle?.year} required />
         <Input name="plate" label="Placa *" defaultValue={vehicle?.plate} required />
         <Input name="category" label="Categoría" defaultValue={vehicle?.category ?? ""} />
-        <Select
+        <SearchableSelect
           name="vehicleTypeId"
           label="Tipo de vehículo (catálogo web)"
           defaultValue={vehicle?.vehicle_type_id ?? ""}
+          placeholder={
+            vehicleTypes.length ? "Sin tipo de catálogo" : "Sin tipos cargados"
+          }
+          searchPlaceholder="Buscar tipo…"
           options={typeOptions}
         />
         <Input name="color" label="Color" defaultValue={vehicle?.color ?? ""} />

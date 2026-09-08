@@ -11,6 +11,7 @@ import {
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateQuoteLineTotals } from "@/lib/calculations/quote";
 import { formatMoney, parseMoneyInput, toNumber, multiply } from "@/lib/money";
@@ -51,7 +52,7 @@ type QuoteLineDraft = {
 };
 
 type QuoteFormProps = {
-  customers: Array<{ id: string; label: string }>;
+  customers: Array<{ id: string; label: string; searchText?: string }>;
   vehicleTypes: QuoteVehicleTypeOption[];
   catalogItems?: QuoteCatalogItem[];
   mode?: "create" | "edit";
@@ -503,24 +504,20 @@ export function QuoteForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1 sm:col-span-2">
-          <label className="block text-sm font-medium text-zinc-700">
-            {t.customer}
-          </label>
-          <select
-            name="customerId"
-            required
-            defaultValue={defaults?.customerId}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          >
-            <option value="">{t.selectCustomer}</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SearchableSelect
+          name="customerId"
+          label={t.customer}
+          required
+          defaultValue={defaults?.customerId ?? ""}
+          placeholder={t.selectCustomer}
+          searchPlaceholder="Buscar cliente por nombre, teléfono…"
+          className="sm:col-span-2"
+          options={customers.map((c) => ({
+            value: c.id,
+            label: c.label,
+            searchText: c.searchText,
+          }))}
+        />
 
         <Input
           name="startAt"
@@ -540,51 +537,49 @@ export function QuoteForm({
         />
 
         <div className="space-y-1 sm:col-span-2">
-          <label className="block text-sm font-medium text-zinc-700">
-            {t.vehicleType}
-          </label>
-          <select
+          <SearchableSelect
             name="vehicleTypeId"
+            label={t.vehicleType}
             required
             value={vehicleTypeId}
-            onChange={(e) => applyVehicleType(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          >
-            <option value="">{t.selectType}</option>
-            {vehicleTypes.map((vt) => (
-              <option key={vt.id} value={vt.id}>
-                {vehicleTypeName(vt, language)} · {formatMoney(vt.dailyRate)}
-                {t.perDay}
-              </option>
-            ))}
-          </select>
+            onChange={(next) => applyVehicleType(next)}
+            placeholder={t.selectType}
+            searchPlaceholder="Buscar tipo de vehículo…"
+            options={vehicleTypes.map((vt) => ({
+              value: vt.id,
+              label: `${vehicleTypeName(vt, language)} · ${formatMoney(vt.dailyRate)}${t.perDay}`,
+              searchText: [
+                vt.name,
+                vt.nameEn,
+                vt.referenceModels,
+                vt.referenceModelsEn,
+              ]
+                .filter(Boolean)
+                .join(" "),
+            }))}
+          />
           <p className="text-xs text-muted">{t.typeHint}</p>
         </div>
       </div>
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-[14rem] flex-1 space-y-1">
-            <label className="block text-sm font-medium text-zinc-700">
-              {t.catalog}
-            </label>
-            <select
-              value={catalogSelect}
-              onChange={(e) => {
-                const id = e.target.value;
-                setCatalogSelect(id);
-                if (id) addFromCatalog(id);
-              }}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            >
-              <option value="">{t.addItem}</option>
-              {catalogItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {catalogName(item, language)} · {formatMoney(item.unit_price)}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SearchableSelect
+            label={t.catalog}
+            value={catalogSelect}
+            onChange={(id) => {
+              if (id) addFromCatalog(id);
+              setCatalogSelect("");
+            }}
+            placeholder={t.addItem}
+            searchPlaceholder="Buscar ítem del catálogo…"
+            className="min-w-[14rem] flex-1"
+            options={catalogItems.map((item) => ({
+              value: item.id,
+              label: `${catalogName(item, language)} · ${formatMoney(item.unit_price)}`,
+              searchText: `${item.name_es} ${item.name_en}`,
+            }))}
+          />
           <Button type="button" variant="secondary" onClick={addCustomLine}>
             {t.customLine}
           </Button>

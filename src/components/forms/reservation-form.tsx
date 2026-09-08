@@ -11,6 +11,7 @@ import {
 import { SubmitButton } from "@/components/forms/submit-button";
 import { PricingBreakdown } from "@/components/shared/pricing-breakdown";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { toDatetimeLocalValue } from "@/lib/dates";
@@ -26,7 +27,7 @@ type VehicleOption = {
 };
 
 type ReservationFormProps = {
-  customers: Array<{ id: string; label: string }>;
+  customers: Array<{ id: string; label: string; searchText?: string }>;
   vehicles: VehicleOption[];
   reservation?: Reservation;
   defaults?: {
@@ -174,46 +175,39 @@ export function ReservationForm({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-zinc-700">Cliente *</label>
-          <select
-            name="customerId"
-            required
-            defaultValue={reservation?.customer_id ?? defaults?.customerId}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          >
-            <option value="">Seleccionar…</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-zinc-700">Vehículo *</label>
-          <select
-            name="vehicleId"
-            required
-            defaultValue={initialVehicleId}
-            onChange={(e) => {
-              const v = vehicles.find((item) => item.id === e.target.value);
-              if (v) {
-                setAgreedRate(String(v.dailyRate));
-                setDeposit(String(v.deposit ?? 0));
-                if (v.category) setVehicleType(v.category);
-              }
-            }}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          >
-            <option value="">Seleccionar…</option>
-            {vehicles.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SearchableSelect
+          name="customerId"
+          label="Cliente *"
+          required
+          defaultValue={reservation?.customer_id ?? defaults?.customerId ?? ""}
+          placeholder="Seleccionar…"
+          searchPlaceholder="Buscar cliente…"
+          options={customers.map((c) => ({
+            value: c.id,
+            label: c.label,
+            searchText: c.searchText,
+          }))}
+        />
+        <SearchableSelect
+          name="vehicleId"
+          label="Vehículo *"
+          required
+          defaultValue={initialVehicleId}
+          placeholder="Seleccionar…"
+          searchPlaceholder="Buscar vehículo o placa…"
+          onChange={(next) => {
+            const v = vehicles.find((item) => item.id === next);
+            if (v) {
+              setAgreedRate(String(v.dailyRate));
+              setDeposit(String(v.deposit ?? 0));
+              if (v.category) setVehicleType(v.category);
+            }
+          }}
+          options={vehicles.map((v) => ({
+            value: v.id,
+            label: v.label,
+          }))}
+        />
         <Input
           name="vehicleType"
           label="Tipo de vehículo"

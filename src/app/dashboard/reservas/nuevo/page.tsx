@@ -11,6 +11,7 @@ import {
   type CustomerRow,
   type VehicleRow,
 } from "@/lib/db/mappers";
+import { toCustomerSelectOption } from "@/lib/customers";
 
 export default async function NuevaReservaPage({
   searchParams,
@@ -48,10 +49,9 @@ export default async function NuevaReservaPage({
       supabase.from("vehicles").select("*").is("deleted_at", null).eq("is_active", true).order("brand"),
     ]);
 
-    customers = ((customerRows ?? []) as CustomerRow[]).map((row) => {
-      const c = mapCustomerRow(row);
-      return { id: c.id, label: `${c.first_name} ${c.last_name}` };
-    });
+    customers = ((customerRows ?? []) as CustomerRow[]).map((row) =>
+      toCustomerSelectOption(mapCustomerRow(row)),
+    );
 
     vehicles = ((vehicleRows ?? []) as VehicleRow[]).map((row) => {
       const v = mapVehicleRow(row);
