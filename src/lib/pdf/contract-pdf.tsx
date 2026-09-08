@@ -37,6 +37,8 @@ export type ContractDamageMarkPdf = {
   y: number;
   symbol: string;
   phase?: "OUT" | "IN";
+  damageType?: string;
+  description?: string | null;
 };
 
 export type ContractPdfProps = {
@@ -301,6 +303,35 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     objectFit: "contain",
     marginBottom: 2,
+  },
+  wireframeWrap: {
+    position: "relative",
+    width: "100%",
+    marginBottom: 2,
+  },
+  damageDot: {
+    position: "absolute",
+    width: 9,
+    height: 9,
+    marginLeft: -4.5,
+    marginTop: -4.5,
+    borderRadius: 4.5,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 0.6,
+    borderColor: "#ffffff",
+  },
+  damageDotText: {
+    fontSize: 5.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#ffffff",
+    textAlign: "center",
+  },
+  damageNotes: {
+    fontSize: 5.5,
+    color: MUTED,
+    marginTop: 2,
+    lineHeight: 1.25,
   },
   inspectionStack: {
     width: "100%",
@@ -577,6 +608,15 @@ export function ContractPdfDocument(props: ContractPdfProps) {
   const checklistLeft = checklistRows.slice(0, checklistMid);
   const checklistRight = checklistRows.slice(checklistMid);
 
+  // Delivery/opening contract prioritizes CHECK_OUT marks; include CHECK_IN if present.
+  const mapMarks = (props.damageMarks ?? []).filter((mark) => {
+    if (!Number.isFinite(mark.x) || !Number.isFinite(mark.y)) return false;
+    return mark.x >= 0 && mark.x <= 1 && mark.y >= 0 && mark.y <= 1;
+  });
+  const outMarks = mapMarks.filter((m) => m.phase !== "IN");
+  const inMarks = mapMarks.filter((m) => m.phase === "IN");
+  const marksOnDiagram = outMarks.length > 0 ? outMarks : mapMarks;
+
   function accessoryMark(raw?: string | null): { text: string; color: string } {
     const value = (raw ?? "").trim();
     if (
@@ -752,16 +792,37 @@ export function ContractPdfDocument(props: ContractPdfProps) {
 
         <MachoteSection title="3. Inspección de estado del vehículo y combustible">
           <Text style={{ fontSize: 6.5, color: MUTED, paddingHorizontal: 6, paddingTop: 3 }}>
-            Simbología: (X) Rayón · (O) Golpe · (*) Cristal · (△) Faltante
+            Simbología mapa: (0) Golpe · (+) Rayón · (x) Faltante · (·) Marcado libre
+            {inMarks.length > 0 && outMarks.length > 0
+              ? " · marcas de salida en el diagrama"
+              : ""}
           </Text>
           <View style={[styles.twoColMain, { paddingHorizontal: 4, paddingBottom: 3 }]}>
             <View style={styles.photoPanel}>
               {props.inspectionWireframeUrl ? (
-                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
-                <Image
-                  src={props.inspectionWireframeUrl}
-                  style={styles.wireframeDiagram}
-                />
+                <View style={styles.wireframeWrap} wrap={false}>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf */}
+                  <Image
+                    src={props.inspectionWireframeUrl}
+                    style={styles.wireframeDiagram}
+                  />
+                  {marksOnDiagram.map((mark, index) => (
+                    <View
+                      key={`dmg-${mark.phase ?? "OUT"}-${index}-${mark.x}-${mark.y}`}
+                      style={[
+                        styles.damageDot,
+                        {
+                          left: `${mark.x * 100}%`,
+                          top: `${mark.y * 100}%`,
+                          backgroundColor:
+                            mark.phase === "IN" ? RED : NAVY,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.damageDotText}>{mark.symbol}</Text>
+                    </View>
+                  ))}
+                </View>
               ) : props.primaryPhotoUrl ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
                 <Image src={props.primaryPhotoUrl} style={styles.heroPhoto} />
@@ -772,6 +833,26 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                 <View style={[styles.heroPhoto, { backgroundColor: LIGHT, justifyContent: "center", alignItems: "center" }]}>
                   <Text style={{ fontSize: 7, color: MUTED }}>Sin diagrama del vehículo</Text>
                 </View>
+              )}
+              {marksOnDiagram.length > 0 ? (
+                <Text style={styles.damageNotes}>
+                  {marksOnDiagram.length} marca
+                  {marksOnDiagram.length === 1 ? "" : "s"} en mapa
+                  {marksOnDiagram
+                    .slice(0, 6)
+                    .map((mark) => {
+                      const note = mark.description?.trim();
+                      return note
+                        ? ` · ${mark.symbol} ${note}`
+                        : ` · ${mark.symbol}`;
+                    })
+                    .join("")}
+                  {marksOnDiagram.length > 6 ? "…" : ""}
+                </Text>
+              ) : (
+                <Text style={styles.damageNotes}>
+                  Sin marcas de daño registradas en la inspección de salida.
+                </Text>
               )}
               <FuelGauge
                 label="NIVEL COMBUSTIBLE"

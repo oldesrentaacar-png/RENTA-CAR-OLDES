@@ -174,13 +174,14 @@ export const OLDES_DAMAGE_LEGEND = [
   { symbol: "0", meaning: "GOLPE" },
   { symbol: "+", meaning: "RAYON" },
   { symbol: "x", meaning: "FALTANTE" },
+  { symbol: "·", meaning: "LIBRE" },
 ] as const;
 
 /** Mapea tipos de daño al código del formulario físico OLDES. */
 export function damageSymbol(type?: string): string {
   if (type === "SCRATCH" || type === "PAINT") return "+";
   if (type === "BROKEN" || type === "CRACK" || type === "MISSING") return "x";
-  // Marcado libre / golpe → código papel "0"
+  if (type === "OTHER") return "·";
   return "0";
 }
 

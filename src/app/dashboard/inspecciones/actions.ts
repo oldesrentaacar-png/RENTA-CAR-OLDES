@@ -40,6 +40,44 @@ import type {
 } from "@/types/database";
 import type { PaginatedResult } from "@/types/api";
 
+async function revalidateContractsLinkedToInspection(
+  inspectionId: string,
+): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  const { data: inspection } = await supabase
+    .from("inspections")
+    .select("reservation_id")
+    .eq("id", inspectionId)
+    .maybeSingle();
+
+  const reservationId = (inspection as { reservation_id?: string | null } | null)
+    ?.reservation_id;
+  if (!reservationId) return;
+
+  const { data: contracts } = await supabase
+    .from("contracts")
+    .select("id")
+    .eq("reservation_id", reservationId)
+    .is("deleted_at", null);
+
+  const now = new Date().toISOString();
+  const ids = ((contracts ?? []) as Array<{ id: string }>).map((row) => row.id);
+  if (ids.length > 0) {
+    await supabase
+      .from("contracts")
+      .update({ updated_at: now })
+      .in("id", ids);
+  }
+
+  revalidatePath("/dashboard/contratos");
+  for (const id of ids) {
+    revalidatePath(`/dashboard/contratos/${id}`);
+    revalidatePath(`/dashboard/contratos/${id}/pdf`);
+    revalidatePath(`/dashboard/contratos/${id}/acta-cierre/pdf`);
+  }
+}
+
 export type InspectionDetail = Inspection & {
   checklist: InspectionChecklistItem[];
   damageMarks: InspectionDamageMark[];
@@ -498,6 +536,7 @@ export async function saveChecklistItems(
     });
 
     revalidatePath(`/dashboard/inspecciones/${inspectionId}`);
+    await revalidateContractsLinkedToInspection(inspectionId);
     return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -569,6 +608,7 @@ export async function saveDamageMarks(
     });
 
     revalidatePath(`/dashboard/inspecciones/${inspectionId}`);
+    await revalidateContractsLinkedToInspection(inspectionId);
     return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));

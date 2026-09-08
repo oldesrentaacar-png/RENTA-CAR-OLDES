@@ -1788,7 +1788,7 @@ export async function getContractPdfData(contractId: string) {
     supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type), inspection_photos(storage_path, category, caption)",
+        "id, type, mileage, fuel_level, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description), inspection_photos(storage_path, category, caption)",
       )
       .eq("reservation_id", row.reservation_id)
       .order("inspection_date", { ascending: true }),
@@ -1831,6 +1831,7 @@ export async function getContractPdfData(contractId: string) {
           x: number;
           y: number;
           damage_type: string;
+          description?: string | null;
         }>
       | null;
   };
@@ -1897,6 +1898,8 @@ export async function getContractPdfData(contractId: string) {
       y: Number(mark.y),
       symbol: damageSymbol(mark.damage_type),
       phase: "OUT" as const,
+      damageType: mark.damage_type,
+      description: mark.description ?? null,
     })),
     ...(checkIn?.inspection_damage_marks ?? []).map((mark) => ({
       view: mark.view,
@@ -1904,6 +1907,8 @@ export async function getContractPdfData(contractId: string) {
       y: Number(mark.y),
       symbol: damageSymbol(mark.damage_type),
       phase: "IN" as const,
+      damageType: mark.damage_type,
+      description: mark.description ?? null,
     })),
   ];
 
