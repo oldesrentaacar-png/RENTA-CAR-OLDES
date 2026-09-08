@@ -300,32 +300,8 @@ const styles = StyleSheet.create({
   },
   wireframeDiagram: {
     width: "100%",
-    maxHeight: 120,
     objectFit: "contain",
     marginBottom: 2,
-  },
-  wireframeWrap: {
-    position: "relative",
-    width: "100%",
-    marginBottom: 2,
-  },
-  damageDot: {
-    position: "absolute",
-    width: 9,
-    height: 9,
-    marginLeft: -4.5,
-    marginTop: -4.5,
-    borderRadius: 4.5,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 0.6,
-    borderColor: "#ffffff",
-  },
-  damageDotText: {
-    fontSize: 5.5,
-    fontFamily: "Helvetica-Bold",
-    color: "#ffffff",
-    textAlign: "center",
   },
   damageNotes: {
     fontSize: 5.5,
@@ -800,29 +776,11 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           <View style={[styles.twoColMain, { paddingHorizontal: 4, paddingBottom: 3 }]}>
             <View style={styles.photoPanel}>
               {props.inspectionWireframeUrl ? (
-                <View style={styles.wireframeWrap} wrap={false}>
-                  {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf */}
-                  <Image
-                    src={props.inspectionWireframeUrl}
-                    style={styles.wireframeDiagram}
-                  />
-                  {marksOnDiagram.map((mark, index) => (
-                    <View
-                      key={`dmg-${mark.phase ?? "OUT"}-${index}-${mark.x}-${mark.y}`}
-                      style={[
-                        styles.damageDot,
-                        {
-                          left: `${mark.x * 100}%`,
-                          top: `${mark.y * 100}%`,
-                          backgroundColor:
-                            mark.phase === "IN" ? RED : NAVY,
-                        },
-                      ]}
-                    >
-                      <Text style={styles.damageDotText}>{mark.symbol}</Text>
-                    </View>
-                  ))}
-                </View>
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+                <Image
+                  src={props.inspectionWireframeUrl}
+                  style={styles.wireframeDiagram}
+                />
               ) : props.primaryPhotoUrl ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
                 <Image src={props.primaryPhotoUrl} style={styles.heroPhoto} />
