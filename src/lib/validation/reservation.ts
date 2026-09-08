@@ -1,11 +1,18 @@
-import { z } from "zod";
+﻿import { z } from "zod";
+
+import {
+  emptyToUndefined,
+  optionalEnum,
+  optionalText,
+  optionalUuid,
+} from "@/lib/validation/form-helpers";
 
 const moneyField = z.coerce
   .number()
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
-const optionalText = (max: number) =>
+const optionalNote = (max: number) =>
   z
     .string()
     .trim()
@@ -20,9 +27,9 @@ const reservationFields = z.object({
   quoteId: z.uuid().optional(),
   startAt: z.iso.datetime({ message: "Fecha de inicio inválida." }),
   endAt: z.iso.datetime({ message: "Fecha de fin inválida." }),
-  pickupLocation: optionalText(255),
-  returnLocation: optionalText(255),
-  vehicleType: optionalText(100),
+  pickupLocation: optionalNote(255),
+  returnLocation: optionalNote(255),
+  vehicleType: optionalNote(100),
   agreedRate: moneyField,
   deposit: moneyField.default(0),
   insurance: moneyField.default(0),
@@ -30,7 +37,7 @@ const reservationFields = z.object({
   cashAmount: moneyField.default(0),
   cardAmount: moneyField.default(0),
   additionalCosts: moneyField.default(0),
-  notes: optionalText(2000),
+  notes: optionalNote(2000),
   status: z
     .enum(["CONFIRMED", "ACTIVE", "COMPLETED", "CANCELLED"])
     .default("CONFIRMED"),
@@ -58,21 +65,26 @@ export const reservationUpdateSchema = reservationFields
   );
 
 export const reservationCancelSchema = z.object({
-  reason: optionalText(500),
+  reason: optionalNote(500),
 });
 
 export type ReservationInput = z.infer<typeof reservationSchema>;
 export type ReservationUpdateInput = z.infer<typeof reservationUpdateSchema>;
 
+export const reservationStatusSchema = z.enum([
+  "CONFIRMED",
+  "ACTIVE",
+  "COMPLETED",
+  "CANCELLED",
+]);
+
 export const reservationSearchSchema = z.object({
-  query: z.string().trim().max(100).optional(),
-  status: z
-    .enum(["CONFIRMED", "ACTIVE", "COMPLETED", "CANCELLED"])
-    .optional(),
-  vehicleId: z.uuid().optional(),
-  customerId: z.uuid().optional(),
-  from: z.iso.datetime().optional(),
-  to: z.iso.datetime().optional(),
+  query: optionalText(100),
+  status: optionalEnum(reservationStatusSchema),
+  vehicleId: optionalUuid(),
+  customerId: optionalUuid(),
+  from: z.preprocess(emptyToUndefined, z.iso.datetime().optional()),
+  to: z.preprocess(emptyToUndefined, z.iso.datetime().optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

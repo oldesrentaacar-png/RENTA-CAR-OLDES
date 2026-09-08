@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { optionalText, optionalUuid } from "@/lib/validation/form-helpers";
+import { optionalEnum, optionalText, optionalUuid } from "@/lib/validation/form-helpers";
 
 const moneyField = z.coerce
   .number()
@@ -44,9 +44,9 @@ export type PaymentReceiptInput = z.infer<typeof paymentReceiptSchema>;
 export type PaymentRefundInput = z.infer<typeof paymentRefundSchema>;
 
 export const paymentReceiptSearchSchema = z.object({
-  contractId: z.uuid().optional(),
-  customerId: z.uuid().optional(),
-  receiptKind: z.enum(["PAYMENT", "REFUND"]).optional(),
+  contractId: optionalUuid(),
+  customerId: optionalUuid(),
+  receiptKind: optionalEnum(z.enum(["PAYMENT", "REFUND"])),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

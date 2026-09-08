@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  optionalEnum,
+  optionalText,
+} from "@/lib/validation/form-helpers";
+
 export const webRequestStatusSchema = z.enum([
   "PENDING",
   "CONTACTED",
@@ -10,15 +15,15 @@ export const webRequestStatusSchema = z.enum([
 ]);
 
 export const webRequestSearchSchema = z.object({
-  query: z.string().trim().max(100).optional(),
-  status: webRequestStatusSchema.optional(),
+  query: optionalText(100),
+  status: optionalEnum(webRequestStatusSchema),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const webRequestStatusUpdateSchema = z.object({
   status: webRequestStatusSchema,
-  notes: z.string().trim().max(500).optional(),
+  notes: optionalText(500),
 });
 
 export const linkCustomerToRequestSchema = z.object({

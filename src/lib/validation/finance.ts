@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  emptyToUndefined,
+  optionalDateYmd,
+  optionalUuid as optionalUuidField,
+} from "@/lib/validation/form-helpers";
+
 const moneyField = z.coerce
   .number()
   .min(0, "El monto no puede ser negativo.")
@@ -136,15 +142,9 @@ export type ExpenseInput = z.infer<typeof expenseSchema>;
 export type ExpenseUpdateInput = z.infer<typeof expenseUpdateSchema>;
 
 export const financeSearchSchema = z.object({
-  from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  vehicleId: z.uuid().optional(),
+  from: optionalDateYmd(),
+  to: optionalDateYmd(),
+  vehicleId: optionalUuidField(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -152,15 +152,9 @@ export const financeSearchSchema = z.object({
 export type FinanceSearchInput = z.infer<typeof financeSearchSchema>;
 
 export const profitabilitySearchSchema = z.object({
-  from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  vehicleId: z.uuid().optional(),
+  from: optionalDateYmd(),
+  to: optionalDateYmd(),
+  vehicleId: optionalUuidField(),
 });
 
 export type ProfitabilitySearchInput = z.infer<
@@ -168,16 +162,13 @@ export type ProfitabilitySearchInput = z.infer<
 >;
 
 export const reportFiltersSchema = z.object({
-  from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  vehicleId: z.uuid().optional(),
-  category: z.string().optional(),
+  from: optionalDateYmd(),
+  to: optionalDateYmd(),
+  vehicleId: optionalUuidField(),
+  category: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().max(100).optional(),
+  ),
 });
 
 export type ReportFiltersInput = z.infer<typeof reportFiltersSchema>;

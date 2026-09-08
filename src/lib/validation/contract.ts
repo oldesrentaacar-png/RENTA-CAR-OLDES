@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  optionalEnum,
+  optionalText as optionalQueryText,
+  optionalUuid,
+} from "@/lib/validation/form-helpers";
+
 const moneyField = z.coerce
   .number()
   .min(0, "El monto no puede ser negativo.")
@@ -57,10 +63,10 @@ export type ContractUpdateInput = z.infer<typeof contractUpdateSchema>;
 export type ContractSignInput = z.infer<typeof contractSignSchema>;
 
 export const contractSearchSchema = z.object({
-  query: z.string().trim().max(100).optional(),
-  status: contractSchema.shape.status.optional(),
-  customerId: z.uuid().optional(),
-  vehicleId: z.uuid().optional(),
+  query: optionalQueryText(100),
+  status: optionalEnum(contractSchema.shape.status),
+  customerId: optionalUuid(),
+  vehicleId: optionalUuid(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

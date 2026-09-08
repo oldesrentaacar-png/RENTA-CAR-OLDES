@@ -1,3 +1,7 @@
+import { ZodError } from "zod";
+
+import { formatZodIssues } from "@/lib/validation/form-helpers";
+
 export type AppErrorCode =
   | "BAD_REQUEST"
   | "UNAUTHENTICATED"
@@ -100,11 +104,19 @@ export function toUserMessage(error: unknown): string {
     return error.message;
   }
 
+  if (error instanceof ZodError) {
+    return formatZodIssues(error);
+  }
+
   if (isPostgresError(error)) {
     return mapPostgresError(error).message;
   }
 
   if (error instanceof Error && error.message) {
+    // Zod sometimes serializes as Error with JSON message — keep UI clean.
+    if (error.message.trim().startsWith("[{") && error.message.includes('"code"')) {
+      return "Filtros inválidos. Revise búsqueda y estado e intente de nuevo.";
+    }
     return error.message;
   }
 

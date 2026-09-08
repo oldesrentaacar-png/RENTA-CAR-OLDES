@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  optionalEnum,
+  optionalUuid as optionalUuidField,
+} from "@/lib/validation/form-helpers";
+
 const moneyField = z.coerce
   .number()
   .min(0, "El monto no puede ser negativo.")
@@ -92,10 +97,10 @@ export type QuoteLineInput = z.infer<typeof quoteLineSchema>;
 export type QuoteUpdateInput = z.infer<typeof quoteUpdateSchema>;
 
 export const quoteSearchSchema = z.object({
-  query: z.string().trim().max(100).optional(),
-  status: quoteStatusSchema.shape.status.optional(),
-  customerId: z.uuid().optional(),
-  vehicleId: z.uuid().optional(),
+  query: optionalText(100),
+  status: optionalEnum(quoteStatusSchema.shape.status),
+  customerId: optionalUuidField(),
+  vehicleId: optionalUuidField(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

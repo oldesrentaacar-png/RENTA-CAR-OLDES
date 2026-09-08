@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  optionalEnum,
+  optionalUuid,
+} from "@/lib/validation/form-helpers";
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -94,9 +99,9 @@ export type DamageMarkInput = z.infer<typeof damageMarkSchema>;
 export type InspectionPhotoInput = z.infer<typeof inspectionPhotoSchema>;
 
 export const inspectionSearchSchema = z.object({
-  reservationId: z.uuid().optional(),
-  vehicleId: z.uuid().optional(),
-  type: z.enum(["CHECK_OUT", "CHECK_IN"]).optional(),
+  reservationId: optionalUuid(),
+  vehicleId: optionalUuid(),
+  type: optionalEnum(z.enum(["CHECK_OUT", "CHECK_IN"])),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

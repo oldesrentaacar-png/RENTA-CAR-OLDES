@@ -91,17 +91,20 @@ export type VehicleInput = z.infer<typeof vehicleSchema>;
 export type VehicleUpdateInput = z.infer<typeof vehicleUpdateSchema>;
 
 export const vehicleSearchSchema = z.object({
-  query: z.string().trim().max(100).optional(),
-  status: z
-    .enum([
-      "AVAILABLE",
-      "RESERVED",
-      "RENTED",
-      "MAINTENANCE",
-      "UNAVAILABLE",
-      "ARCHIVED",
-    ])
-    .optional(),
+  query: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
+  status: z.preprocess(
+    emptyToUndefined,
+    z
+      .enum([
+        "AVAILABLE",
+        "RESERVED",
+        "RENTED",
+        "MAINTENANCE",
+        "UNAVAILABLE",
+        "ARCHIVED",
+      ])
+      .optional(),
+  ),
   publishedOnWeb: queryBoolean(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),

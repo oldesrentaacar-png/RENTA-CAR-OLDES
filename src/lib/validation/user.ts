@@ -1,13 +1,10 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+import {
+  optionalEnum,
+  optionalText,
+  optionalUuid,
+} from "@/lib/validation/form-helpers";
 
 export const createUserSchema = z.object({
   email: z.email("Correo inválido."),
@@ -72,9 +69,9 @@ export type UserPermissionOverrideInput = z.infer<
 >;
 
 export const userSearchSchema = z.object({
-  query: z.string().trim().max(100).optional(),
-  status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]).optional(),
-  roleId: z.uuid().optional(),
+  query: optionalText(100),
+  status: optionalEnum(z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"])),
+  roleId: optionalUuid(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
