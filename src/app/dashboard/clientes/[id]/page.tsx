@@ -101,14 +101,6 @@ function CustomerInfoPanel({ customer }: { customer: Customer }) {
               }
             />
             <InfoRow label="País" value={customer.country} />
-            <InfoRow
-              label="Conductor adicional"
-              value={customer.additional_driver_name}
-            />
-            <InfoRow
-              label="Licencia adicional"
-              value={customer.additional_driver_license}
-            />
             <p className="sm:col-span-2">
               <span className="text-muted">Dirección:</span>{" "}
               {customer.address ?? "—"}
@@ -285,32 +277,44 @@ function NotesDocsTab({ customer }: { customer: Customer }) {
             <p className="whitespace-pre-wrap text-muted">{customer.notes}</p>
           </div>
         ) : null}
-        {customer.document_image_url ? (
-          <div>
-            <p className="mb-1 font-medium">Documento</p>
-            <a
-              href={customer.document_image_url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand hover:underline break-all"
-            >
-              {customer.document_image_url}
-            </a>
-          </div>
-        ) : null}
-        {customer.license_image_url ? (
-          <div>
-            <p className="mb-1 font-medium">Licencia</p>
-            <a
-              href={customer.license_image_url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand hover:underline break-all"
-            >
-              {customer.license_image_url}
-            </a>
-          </div>
-        ) : null}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {customer.document_image_url ? (
+            <div>
+              <p className="mb-2 font-medium">Documento</p>
+              <a
+                href={customer.document_image_url}
+                target="_blank"
+                rel="noreferrer"
+                className="block overflow-hidden rounded-lg border border-border"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={customer.document_image_url}
+                  alt="Documento del cliente"
+                  className="aspect-[4/3] w-full bg-white object-contain"
+                />
+              </a>
+            </div>
+          ) : null}
+          {customer.license_image_url ? (
+            <div>
+              <p className="mb-2 font-medium">Licencia</p>
+              <a
+                href={customer.license_image_url}
+                target="_blank"
+                rel="noreferrer"
+                className="block overflow-hidden rounded-lg border border-border"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={customer.license_image_url}
+                  alt="Licencia del cliente"
+                  className="aspect-[4/3] w-full bg-white object-contain"
+                />
+              </a>
+            </div>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

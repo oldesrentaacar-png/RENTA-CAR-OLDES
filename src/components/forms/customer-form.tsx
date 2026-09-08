@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { SubmitButton } from "@/components/forms/submit-button";
+import { ImageCaptureField } from "@/components/forms/image-capture-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,12 +27,16 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
   const [customerType, setCustomerType] = useState<CustomerType>(
     customer?.customer_type ?? "PERSON",
   );
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const isEdit = Boolean(customer);
   const isCompany = customerType === "COMPANY";
 
   async function handleSubmit(formData: FormData) {
     setError(null);
     formData.set("customerType", customerType);
+    if (documentFile) formData.set("documentImageFile", documentFile);
+    if (licenseFile) formData.set("licenseImageFile", licenseFile);
     const result = isEdit
       ? await updateCustomer(customer!.id, formData)
       : await createCustomer(formData);
@@ -149,11 +154,7 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
               defaultValue={customer?.last_name}
               required
             />
-            <Input
-              name="dui"
-              label="DUI"
-              defaultValue={customer?.dui ?? ""}
-            />
+            <Input name="dui" label="DUI" defaultValue={customer?.dui ?? ""} />
             <Input
               name="passport"
               label="Pasaporte"
@@ -211,19 +212,6 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
             defaultValue={customer?.address ?? ""}
           />
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              name="additionalDriverName"
-              label="Conductor adicional"
-              defaultValue={customer?.additional_driver_name ?? ""}
-            />
-            <Input
-              name="additionalDriverLicense"
-              label="Licencia conductor adicional"
-              defaultValue={customer?.additional_driver_license ?? ""}
-            />
-          </div>
-
           <Textarea
             name="notes"
             label="Notas"
@@ -233,19 +221,23 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          name="documentImageUrl"
-          label="URL imagen documento"
-          placeholder="https://..."
-          defaultValue={customer?.document_image_url ?? ""}
+        <ImageCaptureField
+          label="Foto documento (DUI / ID)"
+          urlFieldName="documentImageUrl"
+          currentUrl={customer?.document_image_url}
+          onFileChange={setDocumentFile}
         />
-        <Input
-          name="licenseImageUrl"
-          label="URL imagen licencia"
-          placeholder="https://..."
-          defaultValue={customer?.license_image_url ?? ""}
+        <ImageCaptureField
+          label="Foto licencia"
+          urlFieldName="licenseImageUrl"
+          currentUrl={customer?.license_image_url}
+          onFileChange={setLicenseFile}
         />
       </div>
+      <p className="text-xs text-muted">
+        Puede subir desde la galería o tomar foto con la cámara. El conductor
+        adicional se registra en la inspección de entrega / contrato, no aquí.
+      </p>
 
       {isCompany ? (
         <Textarea

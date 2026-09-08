@@ -17,7 +17,8 @@ import {
   type ReservationRow,
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isCloudinaryConfigured, isSupabaseConfigured } from "@/lib/env";
+import { uploadImageFromBuffer } from "@/lib/cloudinary/upload";
 import { createClient } from "@/lib/supabase/server";
 import {
   customerSchema,
@@ -37,6 +38,36 @@ function emptyToUndefined(value: FormDataEntryValue | null) {
   if (value == null) return undefined;
   const text = String(value);
   return text === "" ? undefined : text;
+}
+
+async function uploadCustomerImageFile(
+  customerId: string,
+  kind: "document" | "license",
+  file: FormDataEntryValue | null,
+): Promise<string | undefined | null> {
+  if (!(file instanceof File) || file.size === 0) return undefined;
+  if (!file.type.startsWith("image/")) {
+    throw new Error("El archivo debe ser una imagen.");
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error("La imagen no puede superar 8 MB.");
+  }
+  if (!isCloudinaryConfigured()) {
+    throw new Error(
+      "Cloudinary no está configurado. No se pueden subir fotos de documentos.",
+    );
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const upload = await uploadImageFromBuffer(buffer, {
+    folder: `rent-a-car-pro/customers/${customerId}`,
+    publicId: `${kind}-${Date.now()}`,
+    tags: ["customer", kind, customerId],
+  });
+  if (!upload.ok) {
+    throw new Error(upload.message);
+  }
+  return upload.secureUrl;
 }
 
 function parseCustomerFormData(formData: FormData) {
@@ -59,10 +90,6 @@ function parseCustomerFormData(formData: FormData) {
     email: emptyToUndefined(formData.get("email")),
     address: emptyToUndefined(formData.get("address")),
     country: emptyToUndefined(formData.get("country")),
-    additionalDriverName: emptyToUndefined(formData.get("additionalDriverName")),
-    additionalDriverLicense: emptyToUndefined(
-      formData.get("additionalDriverLicense"),
-    ),
     documentImageUrl: emptyToUndefined(formData.get("documentImageUrl")),
     licenseImageUrl: emptyToUndefined(formData.get("licenseImageUrl")),
     receiverName: emptyToUndefined(formData.get("receiverName")),
@@ -247,6 +274,28 @@ export async function createCustomer(
     if (error) throw mapPostgresError(error);
 
     const id = (data as { id: string }).id;
+
+    const documentUrl = await uploadCustomerImageFile(
+      id,
+      "document",
+      formData.get("documentImageFile"),
+    );
+    const licenseUrl = await uploadCustomerImageFile(
+      id,
+      "license",
+      formData.get("licenseImageFile"),
+    );
+    if (documentUrl || licenseUrl) {
+      const patch: Record<string, string | null> = {};
+      if (documentUrl) patch.document_image_url = documentUrl;
+      if (licenseUrl) patch.license_image_url = licenseUrl;
+      const { error: imageError } = await supabase
+        .from("customers")
+        .update(patch)
+        .eq("id", id);
+      if (imageError) throw mapPostgresError(imageError);
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "customer.create",
@@ -288,10 +337,32 @@ export async function updateCustomer(
       if (!data.lastName) data.lastName = data.contactPerson ?? "-";
     }
 
+    const documentUrl = await uploadCustomerImageFile(
+      id,
+      "document",
+      formData.get("documentImageFile"),
+    );
+    const licenseUrl = await uploadCustomerImageFile(
+      id,
+      "license",
+      formData.get("licenseImageFile"),
+    );
+    if (documentUrl) data.documentImageUrl = documentUrl;
+    if (licenseUrl) data.licenseImageUrl = licenseUrl;
+
     const supabase = await createClient();
+    const updateRow = customerInputToRow(data);
+    // Explicit clear when the form sent empty URL and no new file was uploaded.
+    if (!documentUrl && formData.get("documentImageUrl") === "") {
+      updateRow.document_image_url = null;
+    }
+    if (!licenseUrl && formData.get("licenseImageUrl") === "") {
+      updateRow.license_image_url = null;
+    }
+
     const { error } = await supabase
       .from("customers")
-      .update(customerInputToRow(data))
+      .update(updateRow)
       .eq("id", id)
       .is("deleted_at", null);
 
