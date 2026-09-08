@@ -56,13 +56,62 @@ export const FUEL_GAUGE_MARKS = [
   "F",
 ] as const;
 
-export const DAMAGE_TYPE_LABELS: Record<string, string> = {
-  SCRATCH: "Rayón",
-  DENT: "Abolladura",
-  CRACK: "Grieta",
-  PAINT: "Pintura",
-  BROKEN: "Roto",
-  OTHER: "Otro",
+/** Ordered options for the damage-type select (OLDES codes first). */
+export const DAMAGE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "SCRATCH", label: "Rayón" },
+  { value: "DENT", label: "Golpe / abolladura" },
+  { value: "MISSING", label: "Faltante" },
+  { value: "OTHER", label: "Marcado libre" },
+  { value: "PAINT", label: "Pintura" },
+  { value: "CRACK", label: "Grieta" },
+  { value: "BROKEN", label: "Roto" },
+];
+
+export const DAMAGE_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  DAMAGE_TYPE_OPTIONS.map((option) => [option.value, option.label]),
+);
+
+/** Quick tools for placing marks on the wireframe (matches paper legend). */
+export const DAMAGE_MARK_TOOLS: Array<{
+  value: string;
+  label: string;
+  symbol: string;
+  hint: string;
+}> = [
+  {
+    value: "DENT",
+    label: "Golpe",
+    symbol: "0",
+    hint: "Abolladura o golpe",
+  },
+  {
+    value: "SCRATCH",
+    label: "Rayón",
+    symbol: "+",
+    hint: "Rayón o roce",
+  },
+  {
+    value: "MISSING",
+    label: "Faltante",
+    symbol: "x",
+    hint: "Pieza ausente (tapón, cubierta…)",
+  },
+  {
+    value: "OTHER",
+    label: "Libre",
+    symbol: "·",
+    hint: "Marcado libre: describa el hallazgo",
+  },
+];
+
+export const DAMAGE_TYPE_DESCRIPTION_HINTS: Record<string, string> = {
+  MISSING: "Ej. tapón de bumper, cubierta de parabrisas, embellecedor…",
+  OTHER: "Describa el hallazgo con sus propias palabras",
+  SCRATCH: "Opcional: zona o detalle del rayón",
+  DENT: "Opcional: tamaño o causa del golpe",
+  PAINT: "Opcional: detalle de pintura",
+  CRACK: "Opcional: ubicación de la grieta",
+  BROKEN: "Opcional: qué pieza está rota",
 };
 
 export const DAMAGE_SEVERITY_LABELS: Record<string, string> = {

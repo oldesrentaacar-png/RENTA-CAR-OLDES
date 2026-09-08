@@ -69,6 +69,7 @@ export const damageMarkSchema = z.object({
     "CRACK",
     "PAINT",
     "BROKEN",
+    "MISSING",
     "OTHER",
   ]),
   severity: z.enum(["LOW", "MEDIUM", "HIGH"]),

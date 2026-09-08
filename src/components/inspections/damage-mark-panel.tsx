@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
   DAMAGE_SEVERITY_LABELS,
-  DAMAGE_TYPE_LABELS,
+  DAMAGE_TYPE_DESCRIPTION_HINTS,
+  DAMAGE_TYPE_OPTIONS,
 } from "@/lib/inspections/defaults";
 import type { DamageSeverity, DamageType } from "@/types/database";
 
@@ -22,6 +23,10 @@ export function DamageMarkPanel({
   onChange,
   onRemove,
 }: DamageMarkPanelProps) {
+  const descriptionHint =
+    DAMAGE_TYPE_DESCRIPTION_HINTS[mark.damageType] ??
+    "Descripción opcional del daño";
+
   return (
     <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
       <Select
@@ -30,9 +35,9 @@ export function DamageMarkPanel({
         onChange={(event) =>
           onChange({ damageType: event.target.value as DamageType })
         }
-        options={Object.entries(DAMAGE_TYPE_LABELS).map(([value, label]) => ({
-          value,
-          label,
+        options={DAMAGE_TYPE_OPTIONS.map((option) => ({
+          value: option.value,
+          label: option.label,
         }))}
       />
       <Select
@@ -50,8 +55,21 @@ export function DamageMarkPanel({
         label="Descripción"
         className="sm:col-span-2"
         value={mark.description ?? ""}
+        placeholder={descriptionHint}
         onChange={(event) => onChange({ description: event.target.value })}
       />
+      {mark.damageType === "MISSING" ? (
+        <p className="sm:col-span-2 text-xs text-muted">
+          Faltante: indique qué pieza no está (tapón de bumper, cubierta de
+          parabrisas, embellecedor, etc.).
+        </p>
+      ) : null}
+      {mark.damageType === "OTHER" ? (
+        <p className="sm:col-span-2 text-xs text-muted">
+          Marcado libre: use la descripción para anotar cualquier hallazgo que
+          no encaje en las otras categorías.
+        </p>
+      ) : null}
       <Button type="button" variant="danger" size="sm" onClick={onRemove}>
         Eliminar marca #{mark.markNumber}
       </Button>

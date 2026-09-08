@@ -71,6 +71,7 @@ export type DamageType =
   | "CRACK"
   | "PAINT"
   | "BROKEN"
+  | "MISSING"
   | "OTHER";
 
 export type DamageSeverity = "LOW" | "MEDIUM" | "HIGH";

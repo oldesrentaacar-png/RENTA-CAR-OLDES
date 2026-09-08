@@ -17,6 +17,7 @@ export const PANEL_DAMAGE_LEGEND = [
   { symbol: "0", meaning: "GOLPE" },
   { symbol: "+", meaning: "RAYON" },
   { symbol: "x", meaning: "FALTANTE" },
+  { symbol: "·", meaning: "LIBRE" },
 ] as const;
 
 /** ViewBox del diagrama tipo formulario (azul sobre fondo crema). */
@@ -182,8 +183,13 @@ export function bodyStyleSubtitle(style: VehicleBodyStyle): string {
 
 export function panelDamageGlyph(damageType?: string): string {
   if (damageType === "SCRATCH" || damageType === "PAINT") return "+";
-  if (damageType === "MISSING" || damageType === "BROKEN" || damageType === "CRACK")
+  if (
+    damageType === "MISSING" ||
+    damageType === "BROKEN" ||
+    damageType === "CRACK"
+  )
     return "x";
+  if (damageType === "OTHER") return "·";
   return "0";
 }
 

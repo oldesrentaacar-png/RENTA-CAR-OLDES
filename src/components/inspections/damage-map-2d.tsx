@@ -4,7 +4,10 @@ import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { DamageMarkPanel } from "@/components/inspections/damage-mark-panel";
-import { CHECKLIST_STATUS_LABELS } from "@/lib/inspections/defaults";
+import {
+  CHECKLIST_STATUS_LABELS,
+  DAMAGE_MARK_TOOLS,
+} from "@/lib/inspections/defaults";
 import {
   INSPECTION_WIREFRAME_LABELS,
   INSPECTION_WIREFRAME_TYPES,
@@ -82,6 +85,7 @@ export function DamageMap2D({
   const wireframeLabel = INSPECTION_WIREFRAME_LABELS[wireframeType];
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [activeTool, setActiveTool] = useState<DamageType>("SCRATCH");
 
   const viewMarks = useMemo(() => marks, [marks]);
 
@@ -97,8 +101,8 @@ export function DamageMap2D({
       view: "TOP",
       x,
       y,
-      damageType: "SCRATCH",
-      severity: "LOW",
+      damageType: activeTool,
+      severity: activeTool === "MISSING" ? "MEDIUM" : "LOW",
       markNumber: marks.length + 1,
     };
 
@@ -108,6 +112,7 @@ export function DamageMap2D({
 
   function updateSelected(field: Partial<DamageMarkDraft>) {
     if (selectedIndex == null) return;
+    if (field.damageType) setActiveTool(field.damageType);
     onChange(
       marks.map((mark, index) =>
         index === selectedIndex ? { ...mark, ...field } : mark,
@@ -179,6 +184,34 @@ export function DamageMap2D({
         )}
       </div>
 
+      {!readOnly ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+            Herramienta
+          </span>
+          {DAMAGE_MARK_TOOLS.map((tool) => {
+            const selected = activeTool === tool.value;
+            return (
+              <button
+                key={tool.value}
+                type="button"
+                title={tool.hint}
+                onClick={() => setActiveTool(tool.value as DamageType)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                  selected
+                    ? "border-blue-700 bg-blue-700 text-white"
+                    : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50",
+                )}
+              >
+                <span className="font-mono text-sm font-bold">{tool.symbol}</span>
+                {tool.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-xl border border-slate-300 bg-white p-3 shadow-sm">
         <div
           className={cn(
@@ -217,6 +250,7 @@ export function DamageMap2D({
                 onClick={(event) => {
                   event.stopPropagation();
                   setSelectedIndex(globalIndex);
+                  setActiveTool(mark.damageType);
                 }}
               >
                 {glyph}
@@ -225,8 +259,8 @@ export function DamageMap2D({
           })}
         </div>
         <p className="mt-2 text-center text-xs text-slate-600">
-          {wireframeLabel} · 5 vistas · clic para marcar daño (0 golpe, + rayón,
-          x faltante)
+          {wireframeLabel} · 5 vistas · elija herramienta y haga clic (0 golpe, +
+          rayón, x faltante, · marcado libre)
           {!diagramLocked ? (
             <>
               {" "}

@@ -180,6 +180,7 @@ export const OLDES_DAMAGE_LEGEND = [
 export function damageSymbol(type?: string): string {
   if (type === "SCRATCH" || type === "PAINT") return "+";
   if (type === "BROKEN" || type === "CRACK" || type === "MISSING") return "x";
+  // Marcado libre / golpe → código papel "0"
   return "0";
 }
 
