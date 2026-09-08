@@ -65,17 +65,6 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
       linkLabel: checkOutId ? "Ver / Editar accesorios" : "Crear inspección",
     },
     {
-      id: "facturacion",
-      title: "Facturación / abono inicial",
-      description:
-        amountPaid > 0
-          ? `Abonado: ${formatMoney(amountPaid)}`
-          : "Registre el abono inicial en la sección de recibos.",
-      status: amountPaid > 0 ? "done" : "pending",
-      href: `/dashboard/contratos/${contractId}#abonos`,
-      linkLabel: amountPaid > 0 ? "Ver / Editar abonos" : "Ir a abonos",
-    },
-    {
       id: "firma",
       title: "Términos y firma",
       description: hasClientSignature
@@ -84,6 +73,17 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
       status: hasClientSignature ? "done" : "pending",
       href: `/dashboard/contratos/${contractId}/sign`,
       linkLabel: hasClientSignature ? "Ver / Editar firmas" : "Firmar cliente",
+    },
+    {
+      id: "facturacion",
+      title: "Abonos",
+      description:
+        amountPaid > 0
+          ? `Abonado: ${formatMoney(amountPaid)}`
+          : "Registre el abono en la sección de recibos.",
+      status: amountPaid > 0 ? "done" : "pending",
+      href: `/dashboard/contratos/${contractId}#abonos`,
+      linkLabel: amountPaid > 0 ? "Ver / Editar abonos" : "Ir a abonos",
     },
     {
       id: "pdf",

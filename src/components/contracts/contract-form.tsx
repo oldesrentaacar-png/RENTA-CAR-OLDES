@@ -93,8 +93,8 @@ export function ContractForm({
           <li>Cliente y vehículo (este paso)</li>
           <li>Inspección de salida</li>
           <li>Checklist de accesorios</li>
-          <li>Facturación / abono inicial</li>
           <li>Términos y firma digital</li>
+          <li>Abonos</li>
           <li>PDF del contrato</li>
         </ol>
       </div>
