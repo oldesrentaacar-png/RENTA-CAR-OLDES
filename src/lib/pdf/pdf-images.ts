@@ -36,12 +36,46 @@ export type WireframeDamageMark = {
   phase?: "OUT" | "IN";
 };
 
-function escapeXml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+/** Draw mark glyphs as vectors (no system fonts — sharp/librsvg often skips text). */
+function damageMarkSvg(symbol: string, diameter: number, fill: string): Buffer {
+  const r = diameter / 2;
+  const stroke = Math.max(2.2, diameter * 0.12);
+  const pad = Math.max(4, diameter * 0.22);
+  const normalized = (symbol || "0").trim().charAt(0);
+
+  let glyph = "";
+  if (normalized === "+") {
+    const arm = Math.max(2.4, diameter * 0.14);
+    glyph = `
+      <rect x="${r - arm / 2}" y="${pad}" width="${arm}" height="${diameter - pad * 2}" rx="${arm / 3}" fill="#ffffff"/>
+      <rect x="${pad}" y="${r - arm / 2}" width="${diameter - pad * 2}" height="${arm}" rx="${arm / 3}" fill="#ffffff"/>
+    `;
+  } else if (normalized === "x" || normalized === "X" || normalized === "×") {
+    const len = diameter - pad * 2;
+    glyph = `
+      <g stroke="#ffffff" stroke-width="${stroke}" stroke-linecap="round">
+        <line x1="${pad}" y1="${pad}" x2="${pad + len}" y2="${pad + len}"/>
+        <line x1="${pad + len}" y1="${pad}" x2="${pad}" y2="${pad + len}"/>
+      </g>
+    `;
+  } else if (normalized === "·" || normalized === "." || normalized === "•") {
+    const dot = Math.max(3, diameter * 0.18);
+    glyph = `<circle cx="${r}" cy="${r}" r="${dot}" fill="#ffffff"/>`;
+  } else {
+    // "0" / golpe — óvalo blanco como el dígito 0 del UI
+    const rx = Math.max(3.5, r - pad);
+    const ry = Math.max(4.5, r - pad * 0.72);
+    glyph = `
+      <ellipse cx="${r}" cy="${r}" rx="${rx}" ry="${ry}" fill="none" stroke="#ffffff" stroke-width="${stroke}"/>
+    `;
+  }
+
+  return Buffer.from(
+    `<svg width="${diameter}" height="${diameter}" viewBox="0 0 ${diameter} ${diameter}" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="${r}" cy="${r}" r="${r - 1.2}" fill="${fill}" stroke="#ffffff" stroke-width="${Math.max(2, diameter * 0.06)}"/>
+  ${glyph}
+</svg>`,
+  );
 }
 
 /**
@@ -72,26 +106,25 @@ export async function compositeDamageMarksOnWireframe(
   const height = meta.height ?? 0;
   if (width < 8 || height < 8) return wireframeDataUrl;
 
-  const radius = Math.max(16, Math.round(Math.min(width, height) * 0.016));
-  const diameter = radius * 2;
+  // Match UI marker scale (~28px on screen over ~1024px width).
+  const diameter = Math.max(28, Math.round(Math.min(width, height) * 0.028));
+  const radius = diameter / 2;
 
   const overlays = await Promise.all(
     usable.map(async (mark) => {
       const cx = Math.round(mark.x * width);
       const cy = Math.round(mark.y * height);
       const fill = mark.phase === "IN" ? "#b91c1c" : "#0f2747";
-      const fontSize = Math.round(radius * 1.15);
-      const symbol = escapeXml((mark.symbol || "?").slice(0, 2));
+      const svg = damageMarkSvg(mark.symbol || "0", diameter, fill);
 
-      const svg = Buffer.from(
-        `<svg width="${diameter}" height="${diameter}" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="${radius}" cy="${radius}" r="${radius - 1.5}" fill="${fill}" stroke="#ffffff" stroke-width="2.5"/>
-  <text x="${radius}" y="${radius + fontSize * 0.35}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="700" fill="#ffffff">${symbol}</text>
-</svg>`,
+      const left = Math.max(
+        0,
+        Math.min(width - diameter, Math.round(cx - radius)),
       );
-
-      const left = Math.max(0, Math.min(width - diameter, cx - radius));
-      const top = Math.max(0, Math.min(height - diameter, cy - radius));
+      const top = Math.max(
+        0,
+        Math.min(height - diameter, Math.round(cy - radius)),
+      );
 
       return {
         input: await sharp(svg).png().toBuffer(),
