@@ -22,6 +22,7 @@ import {
   FUEL_LEVEL_LABELS,
 } from "@/lib/inspections/defaults";
 import { formatMoney, parseMoneyInput } from "@/lib/money";
+import { closeActPdfHref } from "@/lib/pdf/pdf-cache";
 import { cn } from "@/lib/utils";
 
 type CloseContractWizardProps = {
@@ -290,7 +291,7 @@ export function CloseContractWizard({
     }
 
     window.open(
-      `/dashboard/contratos/${contract.id}/acta-cierre/pdf`,
+      closeActPdfHref(contract.id, new Date().toISOString()),
       "_blank",
       "noopener,noreferrer",
     );

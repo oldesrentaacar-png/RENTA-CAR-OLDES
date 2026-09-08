@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateQuoteLineTotals } from "@/lib/calculations/quote";
+import { rentalDaysBetween } from "@/lib/dates";
 import { formatMoney, parseMoneyInput, toNumber, multiply } from "@/lib/money";
 
 export type QuoteCatalogItem = {
@@ -268,6 +269,28 @@ export function QuoteForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Vehicle lines always bill dailyRate × rental days (exact, no manual qty). */
+  useEffect(() => {
+    if (!startAt || !endAt) return;
+    let days: number;
+    try {
+      days = rentalDaysBetween(startAt, endAt);
+    } catch {
+      return;
+    }
+    const qty = String(days);
+    setLines((prev) => {
+      let changed = false;
+      const next = prev.map((line) => {
+        if (line.item_type !== "VEHICLE") return line;
+        if (line.quantity === qty) return line;
+        changed = true;
+        return { ...line, quantity: qty };
+      });
+      return changed ? next : prev;
+    });
+  }, [startAt, endAt]);
+
   const selectedType = useMemo(
     () => vehicleTypes.find((t) => t.id === vehicleTypeId) ?? null,
     [vehicleTypes, vehicleTypeId],
@@ -308,6 +331,7 @@ export function QuoteForm({
         lines: lines.map((line) => ({
           quantity: parseMoneyInput(line.quantity || "0"),
           unit_price: parseMoneyInput(line.unit_price || "0"),
+          item_type: line.item_type,
         })),
         discountPercent: parseMoneyInput(discountPercent || "0"),
         taxRatePercent: parseMoneyInput(taxRate || "0"),
@@ -317,6 +341,15 @@ export function QuoteForm({
       return null;
     }
   }, [startAt, endAt, lines, discountPercent, taxRate, deposit]);
+
+  function rentalDaysOrOne() {
+    if (!startAt || !endAt) return 1;
+    try {
+      return rentalDaysBetween(startAt, endAt);
+    } catch {
+      return 1;
+    }
+  }
 
   function applyVehicleType(typeId: string) {
     setVehicleTypeId(typeId);
@@ -330,7 +363,7 @@ export function QuoteForm({
     const vehicleLine: QuoteLineDraft = {
       key: newKey(),
       description: vehicleTypeDescription(type, language),
-      quantity: "1",
+      quantity: String(rentalDaysOrOne()),
       unit_price: String(type.dailyRate),
       item_type: "VEHICLE",
       catalog_item_id: null,
@@ -408,12 +441,12 @@ export function QuoteForm({
   }
 
   function lineAmount(line: QuoteLineDraft) {
-    return toNumber(
-      multiply(
-        parseMoneyInput(line.quantity || "0"),
-        parseMoneyInput(line.unit_price || "0"),
-      ),
-    );
+    const unit = parseMoneyInput(line.unit_price || "0");
+    const qty =
+      line.item_type === "VEHICLE"
+        ? rentalDaysOrOne()
+        : parseMoneyInput(line.quantity || "0");
+    return toNumber(multiply(qty, unit));
   }
 
   async function handleSubmit(formData: FormData) {
@@ -428,6 +461,7 @@ export function QuoteForm({
       return;
     }
 
+    const days = rentalDaysOrOne();
     formData.set("language", language);
     formData.set("vehicleTypeId", vehicleTypeId);
     formData.set("taxRate", taxRate);
@@ -437,16 +471,23 @@ export function QuoteForm({
     formData.set(
       "lines",
       JSON.stringify(
-        lines.map((line) => ({
-          description: line.description.trim(),
-          quantity: parseMoneyInput(line.quantity || "0"),
-          unit_price: parseMoneyInput(line.unit_price || "0"),
-          amount: lineAmount(line),
-          item_type: line.item_type,
-          catalog_item_id: line.catalog_item_id,
-          item_code: line.item_code,
-          tax_rate: line.tax_rate,
-        })),
+        lines.map((line) => {
+          const quantity =
+            line.item_type === "VEHICLE"
+              ? days
+              : parseMoneyInput(line.quantity || "0");
+          const unit_price = parseMoneyInput(line.unit_price || "0");
+          return {
+            description: line.description.trim(),
+            quantity,
+            unit_price,
+            amount: toNumber(multiply(quantity, unit_price)),
+            item_type: line.item_type,
+            catalog_item_id: line.catalog_item_id,
+            item_code: line.item_code,
+            tax_rate: line.tax_rate,
+          };
+        }),
       ),
     );
 
@@ -614,10 +655,23 @@ export function QuoteForm({
                     min="0.01"
                     step="0.01"
                     value={line.quantity}
-                    onChange={(e) =>
-                      updateLine(line.key, { quantity: e.target.value })
+                    readOnly={line.item_type === "VEHICLE"}
+                    title={
+                      line.item_type === "VEHICLE"
+                        ? language === "en"
+                          ? "Vehicle quantity = rental days (from dates)"
+                          : "Cantidad del vehículo = días de renta (según fechas)"
+                        : undefined
                     }
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                    onChange={(e) => {
+                      if (line.item_type === "VEHICLE") return;
+                      updateLine(line.key, { quantity: e.target.value });
+                    }}
+                    className={`w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm ${
+                      line.item_type === "VEHICLE"
+                        ? "bg-zinc-50 text-zinc-700"
+                        : ""
+                    }`}
                   />
                 </div>
                 <div className="sm:col-span-2">

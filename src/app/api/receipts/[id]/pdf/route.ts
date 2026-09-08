@@ -4,6 +4,10 @@ import { getPaymentReceiptPdfData } from "@/app/dashboard/recibos/actions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
+import {
+  PDF_NO_STORE_HEADERS,
+  RECEIPT_PDF_TEMPLATE_VERSION,
+} from "@/lib/pdf/pdf-cache";
 import { renderPaymentReceiptPdf } from "@/lib/pdf/render";
 import { verifyReceiptPdfShareToken } from "@/lib/receipts/share-token";
 
@@ -57,10 +61,15 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="recibo-${pdfData.receiptCode}.pdf"`,
-        "Cache-Control": hasShareToken
-          ? "public, max-age=300"
-          : "private, max-age=60",
+        "Content-Disposition": `inline; filename="recibo-${pdfData.receiptCode}-${RECEIPT_PDF_TEMPLATE_VERSION}.pdf"`,
+        ...(hasShareToken
+          ? {
+              "Cache-Control": "private, no-store, no-cache, must-revalidate, max-age=0",
+              Pragma: "no-cache",
+              Expires: "0",
+            }
+          : PDF_NO_STORE_HEADERS),
+        "X-PDF-Template-Version": RECEIPT_PDF_TEMPLATE_VERSION,
       },
     });
   } catch {

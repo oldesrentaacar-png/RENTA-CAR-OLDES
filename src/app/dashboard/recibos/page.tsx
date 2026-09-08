@@ -8,6 +8,7 @@ import { formatAppDate } from "@/lib/dates";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
+import { receiptPdfHref } from "@/lib/pdf/pdf-cache";
 
 export default async function RecibosPage() {
   const configured = isSupabaseConfigured();
@@ -95,7 +96,7 @@ export default async function RecibosPage() {
                   </Link>
                 ) : null}
                 <a
-                  href={`/api/receipts/${row.id}/pdf`}
+                  href={receiptPdfHref(row.id, row.updated_at)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-brand hover:underline"

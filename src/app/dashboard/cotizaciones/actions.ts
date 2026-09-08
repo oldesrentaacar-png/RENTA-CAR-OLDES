@@ -8,6 +8,7 @@ import { assertPermission } from "@/lib/auth/guards";
 import {
   calculateQuoteLineTotals,
   calculateQuoteTotals,
+  normalizeQuoteVehicleLines,
 } from "@/lib/calculations/quote";
 import {
   mapQuoteRow,
@@ -124,7 +125,11 @@ function computeQuoteTotals(parsed: {
   pickupFee: number;
   otherCharges: number;
 }) {
-  const lines = parsed.lines ?? [];
+  const lines = normalizeQuoteVehicleLines(
+    parsed.lines ?? [],
+    parsed.startAt,
+    parsed.endAt,
+  );
   const useLines = lines.length > 0;
 
   const totals = useLines
@@ -471,6 +476,7 @@ export async function updateQuote(
         valid_until: parsed.data.validUntil
           ? parsed.data.validUntil.slice(0, 10)
           : null,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", id)
       .is("deleted_at", null);
@@ -899,7 +905,7 @@ export async function getQuotePdfData(quoteId: string) {
 
   const { data: items } = await supabase
     .from("quote_items")
-    .select("description, quantity, unit_price, amount, sort_order")
+    .select("description, quantity, unit_price, amount, sort_order, item_type")
     .eq("quote_id", quoteId)
     .order("sort_order", { ascending: true });
 
@@ -940,11 +946,37 @@ export async function getQuotePdfData(quoteId: string) {
       ? q.customers.company_name
       : `${q.customers.first_name} ${q.customers.last_name}`;
 
-  const lineItems = (items ?? []).map((item) => ({
+  const rawLines = (items ?? []).map((item) => ({
     description: String(item.description ?? ""),
     quantity: Number(item.quantity ?? 0),
-    unitPrice: Number(item.unit_price ?? 0),
+    unit_price: Number(item.unit_price ?? 0),
     amount: Number(item.amount ?? 0),
+    item_type: (item.item_type as string | null) ?? null,
+  }));
+
+  const normalizedLines = normalizeQuoteVehicleLines(
+    rawLines,
+    mapped.start_at,
+    mapped.end_at,
+  );
+
+  const lineTotals =
+    normalizedLines.length > 0
+      ? calculateQuoteLineTotals({
+          startAt: mapped.start_at,
+          endAt: mapped.end_at,
+          lines: normalizedLines,
+          discountPercent: mapped.discount_percent ?? 0,
+          taxRatePercent: (mapped.tax_rate ?? 0) * 100,
+          depositAmount: mapped.deposit_amount,
+        })
+      : null;
+
+  const lineItems = normalizedLines.map((item) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unitPrice: item.unit_price,
+    amount: item.amount ?? toNumber(multiply(item.quantity, item.unit_price)),
   }));
 
   const typeLabel = vehicleTypeLabelFromJoin(
@@ -976,17 +1008,17 @@ export async function getQuotePdfData(quoteId: string) {
     vehicleLabel,
     startAtLabel: formatAppDateTime(mapped.start_at),
     endAtLabel: formatAppDateTime(mapped.end_at),
-    rentalDays: mapped.rental_days,
+    rentalDays: lineTotals?.rentalDays ?? mapped.rental_days,
     dailyRate: mapped.daily_rate,
-    subtotal: mapped.subtotal,
+    subtotal: lineTotals?.subtotal ?? mapped.subtotal,
     insuranceAmount: mapped.insurance_amount,
-    depositAmount: mapped.deposit_amount,
+    depositAmount: lineTotals?.depositAmount ?? mapped.deposit_amount,
     deliveryFee: mapped.delivery_fee,
     pickupFee: mapped.pickup_fee,
-    discountAmount: mapped.discount_amount,
+    discountAmount: lineTotals?.discountAmount ?? mapped.discount_amount,
     otherCharges: mapped.other_charges,
-    taxAmount: mapped.tax_amount,
-    total: mapped.total,
+    taxAmount: lineTotals?.taxAmount ?? mapped.tax_amount,
+    total: lineTotals?.total ?? mapped.total,
     lineItems,
     welcomeText: q.welcome_text ?? null,
     paymentConditions: q.payment_conditions ?? null,

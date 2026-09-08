@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatAppDate } from "@/lib/dates";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney } from "@/lib/money";
+import { receiptPdfHref } from "@/lib/pdf/pdf-cache";
 import type { PaymentReceipt } from "@/types/database";
 
 type ContractReceiptsSectionProps = {
@@ -170,7 +171,7 @@ export function ContractReceiptsSection({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <a
-                      href={`/api/receipts/${receipt.id}/pdf`}
+                      href={receiptPdfHref(receipt.id, receipt.updated_at)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex h-9 items-center rounded-lg border border-border px-3 text-sm font-medium hover:bg-surface-muted"

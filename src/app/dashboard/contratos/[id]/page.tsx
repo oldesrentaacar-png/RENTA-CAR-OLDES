@@ -24,6 +24,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { formatAppDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
+import { closeActPdfHref } from "@/lib/pdf/pdf-cache";
 
 export default async function ContratoDetailPage({
   params,
@@ -138,6 +139,7 @@ export default async function ContratoDetailPage({
                 ) : null}
                 <ContractPdfLink
                   contractId={id}
+                  updatedAt={contract.updated_at}
                   clientSigned={Boolean(
                     contract.signatures.some((s) => s.signer_type === "CLIENT"),
                   )}
@@ -145,7 +147,7 @@ export default async function ContratoDetailPage({
                 />
                 {contract.closed_at || contract.status === "COMPLETED" ? (
                   <a
-                    href={`/dashboard/contratos/${id}/acta-cierre/pdf`}
+                    href={closeActPdfHref(id, contract.updated_at)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"

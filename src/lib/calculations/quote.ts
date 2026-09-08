@@ -80,7 +80,8 @@ export function calculateQuoteTotals(
   };
 }
 
-/** Line-item quote totals (catalog / custom lines + % discount + % tax). */
+/** Line-item quote totals (catalog / custom lines + % discount + % tax).
+ * VEHICLE lines are always billed as dailyRate × rentalDays. */
 export function calculateQuoteLineTotals(input: {
   startAt: Date | string;
   endAt: Date | string;
@@ -88,6 +89,7 @@ export function calculateQuoteLineTotals(input: {
     quantity: MoneyInput;
     unit_price: MoneyInput;
     amount?: MoneyInput;
+    item_type?: string | null;
   }>;
   discountPercent?: MoneyInput;
   taxRatePercent?: MoneyInput;
@@ -100,10 +102,13 @@ export function calculateQuoteLineTotals(input: {
 
   let subtotal = 0;
   for (const line of input.lines) {
-    const qty = parseMoneyInput(line.quantity);
     const unit = parseMoneyInput(line.unit_price);
+    const isVehicle = line.item_type === "VEHICLE";
+    const qty = isVehicle
+      ? rentalDays
+      : parseMoneyInput(line.quantity);
     const amount =
-      line.amount !== undefined && line.amount !== ""
+      !isVehicle && line.amount !== undefined && line.amount !== ""
         ? parseMoneyInput(line.amount)
         : toNumber(multiply(qty, unit));
     subtotal = toNumber(add(subtotal, amount));
@@ -134,6 +139,28 @@ export function calculateQuoteLineTotals(input: {
     total,
     discountPercent,
   };
+}
+
+/** Normalize quote lines so VEHICLE rows always use rental days × daily rate. */
+export function normalizeQuoteVehicleLines<
+  T extends {
+    quantity: number;
+    unit_price: number;
+    amount?: number;
+    item_type?: string | null;
+  },
+>(lines: T[], startAt: Date | string, endAt: Date | string): T[] {
+  const rentalDays = rentalDaysBetween(startAt, endAt);
+  return lines.map((line) => {
+    if (line.item_type !== "VEHICLE") return line;
+    const unit = parseMoneyInput(line.unit_price);
+    const quantity = rentalDays;
+    return {
+      ...line,
+      quantity,
+      amount: toNumber(multiply(quantity, unit)),
+    };
+  });
 }
 
 /** Reservation total = (tarifa × días) + seguro. Depósito no se suma. */

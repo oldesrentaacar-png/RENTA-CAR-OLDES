@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { env } from "@/lib/env";
+import { RECEIPT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/pdf-cache";
 
 const DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
@@ -84,5 +85,10 @@ export function buildReceiptPdfShareUrl(
   const origin = (baseUrl ?? resolveAppBaseUrl())?.replace(/\/$/, "");
   if (!origin || !shareSecret()) return null;
   const token = createReceiptPdfShareToken(receiptId);
-  return `${origin}/api/receipts/${receiptId}/pdf?token=${encodeURIComponent(token)}`;
+  const params = new URLSearchParams({
+    token,
+    v: RECEIPT_PDF_TEMPLATE_VERSION,
+    t: String(Date.now()),
+  });
+  return `${origin}/api/receipts/${receiptId}/pdf?${params.toString()}`;
 }

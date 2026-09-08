@@ -4,6 +4,10 @@ import { getQuotePdfData } from "@/app/dashboard/cotizaciones/actions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
+import {
+  PDF_NO_STORE_HEADERS,
+  QUOTE_PDF_TEMPLATE_VERSION,
+} from "@/lib/pdf/pdf-cache";
 import { renderQuotePdf } from "@/lib/pdf/render";
 
 export async function GET(
@@ -49,8 +53,9 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="cotizacion-${pdfData.quoteCode}.pdf"`,
-        "Cache-Control": "private, max-age=60",
+        "Content-Disposition": `inline; filename="cotizacion-${pdfData.quoteCode}-${QUOTE_PDF_TEMPLATE_VERSION}.pdf"`,
+        ...PDF_NO_STORE_HEADERS,
+        "X-PDF-Template-Version": QUOTE_PDF_TEMPLATE_VERSION,
       },
     });
   } catch {

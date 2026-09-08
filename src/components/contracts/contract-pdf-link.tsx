@@ -7,6 +7,7 @@ type ContractPdfLinkProps = {
   children?: React.ReactNode;
   /** Client electronic signature present. */
   clientSigned?: boolean;
+  updatedAt?: string | null;
 };
 
 /**
@@ -19,6 +20,7 @@ export function ContractPdfLink({
   className,
   children,
   clientSigned = true,
+  updatedAt,
 }: ContractPdfLinkProps) {
   const label =
     children ??
@@ -26,7 +28,7 @@ export function ContractPdfLink({
 
   return (
     <a
-      href={contractPdfHref(contractId)}
+      href={contractPdfHref(contractId, updatedAt)}
       target="_blank"
       rel="noopener noreferrer"
       title={

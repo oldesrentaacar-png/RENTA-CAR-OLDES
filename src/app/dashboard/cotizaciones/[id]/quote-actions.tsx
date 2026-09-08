@@ -13,6 +13,7 @@ import {
 } from "@/app/dashboard/cotizaciones/actions";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { Button } from "@/components/ui/button";
+import { quotePdfHref } from "@/lib/pdf/pdf-cache";
 import type { Quote } from "@/types/database";
 
 export function QuoteDetailActions({ quote }: { quote: Quote }) {
@@ -134,7 +135,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           WhatsApp
         </Button>
         <Link
-          href={`/api/quotes/${quote.id}/pdf`}
+          href={quotePdfHref(quote.id, quote.updated_at)}
           target="_blank"
           className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
         >
