@@ -421,7 +421,7 @@ export async function updateQuote(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { user } = await assertPermission("quotes.delete");
+    const { user } = await assertPermission("quotes.edit");
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -583,7 +583,7 @@ export async function getQuoteForEdit(
   id: string,
 ): Promise<ActionResult<QuoteEditPayload>> {
   try {
-    await assertPermission("quotes.delete");
+    await assertPermission("quotes.edit");
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }

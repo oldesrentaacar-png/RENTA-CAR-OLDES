@@ -96,6 +96,17 @@ export function filterContractClauseBody(clauses: string[]): string[] {
     });
 }
 
+/** Resolve clause body for sign UI and PDF (same rules, no UI/PDF drift). */
+export function resolveContractClauses(raw?: string | null): string[] {
+  if (raw?.trim()) {
+    const filtered = filterContractClauseBody(
+      raw.split(/\n+/).map((line) => line.trim()),
+    );
+    if (filtered.length > 0) return filtered;
+  }
+  return filterContractClauseBody([...OLDES_CONTRACT_CLAUSES]);
+}
+
 /** Treat empty / seed placeholders as missing so PDFs use OLDES defaults. */
 function isUsableContactValue(value?: string | null): value is string {
   if (!value?.trim()) return false;

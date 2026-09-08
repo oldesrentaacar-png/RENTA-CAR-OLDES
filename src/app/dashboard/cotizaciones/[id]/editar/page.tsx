@@ -143,7 +143,7 @@ export default async function EditarCotizacionPage({
   }));
 
   return (
-    <PermissionGuard permission="quotes.delete">
+    <PermissionGuard permission="quotes.edit">
       <div className="space-y-6">
         <PageHeader
           title={`Editar ${quote.code}`}

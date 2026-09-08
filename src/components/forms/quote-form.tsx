@@ -390,7 +390,9 @@ export function QuoteForm({
       {
         key: newKey(),
         description: catalogDescriptionText(item, language),
-        quantity: "1",
+        quantity: String(
+          itemType === "VEHICLE" ? rentalDaysOrOne() : 1,
+        ),
         unit_price: String(item.unit_price),
         item_type: itemType,
         catalog_item_id: item.id,

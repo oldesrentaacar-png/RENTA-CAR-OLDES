@@ -59,7 +59,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <PermissionGuard permission="quotes.delete" fallback={null}>
+        <PermissionGuard permission="quotes.edit" fallback={null}>
           <Link
             href={`/dashboard/cotizaciones/${quote.id}/editar`}
             className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"

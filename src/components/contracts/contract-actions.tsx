@@ -16,8 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
-  filterContractClauseBody,
-  OLDES_CONTRACT_CLAUSES,
+  resolveContractClauses,
 } from "@/lib/contracts/oldes-terms";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -76,14 +75,10 @@ export function ContractDetailActions({
     operatorName ??
     "Operador en sesión";
 
-  const termsClauses = useMemo(() => {
-    const raw = contract.clauses?.trim();
-    const source =
-      raw && raw.length > 40
-        ? raw.split(/\n+/).map((line) => line.trim()).filter(Boolean)
-        : [...OLDES_CONTRACT_CLAUSES];
-    return filterContractClauseBody(source);
-  }, [contract.clauses]);
+  const termsClauses = useMemo(
+    () => resolveContractClauses(contract.clauses),
+    [contract.clauses],
+  );
 
   const editable =
     canEdit &&
