@@ -69,6 +69,33 @@ export function shouldIncludePagare(customer: {
   return false;
 }
 
+/** Prefer explicit contract override; otherwise auto from customer docs. */
+export function resolveIncludePagare(
+  stored: boolean | null | undefined,
+  customer: {
+    country?: string | null;
+    dui?: string | null;
+    passport?: string | null;
+  },
+): boolean {
+  if (stored === true || stored === false) return stored;
+  return shouldIncludePagare(customer);
+}
+
+/** Drop chrome titles that the PDF page already prints once. */
+export function filterContractClauseBody(clauses: string[]): string[] {
+  return clauses
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => {
+      const upper = line.toUpperCase();
+      if (upper.startsWith("CLÁUSULAS DEL CONTRATO")) return false;
+      if (upper.startsWith("CLAUSULAS DEL CONTRATO")) return false;
+      if (upper.startsWith("CONTRATO DIGITAL DE ARRENDAMIENTO")) return false;
+      return true;
+    });
+}
+
 /** Treat empty / seed placeholders as missing so PDFs use OLDES defaults. */
 function isUsableContactValue(value?: string | null): value is string {
   if (!value?.trim()) return false;
@@ -190,8 +217,6 @@ export function damageSymbol(type?: string): string {
  * Orden: 1–10. El pagaré NO forma parte de estas cláusulas (documento aparte).
  */
 export const OLDES_CONTRACT_CLAUSES: string[] = [
-  "CONTRATO DIGITAL DE ARRENDAMIENTO DE VEHÍCULO — OLDES, S.A. DE C.V.",
-  "CLÁUSULAS DEL CONTRATO",
   '1. PARTES Y OBJETO\nEl presente contrato se celebra entre OLDES, S.A. DE C.V. (en adelante "La Arrendadora") y la persona natural o jurídica identificada como cliente en el formulario de recepción/anverso digital (en adelante "El Arrendatario"). La Arrendadora entrega en arrendamiento a El Arrendatario, y este recibe a título de depósito y bajo su entera responsabilidad, el vehículo automotor y sus accesorios descritos en la ficha técnica del servicio.',
   "2. PLAZO, ENTREGA Y DEVOLUCIÓN\n2.1. Plazo: El plazo del arrendamiento será el estipulado en la recepción del servicio, computado por horas, días, semanas o meses.\n2.2. Devolución: El Arrendatario se obliga a devolver el vehículo en la fecha, hora y lugar convenidos (incluyendo gasolineras, residenciales o las instalaciones de La Arrendadora) en las mismas condiciones mecánicas, estéticas y de limpieza en que lo recibió.\n2.3. Retrasos y Apropiación Indebida: Si El Arrendatario no devuelve el vehículo dentro del plazo pactado ni solicita una extensión autorizada por escrito, incurrirá en mora y facultará a La Arrendadora para reposesionarlo en el lugar donde se encuentre, sin necesidad de requerimiento judicial previo. El Arrendatario responderá por los días adicionales, cargos por mora y reajustes de tarifa aplicables.",
   "3. CONDICIONES DE PAGO Y DEPÓSITO DE GARANTÍA\n3.1. Formas de Pago: El pago total del alquiler debe realizarse al momento de recibir el vehículo. Se acepta efectivo y tarjetas de crédito/débito.\n3.2. Depósito de Garantía: El Arrendatario debe constituir un depósito de garantía o preautorización en tarjeta de crédito. La Arrendadora queda expresamente autorizada para cargar a la tarjeta de crédito suministrada cualquier saldo pendiente por: excedente de tiempo, combustible, faltantes de accesorios, daños ocultos, reparaciones menores y multas de tránsito.",

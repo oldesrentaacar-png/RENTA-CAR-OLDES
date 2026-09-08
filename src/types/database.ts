@@ -503,6 +503,8 @@ export interface Contract {
   courtesy_days?: number;
   actual_return_at?: string | null;
   grace_extra_days_waived?: number;
+  /** null/undefined = auto from customer docs; true/false = operator override. */
+  include_pagare?: boolean | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -97,6 +97,7 @@ export default async function ContratoDetailPage({
           hasClientSignature: progress.hasClientSignature,
           hasRepresentativeSignature: progress.hasRepresentativeSignature,
           hasPdf: progress.hasPdf,
+          updatedAt: contract.updated_at,
         })
       : null;
 

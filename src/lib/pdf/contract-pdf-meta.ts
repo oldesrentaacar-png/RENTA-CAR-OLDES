@@ -1,5 +1,5 @@
 /** Bump when the contract PDF layout changes (forces fresh downloads). */
-export const CONTRACT_PDF_TEMPLATE_VERSION = "2026-09-08-v18";
+export const CONTRACT_PDF_TEMPLATE_VERSION = "2026-09-08-v19";
 
 export function contractPdfHref(
   contractId: string,
@@ -7,9 +7,9 @@ export function contractPdfHref(
 ): string {
   const params = new URLSearchParams({
     v: CONTRACT_PDF_TEMPLATE_VERSION,
+    t: updatedAt
+      ? String(new Date(updatedAt).getTime())
+      : String(Date.now()),
   });
-  if (updatedAt) {
-    params.set("t", String(new Date(updatedAt).getTime()));
-  }
   return `/dashboard/contratos/${contractId}/pdf?${params.toString()}`;
 }

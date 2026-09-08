@@ -13,6 +13,7 @@ export type DeliveryStepsInput = {
   hasClientSignature: boolean;
   hasRepresentativeSignature: boolean;
   hasPdf: boolean;
+  updatedAt?: string | null;
 };
 
 export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
@@ -25,6 +26,7 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     checkOutChecklistCount,
     amountPaid,
     hasClientSignature,
+    updatedAt,
   } = input;
 
   return [
@@ -92,7 +94,7 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
         ? "Firmado por el cliente — listo para ver y compartir."
         : "Vista interna disponible. Comparta solo después de la firma del cliente.",
       status: hasClientSignature ? "done" : "partial",
-      href: contractPdfHref(contractId),
+      href: contractPdfHref(contractId, updatedAt),
       linkLabel: hasClientSignature
         ? "Ver / Compartir PDF"
         : "Ver PDF (vista interna)",

@@ -13,6 +13,7 @@ import {
   OLDES_COMPANY,
   OLDES_CONTRACT_CLAUSES,
   OLDES_CONTRACT_FOOTER_NOTE,
+  filterContractClauseBody,
 } from "@/lib/contracts/oldes-terms";
 import {
   DAMAGE_SEVERITY_LABELS,
@@ -571,13 +572,14 @@ export function ContractPdfDocument(props: ContractPdfProps) {
     props.customerIdentification ||
     "";
 
-  const clauses =
+  const clauses = filterContractClauseBody(
     props.clauses && props.clauses.trim().length > 80
       ? props.clauses
           .split(/\n+/)
           .map((line) => line.trim())
           .filter(Boolean)
-      : [...OLDES_CONTRACT_CLAUSES];
+      : [...OLDES_CONTRACT_CLAUSES],
+  );
 
   const subtotalRental = props.dailyRate * props.rentalDays;
   const billingLines = props.billingLineItems ?? [];

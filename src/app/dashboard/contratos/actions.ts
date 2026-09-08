@@ -35,6 +35,8 @@ import {
   amountToSpanishUsd,
   damageSymbol,
   deductibleForVehicleType,
+  filterContractClauseBody,
+  resolveIncludePagare,
   resolvePdfBusinessContact,
   shouldIncludePagare,
 } from "@/lib/contracts/oldes-terms";
@@ -283,6 +285,7 @@ export async function getDeliveryFlowForReservation(
       hasClientSignature: progress.data.hasClientSignature,
       hasRepresentativeSignature: progress.data.hasRepresentativeSignature,
       hasPdf: progress.data.hasPdf,
+      updatedAt: (raw as { updated_at?: string }).updated_at,
     });
 
     return actionSuccess({
@@ -518,7 +521,7 @@ export async function getContract(
     if (sigError) throw mapPostgresError(sigError);
 
     const contract = mapContractRow(row);
-    const includePagare = shouldIncludePagare({
+    const includePagare = resolveIncludePagare(contract.include_pagare, {
       country: customers.country,
       dui: customers.dui,
       passport: customers.passport,
@@ -833,6 +836,18 @@ export async function createContract(
       insurance,
     });
 
+    const { data: customerRow } = await supabase
+      .from("customers")
+      .select("country, dui, passport")
+      .eq("id", r.customer_id)
+      .maybeSingle();
+
+    const includePagareDefault = shouldIncludePagare({
+      country: (customerRow as { country?: string | null } | null)?.country,
+      dui: (customerRow as { dui?: string | null } | null)?.dui,
+      passport: (customerRow as { passport?: string | null } | null)?.passport,
+    });
+
     const { data, error } = await supabase
       .from("contracts")
       .insert({
@@ -849,6 +864,7 @@ export async function createContract(
         clauses: parsed.data.clauses ?? null,
         notes: parsed.data.notes ?? null,
         status: parsed.data.status,
+        include_pagare: includePagareDefault,
         created_by: user.id,
       })
       .select("id")
@@ -940,6 +956,63 @@ export async function updateContract(
     revalidatePath("/dashboard/contratos");
     revalidatePath(`/dashboard/contratos/${id}`);
     return actionSuccess({ id });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+/** Operator override: include or exclude pagaré page in the contract PDF. */
+export async function setContractIncludePagare(
+  contractId: string,
+  include: boolean,
+): Promise<ActionResult<{ includePagare: boolean }>> {
+  try {
+    const { user } = await assertPermission("contracts.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("contracts")
+      .select("status")
+      .eq("id", contractId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Contrato no encontrado.");
+
+    const status = (existing as { status: ContractStatus }).status;
+    if (status === "COMPLETED" || status === "CANCELLED") {
+      return actionError(
+        "No se puede cambiar el pagaré de un contrato completado o cancelado.",
+      );
+    }
+
+    const { error } = await supabase
+      .from("contracts")
+      .update({
+        include_pagare: include,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", contractId)
+      .is("deleted_at", null);
+
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "contract.include_pagare",
+      entityType: "contract",
+      entityId: contractId,
+      metadata: { includePagare: include },
+    });
+
+    revalidatePath("/dashboard/contratos");
+    revalidatePath(`/dashboard/contratos/${contractId}`);
+    revalidatePath(`/dashboard/contratos/${contractId}/pdf`);
+    return actionSuccess({ includePagare: include });
   } catch (error) {
     return actionError(toUserMessage(error));
   }
@@ -1714,12 +1787,20 @@ export async function signContract(
     if (newStatus !== currentStatus) {
       const { error: updateError } = await supabase
         .from("contracts")
-        .update({ status: newStatus })
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", contractId);
 
       if (updateError) throw mapPostgresError(updateError);
     } else {
-      // No status change (e.g. close-conformity signature).
+      // Always bump updated_at so the PDF URL cache-busts after any signature.
+      const { error: touchError } = await supabase
+        .from("contracts")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", contractId);
+      if (touchError) throw mapPostgresError(touchError);
     }
 
     await writeAuditLog({
@@ -1735,6 +1816,8 @@ export async function signContract(
 
     revalidatePath("/dashboard/contratos");
     revalidatePath(`/dashboard/contratos/${contractId}`);
+    revalidatePath(`/dashboard/contratos/${contractId}/pdf`);
+    revalidatePath(`/dashboard/contratos/${contractId}/acta-cierre/pdf`);
     return actionSuccess({
       status: newStatus,
       warning,
@@ -2144,7 +2227,7 @@ export async function getContractPdfData(contractId: string) {
     operatorName,
     operatorSignatureUrl,
     clientSignatureUrl,
-    includePagare: shouldIncludePagare({
+    includePagare: resolveIncludePagare(mapped.include_pagare, {
       country: customer.country,
       dui: customer.dui,
       passport: customer.passport,

@@ -483,6 +483,7 @@ type ContractRow = {
   closed_at?: string | null;
   delivered_by_name?: string | null;
   received_by_name?: string | null;
+  include_pagare?: boolean | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -547,6 +548,10 @@ export function mapContractRow(row: ContractRow): Contract {
     closed_at: row.closed_at ?? null,
     delivered_by_name: row.delivered_by_name ?? null,
     received_by_name: row.received_by_name ?? null,
+    include_pagare:
+      row.include_pagare === true || row.include_pagare === false
+        ? row.include_pagare
+        : null,
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,

@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   cancelContract,
+  setContractIncludePagare,
   signContract,
   updateContract,
 } from "@/app/dashboard/contratos/actions";
@@ -14,7 +15,10 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { OLDES_CONTRACT_CLAUSES } from "@/lib/contracts/oldes-terms";
+import {
+  filterContractClauseBody,
+  OLDES_CONTRACT_CLAUSES,
+} from "@/lib/contracts/oldes-terms";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -51,14 +55,21 @@ export function ContractDetailActions({
     string | null
   >(null);
   const [signingPagare, setSigningPagare] = useState(false);
+  const [includePagare, setIncludePagare] = useState(
+    Boolean(contract.includePagare),
+  );
+  const [savingPagareOption, setSavingPagareOption] = useState(false);
   const termsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIncludePagare(Boolean(contract.includePagare));
+  }, [contract.includePagare]);
 
   const clientSigned = contract.signatures.some((s) => s.signer_type === "CLIENT");
   const repSigned = contract.signatures.some(
     (s) => s.signer_type === "REPRESENTATIVE",
   );
   const pagareSigned = contract.signatures.some((s) => s.signer_type === "PAGARE");
-  const includePagare = Boolean(contract.includePagare);
   const repName =
     contract.signatures.find((s) => s.signer_type === "REPRESENTATIVE")
       ?.signed_by_name ??
@@ -67,16 +78,30 @@ export function ContractDetailActions({
 
   const termsClauses = useMemo(() => {
     const raw = contract.clauses?.trim();
-    if (raw && raw.length > 40) {
-      return raw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-    }
-    return [...OLDES_CONTRACT_CLAUSES];
+    const source =
+      raw && raw.length > 40
+        ? raw.split(/\n+/).map((line) => line.trim()).filter(Boolean)
+        : [...OLDES_CONTRACT_CLAUSES];
+    return filterContractClauseBody(source);
   }, [contract.clauses]);
 
   const editable =
     canEdit &&
     contract.status !== "COMPLETED" &&
     contract.status !== "CANCELLED";
+
+  async function handleToggleIncludePagare(next: boolean) {
+    setSavingPagareOption(true);
+    setError(null);
+    const result = await setContractIncludePagare(contract.id, next);
+    setSavingPagareOption(false);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    setIncludePagare(result.data.includePagare);
+    router.refresh();
+  }
 
   function handleTermsScroll() {
     const el = termsRef.current;
@@ -368,6 +393,28 @@ export function ContractDetailActions({
             </>
           ) : null}
 
+          {editable || canSign ? (
+            <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-brand"
+                checked={includePagare}
+                disabled={savingPagareOption || contract.status === "COMPLETED"}
+                onChange={(event) =>
+                  void handleToggleIncludePagare(event.target.checked)
+                }
+              />
+              <span>
+                <strong>Incluir pagaré mercantil en el PDF del contrato</strong>
+                <span className="mt-1 block text-xs text-muted">
+                  Márquelo para incluirlo; desmárquelo para no incluirlo. Por
+                  defecto se sugiere según documentos del cliente (DUI/local).
+                  {savingPagareOption ? " Guardando…" : ""}
+                </span>
+              </span>
+            </label>
+          ) : null}
+
           {clientSigned && includePagare && !pagareSigned ? (
             <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
               <div>
@@ -375,8 +422,7 @@ export function ContractDetailActions({
                   Pagaré mercantil (documento aparte)
                 </p>
                 <p className="mt-1 text-xs text-amber-900">
-                  Solo para clientes locales. No forma parte de las cláusulas del
-                  contrato. Monto sugerido (deducible):{" "}
+                  Incluido en el PDF. Monto sugerido (deducible):{" "}
                   {formatMoney(contract.pagareAmount)}.
                 </p>
               </div>
@@ -407,7 +453,7 @@ export function ContractDetailActions({
 
           {clientSigned && !includePagare ? (
             <p className="text-xs text-muted">
-              Este cliente no requiere pagaré mercantil (turista / extranjero).
+              Pagaré no incluido en este contrato (opción desmarcada).
             </p>
           ) : null}
         </div>
