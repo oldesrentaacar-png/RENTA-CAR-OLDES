@@ -96,6 +96,7 @@ function parseCustomerFormData(formData: FormData) {
     delivererName: emptyToUndefined(formData.get("delivererName")),
     notes: emptyToUndefined(formData.get("notes")),
     status: formData.get("status") || "ACTIVE",
+    blockedReason: emptyToUndefined(formData.get("blockedReason")),
   };
 }
 

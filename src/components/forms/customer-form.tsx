@@ -254,7 +254,14 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
         options={[
           { value: "ACTIVE", label: "Activo" },
           { value: "INACTIVE", label: "Inactivo" },
+          { value: "BLOCKED", label: "Bloqueado (no volver a alquilar)" },
         ]}
+      />
+      <Textarea
+        name="blockedReason"
+        label="Motivo de bloqueo"
+        defaultValue={customer?.blocked_reason ?? ""}
+        placeholder="Obligatorio si el cliente queda bloqueado"
       />
 
       <div className="flex gap-3">

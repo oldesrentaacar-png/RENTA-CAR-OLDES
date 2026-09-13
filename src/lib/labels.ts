@@ -8,7 +8,9 @@ import type {
   IncomeType,
   MaintenanceStatus,
   MaintenanceType,
+  PartnerRentalStatus,
   PaymentMethod,
+  VendorLedgerKind,
 } from "@/types/database";
 
 import type { BadgeProps } from "@/components/ui/badge";
@@ -101,6 +103,19 @@ export const MAINTENANCE_STATUS_LABELS: Record<MaintenanceStatus, string> = {
   IN_PROGRESS: "En progreso",
   COMPLETED: "Completado",
   CANCELLED: "Cancelado",
+};
+
+export const PARTNER_RENTAL_STATUS_LABELS: Record<PartnerRentalStatus, string> = {
+  IN_PROGRESS: "En progreso",
+  COMPLETED: "Completado",
+  CANCELLED: "Cancelado",
+  BLOCKED: "Bloqueado",
+  ANNULLED: "Anulado",
+};
+
+export const VENDOR_LEDGER_KIND_LABELS: Record<VendorLedgerKind, string> = {
+  CHARGE: "Cargo",
+  PAYMENT: "Pago",
 };
 
 export const ALERT_TYPE_LABELS: Record<string, string> = {

@@ -43,6 +43,9 @@ type CustomerRow = {
   deliverer_name?: string | null;
   notes: string | null;
   is_active: boolean;
+  is_blocked?: boolean | null;
+  blocked_reason?: string | null;
+  blocked_at?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
@@ -200,8 +203,15 @@ export function mapCustomerRow(row: CustomerRow): Customer {
     receiver_name: row.receiver_name ?? null,
     deliverer_name: row.deliverer_name ?? null,
     notes: row.notes,
-    status: row.is_active ? "ACTIVE" : "INACTIVE",
+    status: row.is_blocked
+      ? "BLOCKED"
+      : row.is_active
+        ? "ACTIVE"
+        : "INACTIVE",
     is_active: row.is_active,
+    is_blocked: Boolean(row.is_blocked),
+    blocked_reason: row.blocked_reason ?? null,
+    blocked_at: row.blocked_at ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -248,7 +258,26 @@ export function customerInputToRow(
   if (input.delivererName !== undefined)
     row.deliverer_name = input.delivererName ?? null;
   if (input.notes !== undefined) row.notes = input.notes ?? null;
-  if (input.status !== undefined) row.is_active = input.status === "ACTIVE";
+  if (input.status !== undefined) {
+    if (input.status === "BLOCKED") {
+      row.is_blocked = true;
+      row.is_active = false;
+      row.blocked_at = new Date().toISOString();
+    } else if (input.status === "ACTIVE") {
+      row.is_blocked = false;
+      row.is_active = true;
+      row.blocked_reason = null;
+      row.blocked_at = null;
+    } else {
+      row.is_blocked = false;
+      row.is_active = false;
+      row.blocked_reason = null;
+      row.blocked_at = null;
+    }
+  }
+  if (input.blockedReason !== undefined) {
+    row.blocked_reason = input.blockedReason ?? null;
+  }
   return row;
 }
 

@@ -1,3 +1,93 @@
+export type PartnerRentalStatus =
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "BLOCKED"
+  | "ANNULLED";
+
+export type VendorLedgerKind = "CHARGE" | "PAYMENT";
+
+export interface Vendor {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface MonthlySettlement {
+  id: string;
+  period_month: string;
+  contract_id: string | null;
+  contract_code: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  vehicle_id: string | null;
+  vehicle_label: string | null;
+  plate: string | null;
+  start_at: string | null;
+  end_at: string | null;
+  rental_days: number | null;
+  billed_amount: number;
+  payments_received: number;
+  oldes_cost: number;
+  provider_cost: number;
+  commission: number;
+  tax_amount: number;
+  extra_costs: number;
+  own_profit: number;
+  vendor_id: string | null;
+  vendor_name: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface PartnerRental {
+  id: string;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  vehicle_id: string | null;
+  vehicle_label: string | null;
+  plate: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  client_charged: number;
+  partner_share: number;
+  own_share: number;
+  status: PartnerRentalStatus;
+  paid_by_client: boolean;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface VendorLedgerEntry {
+  id: string;
+  vendor_id: string;
+  kind: VendorLedgerKind;
+  amount: number;
+  entry_date: string;
+  concept: string;
+  settlement_id: string | null;
+  contract_id: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 export type Json =
   | string
   | number
@@ -18,7 +108,7 @@ export type WebRequestStatus =
 
 export type WebRequestSource = "WEBSITE" | "PHONE" | "WHATSAPP" | "OTHER";
 
-export type CustomerStatus = "ACTIVE" | "INACTIVE";
+export type CustomerStatus = "ACTIVE" | "INACTIVE" | "BLOCKED";
 
 export type CustomerType = "PERSON" | "COMPANY";
 
@@ -266,6 +356,9 @@ export interface Customer {
   notes: string | null;
   status: CustomerStatus;
   is_active: boolean;
+  is_blocked: boolean;
+  blocked_reason: string | null;
+  blocked_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -851,6 +944,32 @@ export type Database = {
             "concept" | "category" | "amount" | "expense_date"
           >;
         Update: Partial<ExpenseTransaction>;
+        Relationships: [];
+      };
+      vendors: {
+        Row: Vendor;
+        Insert: Partial<Vendor> & Pick<Vendor, "name">;
+        Update: Partial<Vendor>;
+        Relationships: [];
+      };
+      monthly_settlements: {
+        Row: MonthlySettlement;
+        Insert: Partial<MonthlySettlement> &
+          Pick<MonthlySettlement, "period_month" | "billed_amount">;
+        Update: Partial<MonthlySettlement>;
+        Relationships: [];
+      };
+      partner_rentals: {
+        Row: PartnerRental;
+        Insert: Partial<PartnerRental> & Pick<PartnerRental, "customer_name">;
+        Update: Partial<PartnerRental>;
+        Relationships: [];
+      };
+      vendor_ledger_entries: {
+        Row: VendorLedgerEntry;
+        Insert: Partial<VendorLedgerEntry> &
+          Pick<VendorLedgerEntry, "vendor_id" | "kind" | "amount" | "concept">;
+        Update: Partial<VendorLedgerEntry>;
         Relationships: [];
       };
       maintenance_records: {

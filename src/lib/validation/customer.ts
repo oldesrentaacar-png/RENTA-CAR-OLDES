@@ -62,7 +62,8 @@ export const customerSchema = z
     receiverName: optionalText(200),
     delivererName: optionalText(200),
     notes: optionalText(2000),
-    status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+    status: z.enum(["ACTIVE", "INACTIVE", "BLOCKED"]).default("ACTIVE"),
+    blockedReason: optionalText(500),
   })
   .superRefine((data, ctx) => {
     if (data.customerType === "PERSON") {
@@ -151,7 +152,8 @@ export const customerUpdateSchema = z
     receiverName: optionalText(200),
     delivererName: optionalText(200),
     notes: optionalText(2000),
-    status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+    status: z.enum(["ACTIVE", "INACTIVE", "BLOCKED"]).optional(),
+    blockedReason: optionalText(500),
   })
   .superRefine((data, ctx) => {
     if (data.customerType === "PERSON") {

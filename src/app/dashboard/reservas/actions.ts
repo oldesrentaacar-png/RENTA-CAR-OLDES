@@ -240,6 +240,21 @@ export async function createReservation(
     }
 
     const supabase = await createClient();
+    const { data: customerRow, error: customerError } = await supabase
+      .from("customers")
+      .select("is_blocked, first_name, last_name, company_name")
+      .eq("id", parsed.data.customerId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (customerError) throw mapPostgresError(customerError);
+    if (!customerRow) return actionError("Cliente no encontrado.");
+    if ((customerRow as { is_blocked?: boolean }).is_blocked) {
+      return actionError(
+        "Este cliente está bloqueado y no puede volver a alquilar.",
+      );
+    }
+
     const { data, error } = await supabase
       .from("reservations")
       .insert({
@@ -331,6 +346,19 @@ export async function createReservationFromQuote(
     if (!q.vehicle_id) {
       return actionError(
         "La cotización no tiene unidad asignada. Cree la reserva manualmente y elija el vehículo.",
+      );
+    }
+
+    const { data: blockedCustomer, error: blockedError } = await supabase
+      .from("customers")
+      .select("is_blocked")
+      .eq("id", q.customer_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (blockedError) throw mapPostgresError(blockedError);
+    if ((blockedCustomer as { is_blocked?: boolean } | null)?.is_blocked) {
+      return actionError(
+        "Este cliente está bloqueado y no puede volver a alquilar.",
       );
     }
 

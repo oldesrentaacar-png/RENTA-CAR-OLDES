@@ -25,6 +25,8 @@ const STATUS_CONFIG: Record<
   UNAVAILABLE: { label: "No disponible", variant: "danger" },
   ARCHIVED: { label: "Archivado", variant: "outline" },
   INACTIVE: { label: "Inactivo", variant: "outline" },
+  BLOCKED: { label: "Bloqueado", variant: "danger" },
+  ANNULLED: { label: "Anulado", variant: "outline" },
   SUSPENDED: { label: "Suspendido", variant: "danger" },
   SCHEDULED: { label: "Programado", variant: "info" },
   IN_PROGRESS: { label: "En progreso", variant: "warning" },
