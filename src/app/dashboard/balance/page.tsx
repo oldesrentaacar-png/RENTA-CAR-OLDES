@@ -1,7 +1,16 @@
-import { DollarSign } from "lucide-react";
+import Link from "next/link";
+import {
+  DollarSign,
+  Handshake,
+  Pencil,
+  TrendingDown,
+  TrendingUp,
+  Truck,
+} from "lucide-react";
 
-import { getBalanceSummary } from "@/app/dashboard/balance/actions";
+import { getBalanceDashboard } from "@/app/dashboard/balance/actions";
 import { PermissionGuard } from "@/components/auth/permission-guard";
+import { BalanceCharts } from "@/components/dashboard/balance-charts";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
@@ -16,9 +25,11 @@ export default async function BalancePage({
 }) {
   const params = await searchParams;
   const configured = isSupabaseConfigured();
-  const result = configured ? await getBalanceSummary(params) : null;
+  const result = configured ? await getBalanceDashboard(params) : null;
   const summary = result?.success ? result.data : null;
-  const month = summary?.month ?? String(params.month ?? new Date().toISOString().slice(0, 7));
+  const month =
+    summary?.month ??
+    String(params.month ?? new Date().toISOString().slice(0, 7));
   const error = result && !result.success ? result.error : null;
 
   return (
@@ -26,7 +37,7 @@ export default async function BalancePage({
       <div className="space-y-6">
         <PageHeader
           title="Mi balance"
-          description="Resumen mensual de utilidad real del negocio."
+          description="Resumen mensual de utilidad real del negocio, con gráficos y accesos para editar."
         />
 
         {!configured ? <SetupBanner /> : null}
@@ -52,6 +63,33 @@ export default async function BalancePage({
           </Button>
         </form>
 
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/dashboard/liquidacion?month=${month}`}>
+            <Button variant="secondary" type="button">
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar liquidaciones
+            </Button>
+          </Link>
+          <Link href="/dashboard/socios">
+            <Button variant="secondary" type="button">
+              <Handshake className="mr-2 h-4 w-4" />
+              Editar socios
+            </Button>
+          </Link>
+          <Link href="/dashboard/proveedores">
+            <Button variant="secondary" type="button">
+              <Truck className="mr-2 h-4 w-4" />
+              Editar proveedores
+            </Button>
+          </Link>
+          <Link href="/dashboard/gastos">
+            <Button variant="secondary" type="button">
+              <TrendingDown className="mr-2 h-4 w-4" />
+              Editar gastos
+            </Button>
+          </Link>
+        </div>
+
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           Los totales de contratos representan facturación bruta. La utilidad neta
           real descuenta costos de liquidación, pagos a proveedores, gastos
@@ -59,39 +97,43 @@ export default async function BalancePage({
         </div>
 
         {summary ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard
-              title="Facturado"
-              value={formatMoney(summary.billedAmount)}
-              icon={DollarSign}
-            />
-            <MetricCard
-              title="Ganancia liquidación"
-              value={formatMoney(summary.settlementProfit)}
-              icon={DollarSign}
-            />
-            <MetricCard
-              title="Ganancia socios"
-              value={formatMoney(summary.partnerProfit)}
-              icon={DollarSign}
-            />
-            <MetricCard
-              title="Pagos a proveedores"
-              value={formatMoney(summary.vendorPayments)}
-              icon={DollarSign}
-            />
-            <MetricCard
-              title="Gastos operativos"
-              value={formatMoney(summary.operatingExpenses)}
-              icon={DollarSign}
-            />
-            <MetricCard
-              title="Ganancia neta real"
-              value={formatMoney(summary.realNetProfit)}
-              icon={DollarSign}
-              className="border-brand"
-            />
-          </div>
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <MetricCard
+                title="Facturado"
+                value={formatMoney(summary.billedAmount)}
+                icon={DollarSign}
+              />
+              <MetricCard
+                title="Ganancia liquidación"
+                value={formatMoney(summary.settlementProfit)}
+                icon={TrendingUp}
+              />
+              <MetricCard
+                title="Ganancia socios"
+                value={formatMoney(summary.partnerProfit)}
+                icon={Handshake}
+              />
+              <MetricCard
+                title="Pagos a proveedores"
+                value={formatMoney(summary.vendorPayments)}
+                icon={Truck}
+              />
+              <MetricCard
+                title="Gastos operativos"
+                value={formatMoney(summary.operatingExpenses)}
+                icon={TrendingDown}
+              />
+              <MetricCard
+                title="Ganancia neta real"
+                value={formatMoney(summary.realNetProfit)}
+                icon={DollarSign}
+                className="border-brand"
+              />
+            </div>
+
+            <BalanceCharts data={summary} />
+          </>
         ) : null}
       </div>
     </PermissionGuard>

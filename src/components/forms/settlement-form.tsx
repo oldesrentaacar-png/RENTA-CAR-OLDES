@@ -7,6 +7,7 @@ import { useMemo, useState, useTransition } from "react";
 import {
   createMonthlySettlement,
   lookupContractByCode,
+  updateMonthlySettlement,
   type ContractLookupResult,
 } from "@/app/dashboard/liquidacion/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
@@ -14,12 +15,13 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/money";
-import type { Vendor } from "@/types/database";
+import type { MonthlySettlement, Vendor } from "@/types/database";
 
 type SettlementFormProps = {
   vendors: Array<Pick<Vendor, "id" | "name">>;
   defaultMonth?: string;
   redirectTo?: string;
+  settlement?: MonthlySettlement;
 };
 
 function currentMonth(): string {
@@ -31,28 +33,70 @@ function money(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function monthFromPeriod(periodMonth: string | null | undefined): string {
+  if (!periodMonth) return currentMonth();
+  return periodMonth.slice(0, 7);
+}
+
 export function SettlementForm({
   vendors,
   defaultMonth,
   redirectTo,
+  settlement,
 }: SettlementFormProps) {
   const router = useRouter();
+  const isEdit = Boolean(settlement);
   const [error, setError] = useState<string | null>(null);
   const [lookupMessage, setLookupMessage] = useState<string | null>(null);
   const [isLookingUp, startLookup] = useTransition();
-  const [contract, setContract] = useState<ContractLookupResult | null>(null);
-  const [contractCode, setContractCode] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [vehicleLabel, setVehicleLabel] = useState("");
-  const [plate, setPlate] = useState("");
-  const [periodMonth, setPeriodMonth] = useState(defaultMonth ?? currentMonth());
-  const [billedAmount, setBilledAmount] = useState("0");
-  const [paymentsReceived, setPaymentsReceived] = useState("0");
-  const [oldesCost, setOldesCost] = useState("0");
-  const [providerCost, setProviderCost] = useState("0");
-  const [commission, setCommission] = useState("0");
-  const [taxAmount, setTaxAmount] = useState("0");
-  const [extraCosts, setExtraCosts] = useState("0");
+  const [contract, setContract] = useState<ContractLookupResult | null>(
+    settlement
+      ? {
+          contractId: settlement.contract_id ?? "",
+          contractCode: settlement.contract_code ?? "",
+          customerId: settlement.customer_id,
+          customerName: settlement.customer_name ?? "",
+          vehicleId: settlement.vehicle_id,
+          vehicleLabel: settlement.vehicle_label ?? "",
+          plate: settlement.plate,
+          startAt: settlement.start_at,
+          endAt: settlement.end_at,
+          rentalDays: settlement.rental_days,
+          total: Number(settlement.billed_amount ?? 0),
+          amountPaid: Number(settlement.payments_received ?? 0),
+        }
+      : null,
+  );
+  const [contractCode, setContractCode] = useState(
+    settlement?.contract_code ?? "",
+  );
+  const [customerName, setCustomerName] = useState(
+    settlement?.customer_name ?? "",
+  );
+  const [vehicleLabel, setVehicleLabel] = useState(
+    settlement?.vehicle_label ?? "",
+  );
+  const [plate, setPlate] = useState(settlement?.plate ?? "");
+  const [periodMonth, setPeriodMonth] = useState(
+    monthFromPeriod(settlement?.period_month) || defaultMonth || currentMonth(),
+  );
+  const [billedAmount, setBilledAmount] = useState(
+    String(settlement?.billed_amount ?? 0),
+  );
+  const [paymentsReceived, setPaymentsReceived] = useState(
+    String(settlement?.payments_received ?? 0),
+  );
+  const [oldesCost, setOldesCost] = useState(String(settlement?.oldes_cost ?? 0));
+  const [providerCost, setProviderCost] = useState(
+    String(settlement?.provider_cost ?? 0),
+  );
+  const [commission, setCommission] = useState(
+    String(settlement?.commission ?? 0),
+  );
+  const [taxAmount, setTaxAmount] = useState(String(settlement?.tax_amount ?? 0));
+  const [extraCosts, setExtraCosts] = useState(
+    String(settlement?.extra_costs ?? 0),
+  );
 
   const ownProfit = useMemo(
     () =>
@@ -93,7 +137,9 @@ export function SettlementForm({
 
   async function handleSubmit(formData: FormData) {
     setError(null);
-    const result = await createMonthlySettlement(formData);
+    const result = isEdit
+      ? await updateMonthlySettlement(settlement!.id, formData)
+      : await createMonthlySettlement(formData);
     if (!result.success) {
       setError(result.error);
       return;
@@ -111,12 +157,36 @@ export function SettlementForm({
       ) : null}
 
       <input type="hidden" name="periodMonth" value={`${periodMonth}-01`} />
-      <input type="hidden" name="contractId" value={contract?.contractId ?? ""} />
-      <input type="hidden" name="customerId" value={contract?.customerId ?? ""} />
-      <input type="hidden" name="vehicleId" value={contract?.vehicleId ?? ""} />
-      <input type="hidden" name="startAt" value={contract?.startAt ?? ""} />
-      <input type="hidden" name="endAt" value={contract?.endAt ?? ""} />
-      <input type="hidden" name="rentalDays" value={contract?.rentalDays ?? ""} />
+      <input
+        type="hidden"
+        name="contractId"
+        value={contract?.contractId ?? settlement?.contract_id ?? ""}
+      />
+      <input
+        type="hidden"
+        name="customerId"
+        value={contract?.customerId ?? settlement?.customer_id ?? ""}
+      />
+      <input
+        type="hidden"
+        name="vehicleId"
+        value={contract?.vehicleId ?? settlement?.vehicle_id ?? ""}
+      />
+      <input
+        type="hidden"
+        name="startAt"
+        value={contract?.startAt ?? settlement?.start_at ?? ""}
+      />
+      <input
+        type="hidden"
+        name="endAt"
+        value={contract?.endAt ?? settlement?.end_at ?? ""}
+      />
+      <input
+        type="hidden"
+        name="rentalDays"
+        value={contract?.rentalDays ?? settlement?.rental_days ?? ""}
+      />
 
       <div className="rounded-xl border border-border bg-surface p-4">
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -179,9 +249,13 @@ export function SettlementForm({
         <Select
           name="vendorId"
           label="Proveedor / tercero"
+          defaultValue={settlement?.vendor_id ?? ""}
           options={[
             { value: "", label: "Sin proveedor" },
-            ...vendors.map((vendor) => ({ value: vendor.id, label: vendor.name })),
+            ...vendors.map((vendor) => ({
+              value: vendor.id,
+              label: vendor.name,
+            })),
           ]}
         />
       </div>
@@ -252,10 +326,17 @@ export function SettlementForm({
         </div>
       </div>
 
-      <Textarea name="notes" label="Notas" rows={3} />
+      <Textarea
+        name="notes"
+        label="Notas"
+        rows={3}
+        defaultValue={settlement?.notes ?? ""}
+      />
 
       <div className="flex gap-3">
-        <SubmitButton>Registrar liquidación</SubmitButton>
+        <SubmitButton>
+          {isEdit ? "Guardar cambios" : "Registrar liquidación"}
+        </SubmitButton>
         <Link
           href="/dashboard/liquidacion"
           className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface-muted"

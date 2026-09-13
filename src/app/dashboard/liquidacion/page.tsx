@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 
 import { listMonthlySettlements } from "@/app/dashboard/liquidacion/actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
@@ -21,7 +21,12 @@ export default async function LiquidacionPage({
   const params = await searchParams;
   const configured = isSupabaseConfigured();
   const user = configured ? await getCurrentUser() : null;
-  const canDelete = user ? await hasPermission(user.id, "finance.delete") : false;
+  const [canEdit, canDelete] = user
+    ? await Promise.all([
+        hasPermission(user.id, "finance.edit"),
+        hasPermission(user.id, "finance.delete"),
+      ])
+    : [false, false];
   const result = configured ? await listMonthlySettlements(params) : null;
   const data = result?.success ? result.data.items : [];
   const totals = result?.success
@@ -117,15 +122,25 @@ export default async function LiquidacionPage({
           {
             key: "actions",
             header: "",
-            cell: (row) =>
-              canDelete ? (
-                <FinanceDeleteButton
-                  target="settlement"
-                  id={row.id}
-                  label="¿Eliminar esta liquidación?"
-                />
-              ) : null,
-            className: "w-[72px]",
+            cell: (row) => (
+              <div className="flex items-center justify-end gap-1">
+                {canEdit ? (
+                  <Link href={`/dashboard/liquidacion/${row.id}/edit`}>
+                    <Button type="button" variant="outline" size="sm" title="Editar">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                ) : null}
+                {canDelete ? (
+                  <FinanceDeleteButton
+                    target="settlement"
+                    id={row.id}
+                    label="¿Eliminar esta liquidación?"
+                  />
+                ) : null}
+              </div>
+            ),
+            className: "w-[100px]",
           },
         ]}
       />

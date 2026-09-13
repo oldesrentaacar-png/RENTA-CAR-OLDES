@@ -128,6 +128,31 @@ export async function listSettlementVendors(): Promise<
   }
 }
 
+export async function getMonthlySettlement(
+  id: string,
+): Promise<ActionResult<MonthlySettlement>> {
+  try {
+    await assertPermission("finance.view");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("monthly_settlements")
+      .select("*")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) throw mapPostgresError(error);
+    if (!data) return actionError("Liquidación no encontrada.");
+    return actionSuccess(data as MonthlySettlement);
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
 export async function listMonthlySettlements(
   params: Record<string, string | string[] | undefined> = {},
 ): Promise<ActionResult<SettlementListResult>> {
