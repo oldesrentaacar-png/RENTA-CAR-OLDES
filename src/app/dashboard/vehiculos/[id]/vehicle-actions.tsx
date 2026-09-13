@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   archiveVehicle,
@@ -14,6 +14,12 @@ import {
 } from "@/app/dashboard/vehiculos/actions";
 import { Button } from "@/components/ui/button";
 import type { VehicleWithImages } from "@/app/dashboard/vehiculos/actions";
+import {
+  INSPECTION_WIREFRAME_LABELS,
+  INSPECTION_WIREFRAME_TYPES,
+  resolveInspectionWireframe,
+  type InspectionWireframeType,
+} from "@/lib/inspections/inspection-wireframe-public";
 import { isGeneratedVehicleImage } from "@/lib/vehicles/generated-image";
 import type { DamageView } from "@/types/database";
 
@@ -33,6 +39,18 @@ export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }
   const [uploading, setUploading] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [uploadView, setUploadView] = useState<DamageView | "">("FRONT");
+
+  const autoWireframe = useMemo(
+    () =>
+      resolveInspectionWireframe({
+        category: vehicle.category,
+        model: `${vehicle.brand} ${vehicle.model}`,
+        typeName: vehicle.category,
+      }),
+    [vehicle.brand, vehicle.category, vehicle.model],
+  );
+  const [diagramType, setDiagramType] =
+    useState<InspectionWireframeType>(autoWireframe);
 
   async function handleArchive() {
     const result = await archiveVehicle(vehicle.id);
@@ -77,7 +95,7 @@ export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }
     if (!result.success) setError(result.error);
     else {
       setInfo(
-        "Foto subida. Pulsa «Generar vistas 3D» en esa foto para crear el diagrama técnico y las 5 vistas.",
+        "Foto subida. Elija el diagrama (Sedán / Pick Up / …) y pulse «Generar vistas 3D».",
       );
       router.refresh();
     }
@@ -87,14 +105,21 @@ export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }
     setGeneratingId(imageId);
     setError(null);
     setInfo(null);
-    const result = await generateVehicleViewsFromPhoto(vehicle.id, imageId);
+    const result = await generateVehicleViewsFromPhoto(
+      vehicle.id,
+      imageId,
+      diagramType,
+    );
     setGeneratingId(null);
     if (!result.success) {
       setError(result.error);
       return;
     }
+    const label =
+      INSPECTION_WIREFRAME_LABELS[result.data.wireframeType] ??
+      INSPECTION_WIREFRAME_LABELS[diagramType];
     setInfo(
-      `Listo: plano de inspección estilo papel (sedán + pickup, código 0/+/X) generado desde la foto.`,
+      `Listo: plano 2D de 5 vistas «${label}» (igual al mapa de daños). Si salía el dibujo azul viejo, elimínelo y genere de nuevo.`,
     );
     router.refresh();
   }
@@ -113,13 +138,34 @@ export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }
       ) : null}
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-        <p className="font-medium text-slate-900">Generar todo desde una foto</p>
-        <p className="mt-1 text-xs leading-relaxed text-slate-600">
-          Pulsa <strong>Generar vistas 3D</strong> en una foto: se crea el{" "}
-          <strong>plano superior con paneles</strong> como el formulario físico
-          (bumper, puertas, techo, palangana/baúl) y la leyenda{" "}
-          <strong>0 = GOLPE · + = RAYON · x = FALTANTE</strong>.
+        <p className="font-medium text-slate-900">
+          Generar plano 2D (igual al mapa de daños)
         </p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-600">
+          No crea siluetas azules ni “3D”. Sube el{" "}
+          <strong>mismo diagrama de 5 vistas</strong> que ves en inspecciones
+          (Pick Up, Sedán, Mini Van o SUV). Si ya hay imágenes «Generada 3D»
+          viejas (cuadrados □□□ o carro azul), elimínelas y genere otra vez.
+        </p>
+        <label className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-800">
+          Diagrama a generar
+          <select
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+            value={diagramType}
+            onChange={(event) =>
+              setDiagramType(event.target.value as InspectionWireframeType)
+            }
+            aria-label="Tipo de diagrama"
+            title="Si el sistema eligió mal el tipo, cámbielo aquí"
+          >
+            {INSPECTION_WIREFRAME_TYPES.map((type) => (
+              <option key={type} value={type}>
+                Diagrama: {INSPECTION_WIREFRAME_LABELS[type]}
+                {type === autoWireframe ? " (sugerido)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -180,8 +226,8 @@ export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }
                       onClick={() => handleGenerate(img.id)}
                     >
                       {generatingId === img.id
-                        ? "Generando vistas 3D…"
-                        : "Generar vistas 3D desde esta foto"}
+                        ? `Generando ${INSPECTION_WIREFRAME_LABELS[diagramType]}…`
+                        : `Generar vistas 3D (${INSPECTION_WIREFRAME_LABELS[diagramType]})`}
                     </Button>
                   )}
                   <select

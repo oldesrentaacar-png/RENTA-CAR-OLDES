@@ -29,6 +29,7 @@ import {
   deleteCloudinaryAsset,
   uploadImageFromBuffer,
 } from "@/lib/cloudinary/upload";
+import type { InspectionWireframeType } from "@/lib/inspections/inspection-wireframe-public";
 import { generateVehicleAssetsFromPhoto } from "@/lib/vehicles/generate-views-from-photo";
 import { isGeneratedVehicleImage } from "@/lib/vehicles/generated-image";
 import {
@@ -1040,16 +1041,15 @@ export async function reorderVehicleImages(
 }
 
 /**
- * A partir de UNA foto del vehículo genera:
- * - PNG tipo hoja técnica 3D (todas las vistas)
- * - 5 vistas ortográficas (FRONT/REAR/LEFT/RIGHT/TOP)
- * y las guarda en Cloudinary + vehicle_images.
+ * Genera el diagrama 2D de 5 vistas (mismo PNG del mapa de daños).
+ * Tipo: sedán / pickup / minivan / SUV — forzado por el usuario si hace falta.
  */
 export async function generateVehicleViewsFromPhoto(
   vehicleId: string,
   sourceImageId: string,
+  wireframeType?: InspectionWireframeType | null,
 ): Promise<
-  ActionResult<{ generatedCount: number; bodyColorHex: string }>
+  ActionResult<{ generatedCount: number; wireframeType: InspectionWireframeType }>
 > {
   try {
     const { user } = await assertPermission("vehicles.edit");
@@ -1067,7 +1067,9 @@ export async function generateVehicleViewsFromPhoto(
     ] = await Promise.all([
       supabase
         .from("vehicles")
-        .select("id, brand, model, year, plate, category")
+        .select(
+          "id, brand, model, year, plate, category, vehicle_type_id, vehicle_types(slug, name)",
+        )
         .eq("id", vehicleId)
         .is("deleted_at", null)
         .maybeSingle(),
@@ -1090,20 +1092,21 @@ export async function generateVehicleViewsFromPhoto(
       year: number;
       plate: string;
       category: string | null;
+      vehicle_types:
+        | { slug: string; name: string }
+        | { slug: string; name: string }[]
+        | null;
     };
-    const label = `${v.brand} ${v.model} ${v.year} (${v.plate})`;
-
-    const sourceRow = source as {
-      id: string;
-      url: string;
-      public_id: string;
-    };
+    const typeRow = Array.isArray(v.vehicle_types)
+      ? v.vehicle_types[0]
+      : v.vehicle_types;
 
     const assets = await generateVehicleAssetsFromPhoto({
-      sourceImageUrl: sourceRow.url,
-      vehicleLabel: label,
       category: v.category,
-      model: v.model,
+      model: `${v.brand} ${v.model}`,
+      typeSlug: typeRow?.slug ?? null,
+      typeName: typeRow?.name ?? v.category,
+      wireframeType: wireframeType ?? null,
     });
 
     const { data: existing } = await supabase
@@ -1126,41 +1129,28 @@ export async function generateVehicleViewsFromPhoto(
       .from("vehicle_images")
       .select("*", { count: "exact", head: true })
       .eq("vehicle_id", vehicleId);
-    let position = count ?? 0;
+    const position = count ?? 0;
 
-    const sheetUpload = await uploadImageFromBuffer(assets.inspectionSheet, {
+    const upload = await uploadImageFromBuffer(assets.wireframeDiagram, {
       folder: `rent-a-car-pro/vehicles/${vehicleId}/generated`,
-      publicId: `iso-sheet-${Date.now()}`,
-      tags: ["generated", "inspection-panel-sheet"],
+      publicId: `wireframe-2d-${assets.wireframeType.toLowerCase()}-${Date.now()}`,
+      tags: [
+        "generated",
+        "inspection-wireframe-2d",
+        `wireframe-${assets.wireframeType}`,
+      ],
     });
-    if (!sheetUpload.ok) return actionError(sheetUpload.message);
+    if (!upload.ok) return actionError(upload.message);
 
-    const { error: sheetError } = await supabase.from("vehicle_images").insert({
+    const { error: insertError } = await supabase.from("vehicle_images").insert({
       vehicle_id: vehicleId,
-      url: sheetUpload.secureUrl,
-      public_id: sheetUpload.publicId,
-      position: position++,
-      is_primary: false,
-      view: null,
-    });
-    if (sheetError) throw mapPostgresError(sheetError);
-
-    const topUpload = await uploadImageFromBuffer(assets.topPanel, {
-      folder: `rent-a-car-pro/vehicles/${vehicleId}/generated`,
-      publicId: `view-top-${Date.now()}`,
-      tags: ["generated", "view-TOP", "panel-map"],
-    });
-    if (!topUpload.ok) return actionError(topUpload.message);
-
-    const { error: topError } = await supabase.from("vehicle_images").insert({
-      vehicle_id: vehicleId,
-      url: topUpload.secureUrl,
-      public_id: topUpload.publicId,
-      position: position++,
+      url: upload.secureUrl,
+      public_id: upload.publicId,
+      position,
       is_primary: false,
       view: "TOP",
     });
-    if (topError) throw mapPostgresError(topError);
+    if (insertError) throw mapPostgresError(insertError);
 
     await writeAuditLog({
       userId: user.id,
@@ -1169,15 +1159,16 @@ export async function generateVehicleViewsFromPhoto(
       entityId: vehicleId,
       metadata: {
         sourceImageId,
-        bodyStyle: assets.bodyStyle,
-        kind: "panel-map",
+        wireframeType: assets.wireframeType,
+        wireframeLabel: assets.wireframeLabel,
+        kind: "inspection-wireframe-2d",
       },
     });
 
     revalidatePath(`/dashboard/vehiculos/${vehicleId}`);
     return actionSuccess({
-      generatedCount: 2,
-      bodyColorHex: assets.bodyStyle,
+      generatedCount: 1,
+      wireframeType: assets.wireframeType,
     });
   } catch (error) {
     return actionError(toUserMessage(error));

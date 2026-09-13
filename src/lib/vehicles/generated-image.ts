@@ -4,6 +4,7 @@ export function isGeneratedVehicleImage(publicId: string): boolean {
   return (
     publicId.includes("/generated/") ||
     publicId.includes("iso-sheet-") ||
+    publicId.includes("wireframe-2d-") ||
     publicId.includes("view-")
   );
 }
