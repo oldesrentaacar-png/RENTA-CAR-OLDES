@@ -394,7 +394,7 @@ export function ContractDetailActions({
                 type="checkbox"
                 className="mt-1 h-4 w-4 accent-brand"
                 checked={includePagare}
-                disabled={savingPagareOption || contract.status === "COMPLETED"}
+                disabled={savingPagareOption}
                 onChange={(event) =>
                   void handleToggleIncludePagare(event.target.checked)
                 }
