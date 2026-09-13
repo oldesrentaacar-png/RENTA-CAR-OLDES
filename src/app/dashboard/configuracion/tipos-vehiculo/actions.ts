@@ -5,12 +5,13 @@ import { revalidatePath } from "next/cache";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
+import { uploadImageFromBuffer } from "@/lib/cloudinary/upload";
 import {
   isMissingRelationError,
   mapPostgresError,
   toUserMessage,
 } from "@/lib/errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isCloudinaryConfigured, isSupabaseConfigured } from "@/lib/env";
 import { slugify } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -19,6 +20,39 @@ import {
 } from "@/lib/validation/vehicle-type";
 import type { VehicleType } from "@/types/database";
 
+async function resolveVehicleTypeImageUrl(
+  formData: FormData,
+): Promise<string | null | undefined> {
+  const file = formData.get("imageFile");
+  if (file instanceof File && file.size > 0) {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("El archivo debe ser una imagen.");
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      throw new Error("La imagen no puede superar 8 MB.");
+    }
+    if (!isCloudinaryConfigured()) {
+      throw new Error(
+        "Cloudinary no está configurado. No se pueden subir imágenes desde el equipo.",
+      );
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const upload = await uploadImageFromBuffer(buffer, {
+      folder: "rent-a-car-pro/vehicle-types",
+      publicId: `type-${Date.now()}`,
+      tags: ["vehicle_type"],
+    });
+    if (!upload.ok) {
+      throw new Error(upload.message);
+    }
+    return upload.secureUrl;
+  }
+
+  const imageUrl = formData.get("imageUrl");
+  if (typeof imageUrl !== "string") return undefined;
+  const trimmed = imageUrl.trim();
+  return trimmed === "" ? null : trimmed;
+}
 function mapVehicleTypeRow(row: Record<string, unknown>): VehicleType {
   const featuresRaw = row.features;
   const features = Array.isArray(featuresRaw)
@@ -149,6 +183,14 @@ export async function createVehicleType(
       return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
     }
 
+    let imageUrl = parsed.data.imageUrl ?? null;
+    try {
+      const resolved = await resolveVehicleTypeImageUrl(formData);
+      if (resolved !== undefined) imageUrl = resolved;
+    } catch (uploadError) {
+      return actionError(toUserMessage(uploadError));
+    }
+
     const slug = await ensureUniqueSlug(slugify(parsed.data.name));
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -168,7 +210,7 @@ export async function createVehicleType(
         luggage_label_en: parsed.data.luggageLabelEn ?? null,
         transmission: parsed.data.transmission ?? "Automatic",
         published_on_web: parsed.data.publishedOnWeb,
-        image_url: parsed.data.imageUrl ?? null,
+        image_url: imageUrl,
         sort_order: parsed.data.sortOrder,
         is_active: true,
       })
@@ -262,8 +304,16 @@ export async function updateVehicleType(
       row.transmission = parsed.data.transmission ?? "Automatic";
     if (parsed.data.publishedOnWeb !== undefined)
       row.published_on_web = parsed.data.publishedOnWeb;
-    if (parsed.data.imageUrl !== undefined)
-      row.image_url = parsed.data.imageUrl ?? null;
+    try {
+      const resolved = await resolveVehicleTypeImageUrl(formData);
+      if (resolved !== undefined) {
+        row.image_url = resolved;
+      } else if (parsed.data.imageUrl !== undefined) {
+        row.image_url = parsed.data.imageUrl ?? null;
+      }
+    } catch (uploadError) {
+      return actionError(toUserMessage(uploadError));
+    }
     if (parsed.data.sortOrder !== undefined)
       row.sort_order = parsed.data.sortOrder;
 

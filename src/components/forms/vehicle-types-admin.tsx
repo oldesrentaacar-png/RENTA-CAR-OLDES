@@ -8,6 +8,7 @@ import {
   deactivateVehicleType,
   updateVehicleType,
 } from "@/app/dashboard/configuracion/tipos-vehiculo/actions";
+import { ImageCaptureField } from "@/components/forms/image-capture-field";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +22,10 @@ type VehicleTypesAdminProps = {
 
 function FleetTypeFields({
   item,
+  onImageFileChange,
 }: {
   item?: VehicleType;
+  onImageFileChange?: (file: File | null) => void;
 }) {
   return (
     <>
@@ -103,12 +106,18 @@ function FleetTypeFields({
         label="Texto equipaje alternativo (EN)"
         defaultValue={item?.luggage_label_en ?? ""}
       />
-      <Input
-        name="imageUrl"
-        label="URL de imagen"
-        defaultValue={item?.image_url ?? ""}
-        placeholder="/landing/fleet/sedan.png"
-      />
+      <div className="sm:col-span-2 lg:col-span-3">
+        <ImageCaptureField
+          urlFieldName="imageUrl"
+          label="Imagen del tipo (subir desde el equipo o cámara)"
+          currentUrl={item?.image_url}
+          onFileChange={onImageFileChange}
+        />
+        <p className="mt-1 text-xs text-muted">
+          Puede subir una foto desde su dispositivo. Si ya tiene un enlace, se
+          conserva hasta que suba una nueva imagen o la quite.
+        </p>
+      </div>
       <label className="flex items-end gap-2 pb-2 text-sm">
         <input
           type="checkbox"
@@ -129,6 +138,8 @@ export function VehicleTypesAdmin({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [createImageFile, setCreateImageFile] = useState<File | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
 
   async function handleCreate(formData: FormData) {
     setError(null);
@@ -136,11 +147,15 @@ export function VehicleTypesAdmin({
       "dailyRate",
       String(parseMoneyInput(formData.get("dailyRate"), 0)),
     );
+    if (createImageFile) {
+      formData.set("imageFile", createImageFile);
+    }
     const result = await createVehicleType(formData);
     if (!result.success) {
       setError(result.error);
       return;
     }
+    setCreateImageFile(null);
     router.refresh();
   }
 
@@ -150,11 +165,15 @@ export function VehicleTypesAdmin({
       "dailyRate",
       String(parseMoneyInput(formData.get("dailyRate"), 0)),
     );
+    if (editImageFile) {
+      formData.set("imageFile", editImageFile);
+    }
     const result = await updateVehicleType(id, formData);
     if (!result.success) {
       setError(result.error);
       return;
     }
+    setEditImageFile(null);
     setEditingId(null);
     router.refresh();
   }
@@ -195,7 +214,7 @@ export function VehicleTypesAdmin({
         action={handleCreate}
         className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3"
       >
-        <FleetTypeFields />
+        <FleetTypeFields onImageFileChange={setCreateImageFile} />
         <div className="flex items-end sm:col-span-2 lg:col-span-3">
           <SubmitButton>Agregar tipo</SubmitButton>
         </div>
@@ -214,13 +233,19 @@ export function VehicleTypesAdmin({
                 action={(fd) => handleUpdate(item.id, fd)}
                 className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3"
               >
-                <FleetTypeFields item={item} />
+                <FleetTypeFields
+                  item={item}
+                  onImageFileChange={setEditImageFile}
+                />
                 <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
                   <SubmitButton>Guardar</SubmitButton>
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => setEditingId(null)}
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditImageFile(null);
+                    }}
                   >
                     Cancelar
                   </Button>
@@ -257,7 +282,10 @@ export function VehicleTypesAdmin({
                     type="button"
                     variant="secondary"
                     size="sm"
-                    onClick={() => setEditingId(item.id)}
+                    onClick={() => {
+                      setEditImageFile(null);
+                      setEditingId(item.id);
+                    }}
                   >
                     Editar
                   </Button>
