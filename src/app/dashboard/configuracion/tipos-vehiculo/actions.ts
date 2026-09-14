@@ -104,12 +104,14 @@ async function ensureUniqueSlug(
   let candidate = base || "tipo";
   let attempt = 0;
 
+  // La columna `slug` es UNIQUE global (incluye filas soft-deleted).
+  // Hay que mirar TODAS las filas; si no, al editar/crear choca con un
+  // tipo desactivado y Postgres responde 23505 ("Ya existe un registro…").
   while (attempt < 20) {
     let query = supabase
       .from("vehicle_types")
       .select("id")
       .eq("slug", candidate)
-      .is("deleted_at", null)
       .limit(1);
 
     if (excludeId) query = query.neq("id", excludeId);
@@ -125,6 +127,18 @@ async function ensureUniqueSlug(
   }
 
   return `${base}-${Date.now()}`;
+}
+
+function vehicleTypeConflictMessage(error: unknown): string | null {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: string }).code ?? "")
+      : "";
+  if (code !== "23505") return null;
+  return (
+    "Ya existe un tipo de vehículo con ese nombre (o uno desactivado que " +
+    "aún reserva el identificador). Use un nombre distinto o reactive el tipo anterior."
+  );
 }
 
 export async function createVehicleType(
@@ -198,6 +212,8 @@ export async function createVehicleType(
           "La tabla de tipos de vehículo aún no está migrada en la base de datos.",
         );
       }
+      const conflict = vehicleTypeConflictMessage(error);
+      if (conflict) return actionError(conflict);
       throw mapPostgresError(error);
     }
 
@@ -253,10 +269,37 @@ export async function updateVehicleType(
       return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
     }
 
+    const supabase = await createClient();
+    const { data: current, error: currentError } = await supabase
+      .from("vehicle_types")
+      .select("id, slug, name")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (currentError) {
+      if (isMissingRelationError(currentError)) {
+        return actionError(
+          "La tabla de tipos de vehículo aún no está migrada en la base de datos.",
+        );
+      }
+      throw mapPostgresError(currentError);
+    }
+    if (!current) {
+      return actionError("No se encontró el tipo de vehículo a editar.");
+    }
+
     const row: Record<string, unknown> = {};
     if (parsed.data.name !== undefined) {
       row.name = parsed.data.name;
-      row.slug = await ensureUniqueSlug(slugify(parsed.data.name), id);
+      const desiredSlug = slugify(parsed.data.name) || "tipo";
+      const currentSlug = String(
+        (current as { slug?: string }).slug ?? "",
+      );
+      // Solo regenerar slug si el nombre implica otro identificador.
+      if (desiredSlug !== currentSlug) {
+        row.slug = await ensureUniqueSlug(desiredSlug, id);
+      }
     }
     if (parsed.data.nameEn !== undefined) row.name_en = parsed.data.nameEn ?? null;
     if (parsed.data.description !== undefined)
@@ -290,7 +333,10 @@ export async function updateVehicleType(
     if (parsed.data.sortOrder !== undefined)
       row.sort_order = parsed.data.sortOrder;
 
-    const supabase = await createClient();
+    if (Object.keys(row).length === 0) {
+      return actionSuccess({ id });
+    }
+
     const { error } = await supabase
       .from("vehicle_types")
       .update(row)
@@ -303,6 +349,8 @@ export async function updateVehicleType(
           "La tabla de tipos de vehículo aún no está migrada en la base de datos.",
         );
       }
+      const conflict = vehicleTypeConflictMessage(error);
+      if (conflict) return actionError(conflict);
       throw mapPostgresError(error);
     }
 
@@ -331,12 +379,39 @@ export async function deactivateVehicleType(
     }
 
     const supabase = await createClient();
+    const { data: current, error: currentError } = await supabase
+      .from("vehicle_types")
+      .select("id, slug")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (currentError) {
+      if (isMissingRelationError(currentError)) {
+        return actionError(
+          "La tabla de tipos de vehículo aún no está migrada en la base de datos.",
+        );
+      }
+      throw mapPostgresError(currentError);
+    }
+    if (!current) {
+      return actionError("No se encontró el tipo de vehículo a desactivar.");
+    }
+
+    const currentSlug = String((current as { slug?: string }).slug || "tipo");
+    // Libera el slug UNIQUE para que se pueda volver a crear/editar con ese nombre.
+    const freedSlug = await ensureUniqueSlug(
+      `${currentSlug}-deleted-${id.replace(/-/g, "").slice(0, 8)}`,
+      id,
+    );
+
     const { error } = await supabase
       .from("vehicle_types")
       .update({
         is_active: false,
         published_on_web: false,
         deleted_at: new Date().toISOString(),
+        slug: freedSlug,
       })
       .eq("id", id);
 
