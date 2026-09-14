@@ -7,7 +7,6 @@ import { useState, useTransition } from "react";
 import { logoutAction } from "@/app/login/actions";
 import { usePermissions } from "@/components/auth/permission-provider";
 import { AlertsBell } from "@/components/dashboard/alerts-bell";
-import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -25,12 +24,19 @@ const ROUTE_LABELS: Record<string, string> = {
   finanzas: "Finanzas",
   ingresos: "Ingresos",
   gastos: "Gastos",
+  recibos: "Recibos",
   reportes: "Reportes",
   alertas: "Alertas",
+  liquidacion: "Liquidación",
+  socios: "Socios",
+  proveedores: "Proveedores",
+  balance: "Mi balance",
   "mi-perfil": "Mi perfil",
   usuarios: "Usuarios",
   roles: "Roles y permisos",
   configuracion: "Configuración",
+  "tipos-vehiculo": "Tipos de vehículo",
+  accesorios: "Accesorios",
   auditoria: "Auditoría",
 };
 
@@ -58,14 +64,19 @@ function buildBreadcrumbs(pathname: string) {
   return crumbs;
 }
 
-export function Topbar() {
+export type TopbarProps = {
+  onOpenMobileNav?: () => void;
+};
+
+export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const pathname = usePathname();
   const { profile, has } = usePermissions();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const breadcrumbs = buildBreadcrumbs(pathname);
+  const mobileTitle =
+    breadcrumbs[breadcrumbs.length - 1]?.label ?? "Panel";
   const displayName = profile
     ? `${profile.first_name} ${profile.last_name}`.trim()
     : "Usuario";
@@ -77,112 +88,114 @@ export function Topbar() {
   };
 
   return (
-    <>
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-surface/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80 lg:px-6">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => {
-            setMenuOpen(false);
-            setMobileNavOpen(true);
-          }}
-          aria-label="Abrir menú"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+    <header
+      className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-border bg-surface/95 px-3 pt-[env(safe-area-inset-top,0px)] backdrop-blur supports-[backdrop-filter]:bg-surface/80 md:min-h-16 md:gap-4 md:px-4 md:pt-0 lg:px-6"
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="md:hidden"
+        onClick={() => {
+          setMenuOpen(false);
+          onOpenMobileNav?.();
+        }}
+        aria-label="Abrir menú"
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
 
-        <nav aria-label="Breadcrumb" className="hidden min-w-0 flex-1 sm:block">
-          <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
-            {breadcrumbs.map((crumb, index) => (
-              <li key={`${crumb.label}-${index}`} className="flex items-center gap-1">
-                {index > 0 ? <span aria-hidden="true">/</span> : null}
-                {crumb.href ? (
-                  <a href={crumb.href} className="hover:text-brand">
-                    {crumb.label}
-                  </a>
-                ) : (
-                  <span className="font-medium text-foreground">{crumb.label}</span>
-                )}
-              </li>
-            ))}
-          </ol>
-        </nav>
+      {/* Título tipo app en móvil; breadcrumbs solo en escritorio */}
+      <div className="min-w-0 flex-1 md:hidden">
+        <p className="truncate text-base font-semibold text-foreground">
+          {mobileTitle}
+        </p>
+      </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          {has("dashboard.view") ? <AlertsBell /> : null}
+      <nav aria-label="Breadcrumb" className="hidden min-w-0 flex-1 md:block">
+        <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
+          {breadcrumbs.map((crumb, index) => (
+            <li key={`${crumb.label}-${index}`} className="flex items-center gap-1">
+              {index > 0 ? <span aria-hidden="true">/</span> : null}
+              {crumb.href ? (
+                <a href={crumb.href} className="hover:text-brand">
+                  {crumb.label}
+                </a>
+              ) : (
+                <span className="font-medium text-foreground">{crumb.label}</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileNavOpen(false);
-                setMenuOpen((open) => !open);
-              }}
-              className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-2 py-1.5 text-sm hover:bg-surface-muted"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light text-brand">
-                <User className="h-4 w-4" />
-              </span>
-              <span className="hidden max-w-[120px] truncate font-medium text-foreground md:inline">
-                {displayName}
-              </span>
-              <ChevronDown className="hidden h-4 w-4 text-muted md:block" />
-            </button>
+      <div className="ml-auto flex items-center gap-2">
+        {has("dashboard.view") ? <AlertsBell /> : null}
 
-            {menuOpen ? (
-              <>
-                <div
-                  className="fixed inset-0 z-40 touch-none bg-black/10"
-                  onPointerDown={() => setMenuOpen(false)}
-                  aria-hidden="true"
-                />
-                <div
-                  role="menu"
-                  className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-border bg-surface py-1 shadow-lg"
-                  onPointerDown={(event) => event.stopPropagation()}
-                >
-                  <div className="border-b border-border px-4 py-3">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {displayName}
-                    </p>
-                    <p className="truncate text-xs text-muted">
-                      {profile?.email ?? ""}
-                    </p>
-                  </div>
-                  <a
-                    href="/dashboard/mi-perfil"
-                    role="menuitem"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-surface-muted"
-                  >
-                    <User className="h-4 w-4" />
-                    Mi perfil y firma
-                  </a>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleLogout}
-                    disabled={pending}
-                    className={cn(
-                      "flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-surface-muted",
-                      pending && "opacity-50",
-                    )}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Cerrar sesión
-                  </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-2 py-1.5 text-sm hover:bg-surface-muted"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light text-brand">
+              <User className="h-4 w-4" />
+            </span>
+            <span className="hidden max-w-[120px] truncate font-medium text-foreground md:inline">
+              {displayName}
+            </span>
+            <ChevronDown className="hidden h-4 w-4 text-muted md:block" />
+          </button>
+
+          {menuOpen ? (
+            <>
+              <div
+                className="fixed inset-0 z-40 touch-none bg-black/10"
+                onPointerDown={() => setMenuOpen(false)}
+                aria-hidden="true"
+              />
+              <div
+                role="menu"
+                className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-border bg-surface py-1 shadow-lg"
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <div className="border-b border-border px-4 py-3">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {displayName}
+                  </p>
+                  <p className="truncate text-xs text-muted">
+                    {profile?.email ?? ""}
+                  </p>
                 </div>
-              </>
-            ) : null}
-          </div>
+                <a
+                  href="/dashboard/mi-perfil"
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-surface-muted"
+                >
+                  <User className="h-4 w-4" />
+                  Mi perfil y firma
+                </a>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogout}
+                  disabled={pending}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-surface-muted",
+                    pending && "opacity-50",
+                  )}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Cerrar sesión
+                </button>
+              </div>
+            </>
+          ) : null}
         </div>
-      </header>
-
-      <MobileNav open={mobileNavOpen} onOpenChange={setMobileNavOpen} />
-    </>
+      </div>
+    </header>
   );
 }

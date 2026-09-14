@@ -88,6 +88,13 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* App-like mobile shell (dashboard only uses these utilities) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 a,
 button,
 [role="button"],
