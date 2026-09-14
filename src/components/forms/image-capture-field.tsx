@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 type ImageCaptureFieldProps = {
   /** Hidden field that keeps the current stored URL when no new file is chosen */
   urlFieldName: string;
+  /** Named file input so the Server Action receives the image in FormData */
+  fileFieldName?: string;
   label: string;
   currentUrl?: string | null;
   className?: string;
@@ -17,6 +19,7 @@ type ImageCaptureFieldProps = {
 
 export function ImageCaptureField({
   urlFieldName,
+  fileFieldName = "imageFile",
   label,
   currentUrl = null,
   className,
@@ -34,12 +37,29 @@ export function ImageCaptureField({
     setPreviewUrl(currentUrl);
   }, [currentUrl, hasLocalFile, cleared]);
 
+  function syncNamedFileInput(next: File | null) {
+    const input = galleryRef.current;
+    if (!input) return;
+    if (!next) {
+      input.value = "";
+      return;
+    }
+    try {
+      const transfer = new DataTransfer();
+      transfer.items.add(next);
+      input.files = transfer.files;
+    } catch {
+      // Algunos navegadores no permiten asignar files; el padre puede usar onFileChange.
+    }
+  }
+
   function applyFile(next: File | null) {
     if (!next || !next.type.startsWith("image/")) return;
     setCleared(false);
     setHasLocalFile(true);
     const objectUrl = URL.createObjectURL(next);
     setPreviewUrl(objectUrl);
+    syncNamedFileInput(next);
     onFileChange?.(next);
   }
 
@@ -47,9 +67,9 @@ export function ImageCaptureField({
     setHasLocalFile(false);
     setCleared(true);
     setPreviewUrl(null);
-    onFileChange?.(null);
-    if (galleryRef.current) galleryRef.current.value = "";
+    syncNamedFileInput(null);
     if (cameraRef.current) cameraRef.current.value = "";
+    onFileChange?.(null);
   }
 
   const storedUrl = cleared || hasLocalFile ? "" : currentUrl || "";
@@ -58,6 +78,11 @@ export function ImageCaptureField({
     <div className={cn("space-y-2", className)}>
       <p className="text-sm font-medium text-zinc-700">{label}</p>
       <input type="hidden" name={urlFieldName} value={storedUrl} />
+      <input
+        type="hidden"
+        name={`${urlFieldName}Cleared`}
+        value={cleared ? "1" : "0"}
+      />
 
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
         {previewUrl ? (
@@ -105,6 +130,7 @@ export function ImageCaptureField({
         id={`${inputId}-gallery`}
         ref={galleryRef}
         type="file"
+        name={fileFieldName}
         accept="image/*"
         className="hidden"
         onChange={(event) => {

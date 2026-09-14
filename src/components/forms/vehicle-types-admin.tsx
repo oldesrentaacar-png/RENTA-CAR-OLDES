@@ -143,39 +143,51 @@ export function VehicleTypesAdmin({
 
   async function handleCreate(formData: FormData) {
     setError(null);
-    formData.set(
-      "dailyRate",
-      String(parseMoneyInput(formData.get("dailyRate"), 0)),
-    );
-    if (createImageFile) {
-      formData.set("imageFile", createImageFile);
+    try {
+      formData.set(
+        "dailyRate",
+        String(parseMoneyInput(formData.get("dailyRate"), 0)),
+      );
+      if (createImageFile && !formData.get("imageFile")) {
+        formData.set("imageFile", createImageFile);
+      }
+      const result = await createVehicleType(formData);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      setCreateImageFile(null);
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo guardar el tipo.",
+      );
     }
-    const result = await createVehicleType(formData);
-    if (!result.success) {
-      setError(result.error);
-      return;
-    }
-    setCreateImageFile(null);
-    router.refresh();
   }
 
   async function handleUpdate(id: string, formData: FormData) {
     setError(null);
-    formData.set(
-      "dailyRate",
-      String(parseMoneyInput(formData.get("dailyRate"), 0)),
-    );
-    if (editImageFile) {
-      formData.set("imageFile", editImageFile);
+    try {
+      formData.set(
+        "dailyRate",
+        String(parseMoneyInput(formData.get("dailyRate"), 0)),
+      );
+      if (editImageFile && !formData.get("imageFile")) {
+        formData.set("imageFile", editImageFile);
+      }
+      const result = await updateVehicleType(id, formData);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      setEditImageFile(null);
+      setEditingId(null);
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo guardar el tipo.",
+      );
     }
-    const result = await updateVehicleType(id, formData);
-    if (!result.success) {
-      setError(result.error);
-      return;
-    }
-    setEditImageFile(null);
-    setEditingId(null);
-    router.refresh();
   }
 
   async function handleDeactivate(id: string) {

@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
     "frederick-orders-defined-relax.trycloudflare.com",
     "perspectives-secretary-simply-street.trycloudflare.com",
   ],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
   async rewrites() {
     return [
       {

@@ -21,9 +21,21 @@ import {
 async function resolveVehicleTypeImageUrl(
   formData: FormData,
 ): Promise<string | null | undefined> {
-  const file = formData.get("imageFile");
-  if (file instanceof File && file.size > 0) {
-    if (!file.type.startsWith("image/")) {
+  const rawFile = formData.get("imageFile");
+  const file =
+    rawFile &&
+    typeof rawFile === "object" &&
+    "arrayBuffer" in rawFile &&
+    "size" in rawFile &&
+    typeof (rawFile as Blob).size === "number" &&
+    (rawFile as Blob).size > 0
+      ? (rawFile as Blob)
+      : null;
+
+  if (file) {
+    const mime =
+      "type" in file && typeof file.type === "string" ? file.type : "";
+    if (mime && !mime.startsWith("image/")) {
       throw new Error("El archivo debe ser una imagen.");
     }
     if (file.size > 8 * 1024 * 1024) {
@@ -47,10 +59,15 @@ async function resolveVehicleTypeImageUrl(
     return upload.secureUrl;
   }
 
+  const cleared = formData.get("imageUrlCleared") === "1";
   const imageUrl = formData.get("imageUrl");
-  if (typeof imageUrl !== "string") return undefined;
-  const trimmed = imageUrl.trim();
-  return trimmed === "" ? null : trimmed;
+  if (typeof imageUrl === "string" && imageUrl.trim() !== "") {
+    return imageUrl.trim();
+  }
+  // Solo borrar la imagen si el usuario pulsó «Quitar».
+  if (cleared) return null;
+  // Sin archivo nuevo y sin URL → no tocar image_url en update.
+  return undefined;
 }
 
 async function ensureUniqueSlug(
@@ -240,8 +257,6 @@ export async function updateVehicleType(
       const resolved = await resolveVehicleTypeImageUrl(formData);
       if (resolved !== undefined) {
         row.image_url = resolved;
-      } else if (parsed.data.imageUrl !== undefined) {
-        row.image_url = parsed.data.imageUrl ?? null;
       }
     } catch (uploadError) {
       return actionError(toUserMessage(uploadError));
