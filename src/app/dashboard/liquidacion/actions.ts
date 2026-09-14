@@ -9,6 +9,7 @@ import { rentalDaysBetween } from "@/lib/dates";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { toNumber } from "@/lib/money";
+import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
 import { monthFilterSchema, settlementSchema } from "@/lib/validation/settlement";
@@ -179,10 +180,10 @@ export async function listMonthlySettlements(
     const items = (data ?? []) as MonthlySettlement[];
     const totals = items.reduce(
       (acc, item) => ({
-        billedAmount: acc.billedAmount + Number(item.billed_amount ?? 0),
-        providerCost: acc.providerCost + Number(item.provider_cost ?? 0),
-        extraCosts: acc.extraCosts + Number(item.extra_costs ?? 0),
-        ownProfit: acc.ownProfit + Number(item.own_profit ?? 0),
+        billedAmount: acc.billedAmount + asNumber(item.billed_amount, 0),
+        providerCost: acc.providerCost + asNumber(item.provider_cost, 0),
+        extraCosts: acc.extraCosts + asNumber(item.extra_costs, 0),
+        ownProfit: acc.ownProfit + asNumber(item.own_profit, 0),
       }),
       { billedAmount: 0, providerCost: 0, extraCosts: 0, ownProfit: 0 },
     );
@@ -276,8 +277,8 @@ export async function lookupContractByCode(
         raw.start_at && raw.end_at
           ? rentalDaysBetween(raw.start_at, raw.end_at)
           : null,
-      total: Number(raw.total ?? 0),
-      amountPaid: Number(raw.amount_paid ?? 0),
+      total: asNumber(raw.total, 0),
+      amountPaid: asNumber(raw.amount_paid, 0),
     });
   } catch (error) {
     return actionError(toUserMessage(error));

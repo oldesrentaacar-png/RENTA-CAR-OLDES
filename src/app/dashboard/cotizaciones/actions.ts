@@ -21,6 +21,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { resolvePdfBusinessContact } from "@/lib/contracts/oldes-terms";
 import { formatMoney, multiply, toNumber } from "@/lib/money";
+import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
 import {
@@ -620,12 +621,12 @@ export async function getQuoteForEdit(
       vehicleTypeName: typeRel?.name ?? null,
       items: (items ?? []).map((item) => ({
         description: String(item.description ?? ""),
-        quantity: Number(item.quantity ?? 0),
-        unit_price: Number(item.unit_price ?? 0),
+        quantity: asNumber(item.quantity, 0),
+        unit_price: asNumber(item.unit_price, 0),
         item_type: String(item.item_type ?? "CUSTOM"),
         catalog_item_id: (item.catalog_item_id as string | null) ?? null,
         item_code: (item.item_code as string | null) ?? null,
-        tax_rate: Number(item.tax_rate ?? 0),
+        tax_rate: asNumber(item.tax_rate, 0),
       })),
     });
   } catch (error) {
@@ -948,9 +949,9 @@ export async function getQuotePdfData(quoteId: string) {
 
   const rawLines = (items ?? []).map((item) => ({
     description: String(item.description ?? ""),
-    quantity: Number(item.quantity ?? 0),
-    unit_price: Number(item.unit_price ?? 0),
-    amount: Number(item.amount ?? 0),
+    quantity: asNumber(item.quantity, 0),
+    unit_price: asNumber(item.unit_price, 0),
+    amount: asNumber(item.amount, 0),
     item_type: (item.item_type as string | null) ?? null,
   }));
 

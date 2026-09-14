@@ -23,6 +23,7 @@ import {
   toUserMessage,
 } from "@/lib/errors";
 import { isCloudinaryConfigured, isSupabaseConfigured } from "@/lib/env";
+import { asNumber } from "@/lib/safe-number";
 import { slugifyVehicle } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -97,7 +98,7 @@ export async function listVehicleTypesOption(): Promise<
         (row) => ({
           id: row.id,
           name: row.name,
-          daily_rate: Number(row.daily_rate),
+          daily_rate: asNumber(row.daily_rate, 0),
         }),
       ),
     );
@@ -231,9 +232,12 @@ export async function getVehicleRelated(
 
     const incomes = (incomesRes.data ?? []) as IncomeTransaction[];
     const expenses = (expensesRes.data ?? []) as ExpenseTransaction[];
-    const incomeTotal = incomes.reduce((sum, row) => sum + Number(row.amount), 0);
+    const incomeTotal = incomes.reduce(
+      (sum, row) => sum + asNumber(row.amount, 0),
+      0,
+    );
     const expenseTotal = expenses.reduce(
-      (sum, row) => sum + Number(row.amount),
+      (sum, row) => sum + asNumber(row.amount, 0),
       0,
     );
 

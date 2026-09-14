@@ -5,12 +5,26 @@ import { getBusinessSettings } from "@/app/dashboard/configuracion/actions";
 import { SettingsForm } from "@/components/forms/settings-form";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { isSupabaseConfigured } from "@/lib/env";
+import { toUserMessage } from "@/lib/errors";
+import type { BusinessSettings } from "@/types/database";
 
 export default async function ConfiguracionPage() {
   const configured = isSupabaseConfigured();
-  const result = configured ? await getBusinessSettings() : null;
-  const settings = result?.success ? result.data : null;
-  const error = result && !result.success ? result.error : null;
+  let settings: BusinessSettings | null = null;
+  let error: string | null = null;
+
+  if (configured) {
+    try {
+      const result = await getBusinessSettings();
+      if (result.success) {
+        settings = result.data;
+      } else {
+        error = result.error;
+      }
+    } catch (err) {
+      error = toUserMessage(err);
+    }
+  }
 
   return (
     <ModuleListShell

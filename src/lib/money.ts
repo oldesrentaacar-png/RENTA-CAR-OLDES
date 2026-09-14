@@ -7,11 +7,22 @@ Decimal.set({
 
 export type MoneyInput = string | number | Decimal;
 
-export function toDecimal(value: MoneyInput): Decimal {
+export function toDecimal(value: MoneyInput | null | undefined): Decimal {
   if (value instanceof Decimal) {
-    return value;
+    return value.isFinite() ? value : new Decimal(0);
   }
-  return new Decimal(value);
+  if (value == null || value === "") {
+    return new Decimal(0);
+  }
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    return new Decimal(0);
+  }
+  try {
+    const amount = new Decimal(value);
+    return amount.isFinite() ? amount : new Decimal(0);
+  } catch {
+    return new Decimal(0);
+  }
 }
 
 export function add(a: MoneyInput, b: MoneyInput): Decimal {
@@ -38,22 +49,33 @@ export function sum(values: MoneyInput[]): Decimal {
 }
 
 export function formatMoney(
-  value: MoneyInput,
+  value: MoneyInput | null | undefined,
   currency: string = "USD",
   locale: string = "es-SV",
 ): string {
-  const amount = toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount.toNumber());
+  try {
+    const amount = toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    const n = amount.toNumber();
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number.isFinite(n) ? n : 0);
+  } catch {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(0);
+  }
 }
 
 /** Converts a monetary value to a number suitable for PostgreSQL NUMERIC columns. */
-export function toNumber(value: MoneyInput): number {
-  return toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+export function toNumber(value: MoneyInput | null | undefined): number {
+  const n = toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+  return Number.isFinite(n) ? n : 0;
 }
 
 /**

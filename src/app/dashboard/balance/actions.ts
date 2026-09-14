@@ -4,6 +4,7 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/typ
 import { assertPermission } from "@/lib/auth/guards";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
+import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import { monthFilterSchema } from "@/lib/validation/settlement";
 import type {
@@ -110,22 +111,22 @@ async function summarizeMonth(
   const expenses = (expensesRes.data ?? []) as ExpenseTransaction[];
 
   const billedAmount = settlements.reduce(
-    (sum, item) => sum + Number(item.billed_amount ?? 0),
+    (sum, item) => sum + asNumber(item.billed_amount, 0),
     0,
   );
   const settlementProfit = settlements.reduce(
-    (sum, item) => sum + Number(item.own_profit ?? 0),
+    (sum, item) => sum + asNumber(item.own_profit, 0),
     0,
   );
   const partnerProfit = partners
     .filter((item) => !["CANCELLED", "ANNULLED"].includes(item.status))
-    .reduce((sum, item) => sum + Number(item.own_share ?? 0), 0);
+    .reduce((sum, item) => sum + asNumber(item.own_share, 0), 0);
   const vendorPayments = payments.reduce(
-    (sum, item) => sum + Number(item.amount ?? 0),
+    (sum, item) => sum + asNumber(item.amount, 0),
     0,
   );
   const operatingExpenses = expenses.reduce(
-    (sum, item) => sum + Number(item.amount ?? 0),
+    (sum, item) => sum + asNumber(item.amount, 0),
     0,
   );
 

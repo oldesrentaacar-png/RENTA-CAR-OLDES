@@ -18,38 +18,6 @@ import {
 } from "@/lib/validation/accessory";
 import type { AccessoryCatalogItem } from "@/types/database";
 
-export async function listAccessories(): Promise<
-  ActionResult<{ items: AccessoryCatalogItem[]; tableReady: boolean }>
-> {
-  try {
-    await assertPermission("settings.view");
-    if (!isSupabaseConfigured()) {
-      return actionError("Supabase no está configurado.");
-    }
-
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("accessory_catalog")
-      .select("*")
-      .order("sort_order", { ascending: true })
-      .order("name_es", { ascending: true });
-
-    if (error) {
-      if (isMissingRelationError(error)) {
-        return actionSuccess({ items: [], tableReady: false });
-      }
-      throw mapPostgresError(error);
-    }
-
-    return actionSuccess({
-      items: (data ?? []) as AccessoryCatalogItem[],
-      tableReady: true,
-    });
-  } catch (error) {
-    return actionError(toUserMessage(error));
-  }
-}
-
 export async function createAccessory(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {

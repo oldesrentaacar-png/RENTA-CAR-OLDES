@@ -7,6 +7,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
+import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import {
   vendorLedgerEntrySchema,
@@ -76,10 +77,10 @@ function ledgerInputToRow(
 function summarizeVendor(vendor: Vendor, ledger: VendorLedgerEntry[]): VendorSummary {
   const totalCharged = ledger
     .filter((entry) => entry.kind === "CHARGE")
-    .reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
+    .reduce((sum, entry) => sum + asNumber(entry.amount, 0), 0);
   const totalPaid = ledger
     .filter((entry) => entry.kind === "PAYMENT")
-    .reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
+    .reduce((sum, entry) => sum + asNumber(entry.amount, 0), 0);
 
   return {
     ...vendor,

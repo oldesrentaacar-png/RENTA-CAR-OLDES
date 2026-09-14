@@ -6,19 +6,9 @@ import {
   toUserMessage,
 } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
+import { asNumber, asOptionalNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import type { VehicleType } from "@/types/database";
-
-function asNumber(value: unknown, fallback: number): number {
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function asOptionalNumber(value: unknown): number | null {
-  if (value == null || value === "") return null;
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : null;
-}
 
 export function mapVehicleTypeRow(row: Record<string, unknown>): VehicleType {
   const featuresRaw = row.features;

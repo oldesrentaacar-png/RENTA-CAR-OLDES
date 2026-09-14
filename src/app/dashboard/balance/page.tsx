@@ -16,7 +16,9 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { isSupabaseConfigured } from "@/lib/env";
+import { toUserMessage } from "@/lib/errors";
 import { formatMoney } from "@/lib/money";
+import type { BalanceDashboardData } from "@/app/dashboard/balance/actions";
 
 export default async function BalancePage({
   searchParams,
@@ -25,12 +27,22 @@ export default async function BalancePage({
 }) {
   const params = await searchParams;
   const configured = isSupabaseConfigured();
-  const result = configured ? await getBalanceDashboard(params) : null;
-  const summary = result?.success ? result.data : null;
+  let summary: BalanceDashboardData | null = null;
+  let error: string | null = null;
+
+  if (configured) {
+    try {
+      const result = await getBalanceDashboard(params);
+      if (result.success) summary = result.data;
+      else error = result.error;
+    } catch (err) {
+      error = toUserMessage(err);
+    }
+  }
+
   const month =
     summary?.month ??
     String(params.month ?? new Date().toISOString().slice(0, 7));
-  const error = result && !result.success ? result.error : null;
 
   return (
     <PermissionGuard permission="finance.view">

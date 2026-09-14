@@ -16,6 +16,7 @@ import {
 } from "@/lib/calculations/profitability";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
+import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import { reportFiltersSchema } from "@/lib/validation/finance";
 import type {
@@ -235,13 +236,14 @@ export async function fetchReportData(
       .map((vehicle) => {
         const prof = profitability.find((row) => row.vehicleId === vehicle.id);
         const rentalDays = prof?.rentalDays ?? 0;
-        const subleaseTotal = rentalDays * Number(vehicle.sublease_daily_cost);
+        const subleaseTotal =
+          rentalDays * asNumber(vehicle.sublease_daily_cost, 0);
         const realIncome = prof?.realIncome ?? 0;
         return {
           vehicleId: vehicle.id,
           vehicleLabel: vehicle.label,
           payeeName: vehicle.sublease_payee_name ?? "—",
-          dailyCost: Number(vehicle.sublease_daily_cost),
+          dailyCost: asNumber(vehicle.sublease_daily_cost, 0),
           rentalDays,
           subleaseTotal,
           realIncome,

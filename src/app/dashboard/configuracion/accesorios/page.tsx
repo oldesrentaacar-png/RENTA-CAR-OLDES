@@ -1,16 +1,31 @@
 import Link from "next/link";
 
-import { listAccessories } from "@/app/dashboard/configuracion/accesorios/actions";
+import { listAccessories } from "@/app/dashboard/configuracion/accesorios/queries";
 import { AccessoryCatalogAdmin } from "@/components/forms/accessory-catalog-admin";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { isSupabaseConfigured } from "@/lib/env";
+import { toUserMessage } from "@/lib/errors";
+import type { AccessoryCatalogItem } from "@/types/database";
 
 export default async function AccesoriosConfigPage() {
   const configured = isSupabaseConfigured();
-  const result = configured ? await listAccessories() : null;
-  const items = result?.success ? result.data.items : [];
-  const tableReady = result?.success ? result.data.tableReady : false;
-  const error = result && !result.success ? result.error : null;
+  let items: AccessoryCatalogItem[] = [];
+  let tableReady = false;
+  let error: string | null = null;
+
+  if (configured) {
+    try {
+      const result = await listAccessories();
+      if (result.success) {
+        items = result.data.items;
+        tableReady = result.data.tableReady;
+      } else {
+        error = result.error;
+      }
+    } catch (err) {
+      error = toUserMessage(err);
+    }
+  }
 
   return (
     <ModuleListShell

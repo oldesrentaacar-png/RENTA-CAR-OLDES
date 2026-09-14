@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { toDatetimeLocalValue } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
+import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import {
   mapCustomerRow,
@@ -91,7 +92,7 @@ export default async function EditarCotizacionPage({
     descriptionEn: row.description_en,
     referenceModels: row.reference_models,
     referenceModelsEn: row.reference_models_en,
-    dailyRate: Number(row.daily_rate),
+    dailyRate: asNumber(row.daily_rate, 0),
   }));
 
   let catalogItems: QuoteCatalogItem[] = [];
@@ -113,8 +114,8 @@ export default async function EditarCotizacionPage({
       name_en: row.name_en,
       description_es: row.description_es,
       description_en: row.description_en,
-      unit_price: Number(row.unit_price),
-      tax_rate: Number(row.tax_rate),
+      unit_price: asNumber(row.unit_price, 0),
+      tax_rate: asNumber(row.tax_rate, 0),
       item_type: row.item_type,
     }));
   }
@@ -165,7 +166,7 @@ export default async function EditarCotizacionPage({
             startAt: toDatetimeLocalValue(quote.start_at),
             endAt: toDatetimeLocalValue(quote.end_at),
             depositAmount: quote.deposit_amount,
-            taxRate: Number((quote.tax_rate * 100).toFixed(2)),
+            taxRate: asNumber(quote.tax_rate * 100, 0),
             discountPercent: quote.discount_percent,
             notes: quote.notes ?? undefined,
             terms: quote.terms ?? undefined,
