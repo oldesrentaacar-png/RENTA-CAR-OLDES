@@ -17,6 +17,32 @@ import {
   vehicleTypeSchema,
   vehicleTypeUpdateSchema,
 } from "@/lib/validation/vehicle-type";
+import { getSignedUploadParams } from "@/lib/cloudinary/upload";
+
+export async function getVehicleTypeImageUploadParams(): Promise<
+  ActionResult<{
+    cloudName: string;
+    apiKey: string;
+    timestamp: number;
+    folder: string;
+    signature: string;
+  }>
+> {
+  try {
+    await assertPermission("settings.edit");
+    const params = getSignedUploadParams("rent-a-car-pro/vehicle-types");
+    if (!params.ok) return actionError(params.message);
+    return actionSuccess({
+      cloudName: params.cloudName,
+      apiKey: params.apiKey,
+      timestamp: params.timestamp,
+      folder: params.folder,
+      signature: params.signature,
+    });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
 
 async function resolveVehicleTypeImageUrl(
   formData: FormData,

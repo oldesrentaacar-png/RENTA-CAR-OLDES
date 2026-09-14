@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     "frederick-orders-defined-relax.trycloudflare.com",
     "perspectives-secretary-simply-street.trycloudflare.com",
   ],
+  // Keep under experimental for Next 16; also raise proxy body for large forms.
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

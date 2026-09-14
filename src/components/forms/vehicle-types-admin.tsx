@@ -6,12 +6,14 @@ import { useState } from "react";
 import {
   createVehicleType,
   deactivateVehicleType,
+  getVehicleTypeImageUploadParams,
   updateVehicleType,
 } from "@/app/dashboard/configuracion/tipos-vehiculo/actions";
 import { ImageCaptureField } from "@/components/forms/image-capture-field";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { prepareVehicleTypeImageFormData } from "@/lib/images/upload-vehicle-type-image";
 import { formatMoney, parseMoneyInput } from "@/lib/money";
 import type { VehicleType } from "@/types/database";
 
@@ -114,8 +116,9 @@ function FleetTypeFields({
           onFileChange={onImageFileChange}
         />
         <p className="mt-1 text-xs text-muted">
-          Puede subir una foto desde su dispositivo. Si ya tiene un enlace, se
-          conserva hasta que suba una nueva imagen o la quite.
+          Suba una foto desde su dispositivo. Se comprime sola antes de guardar
+          (evita errores con fotos pesadas). Si ya tiene imagen, se conserva
+          hasta que suba otra o la quite.
         </p>
       </div>
       <label className="flex items-end gap-2 pb-2 text-sm">
@@ -148,9 +151,11 @@ export function VehicleTypesAdmin({
         "dailyRate",
         String(parseMoneyInput(formData.get("dailyRate"), 0)),
       );
-      if (createImageFile && !formData.get("imageFile")) {
-        formData.set("imageFile", createImageFile);
-      }
+      await prepareVehicleTypeImageFormData(
+        formData,
+        createImageFile,
+        getVehicleTypeImageUploadParams,
+      );
       const result = await createVehicleType(formData);
       if (!result.success) {
         setError(result.error);
@@ -160,7 +165,9 @@ export function VehicleTypesAdmin({
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "No se pudo guardar el tipo.",
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar el tipo. Si la foto es muy pesada, intente otra más liviana.",
       );
     }
   }
@@ -172,9 +179,11 @@ export function VehicleTypesAdmin({
         "dailyRate",
         String(parseMoneyInput(formData.get("dailyRate"), 0)),
       );
-      if (editImageFile && !formData.get("imageFile")) {
-        formData.set("imageFile", editImageFile);
-      }
+      await prepareVehicleTypeImageFormData(
+        formData,
+        editImageFile,
+        getVehicleTypeImageUploadParams,
+      );
       const result = await updateVehicleType(id, formData);
       if (!result.success) {
         setError(result.error);
@@ -185,7 +194,9 @@ export function VehicleTypesAdmin({
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "No se pudo guardar el tipo.",
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar el tipo. Si la foto es muy pesada, intente otra más liviana.",
       );
     }
   }
