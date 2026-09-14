@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "sonner";
 
+import { BRAND } from "@/lib/brand";
+
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -11,10 +13,16 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "OLDES Rent-a-Car | Administración",
-  description: "Sistema de gestión OLDES Rent-a-Car",
+  title: `${BRAND.fullName} | Administración`,
+  description: `Sistema de gestión ${BRAND.fullName}`,
+  applicationName: BRAND.systemName,
   icons: {
-    icon: "/brand/oldes-logo.png",
+    icon: [
+      { url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/oldes-logo.png", type: "image/png" },
+    ],
+    shortcut: "/brand/favicon-32.png",
+    apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180" }],
   },
 };
 

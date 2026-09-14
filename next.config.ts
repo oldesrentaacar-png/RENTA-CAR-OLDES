@@ -41,6 +41,10 @@ const nextConfig: NextConfig = {
         source: "/oldes-logo.png",
         destination: "/landing/oldes-logo.png",
       },
+      {
+        source: "/favicon.ico",
+        destination: "/brand/favicon-32.png",
+      },
     ];
   },
 };

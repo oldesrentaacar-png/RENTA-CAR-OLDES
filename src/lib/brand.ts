@@ -4,7 +4,12 @@ export const BRAND = {
   tagline: "Rent-a-Car",
   fullName: "OLDES Rent-a-Car",
   systemName: "OLDES Admin",
+  /** Primary logo (headers, login, sidebar, PDFs via brand-assets). */
   logoPath: "/brand/oldes-logo.png",
+  /** Landing / public site logo (same artwork). */
+  landingLogoPath: "/landing/oldes-logo.png",
+  faviconPath: "/brand/favicon-32.png",
+  appleTouchIconPath: "/brand/apple-touch-icon.png",
   colors: {
     navy: "#0A1F5C",
     navyDark: "#061438",
