@@ -686,8 +686,8 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
         <span class="g-score">4.9</span>
         <span data-i18n="hero_google_badge">on Google</span>
       </a>
-      <h1 class="hero-headline" data-i18n="hero_headline">Reserva en minutos, maneja sin límites: la forma más fácil de rentar auto en El Salvador.</h1>
-      <p class="hero-lead" data-i18n="hero_lead">Sin depósitos descabellados, con seguro incluido y asistencia vial 24/7 para que manejes por todo el país con total tranquilidad.</p>
+      <h1 class="hero-headline" data-i18n="hero_headline">Book in minutes, drive without limits: the easiest way to rent a car in El Salvador.</h1>
+      <p class="hero-lead" data-i18n="hero_lead">No outrageous deposits, insurance included, and 24/7 roadside assistance so you can drive anywhere in the country with total peace of mind.</p>
       <div class="hero-actions">
         <a href="#flota" class="hero-btn hero-btn-primary">
           <i data-lucide="car" style="width:18px;height:18px;"></i>
@@ -1618,9 +1618,10 @@ const LANG_KEY="oldes_landing_lang";
 let currentLang=(()=>{
   try{
     const saved=localStorage.getItem(LANG_KEY);
+    // Preferencia del visitante si ya eligió EN/ES; si no, siempre inglés.
     if(saved==="en"||saved==="es")return saved;
   }catch(_){}
-  return"es";
+  return"en";
 })();
 
 function t(key,...args){

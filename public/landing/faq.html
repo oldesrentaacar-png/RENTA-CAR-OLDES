@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
@@ -75,8 +75,8 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
     </div>
     <div style="display:flex;align-items:center;gap:.625rem;">
       <div class="lang-switch">
-        <button type="button" class="lang-btn" data-set-lang="en" onclick="setLang('en')">EN</button>
-        <button type="button" class="lang-btn on" data-set-lang="es" onclick="setLang('es')">ES</button>
+        <button type="button" class="lang-btn on" data-set-lang="en" onclick="setLang('en')">EN</button>
+        <button type="button" class="lang-btn" data-set-lang="es" onclick="setLang('es')">ES</button>
       </div>
       <a href="tel:+50374350381" class="nav-call">+503 7435-0381</a>
     </div>
@@ -269,7 +269,7 @@ const I18N={
   },
 };
 
-let currentLang=(()=>{try{const s=localStorage.getItem(LANG_KEY);if(s==="en"||s==="es")return s;}catch(_){}return"es";})();
+let currentLang=(()=>{try{const s=localStorage.getItem(LANG_KEY);if(s==="en"||s==="es")return s;}catch(_){}return"en";})();
 
 function t(k){return(I18N[currentLang]||I18N.es)[k]||k;}
 
