@@ -1,16 +1,31 @@
 import Link from "next/link";
 
-import { listVehicleTypesAdmin } from "@/app/dashboard/configuracion/tipos-vehiculo/actions";
+import { listVehicleTypesAdmin } from "@/app/dashboard/configuracion/tipos-vehiculo/queries";
 import { VehicleTypesAdmin } from "@/components/forms/vehicle-types-admin";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { isSupabaseConfigured } from "@/lib/env";
+import { toUserMessage } from "@/lib/errors";
+import type { VehicleType } from "@/types/database";
 
 export default async function TiposVehiculoConfigPage() {
   const configured = isSupabaseConfigured();
-  const result = configured ? await listVehicleTypesAdmin() : null;
-  const items = result?.success ? result.data.items : [];
-  const tableReady = result?.success ? result.data.tableReady : false;
-  const error = result && !result.success ? result.error : null;
+  let items: VehicleType[] = [];
+  let tableReady = false;
+  let error: string | null = null;
+
+  if (configured) {
+    try {
+      const result = await listVehicleTypesAdmin();
+      if (result.success) {
+        items = result.data.items;
+        tableReady = result.data.tableReady;
+      } else {
+        error = result.error;
+      }
+    } catch (err) {
+      error = toUserMessage(err);
+    }
+  }
 
   return (
     <ModuleListShell

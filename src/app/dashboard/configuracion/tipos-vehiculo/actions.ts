@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
-import { uploadImageFromBuffer } from "@/lib/cloudinary/upload";
 import {
   isMissingRelationError,
   mapPostgresError,
@@ -18,7 +17,6 @@ import {
   vehicleTypeSchema,
   vehicleTypeUpdateSchema,
 } from "@/lib/validation/vehicle-type";
-import type { VehicleType } from "@/types/database";
 
 async function resolveVehicleTypeImageUrl(
   formData: FormData,
@@ -36,6 +34,7 @@ async function resolveVehicleTypeImageUrl(
         "Cloudinary no está configurado. No se pueden subir imágenes desde el equipo.",
       );
     }
+    const { uploadImageFromBuffer } = await import("@/lib/cloudinary/upload");
     const buffer = Buffer.from(await file.arrayBuffer());
     const upload = await uploadImageFromBuffer(buffer, {
       folder: "rent-a-car-pro/vehicle-types",
@@ -52,73 +51,6 @@ async function resolveVehicleTypeImageUrl(
   if (typeof imageUrl !== "string") return undefined;
   const trimmed = imageUrl.trim();
   return trimmed === "" ? null : trimmed;
-}
-function mapVehicleTypeRow(row: Record<string, unknown>): VehicleType {
-  const featuresRaw = row.features;
-  const features = Array.isArray(featuresRaw)
-    ? featuresRaw.map(String)
-    : [];
-
-  return {
-    id: row.id as string,
-    slug: row.slug as string,
-    name: row.name as string,
-    name_en: (row.name_en as string | null) ?? null,
-    description: (row.description as string | null) ?? null,
-    description_en: (row.description_en as string | null) ?? null,
-    reference_models: (row.reference_models as string | null) ?? null,
-    reference_models_en: (row.reference_models_en as string | null) ?? null,
-    daily_rate: Number(row.daily_rate),
-    weekly_rate: row.weekly_rate != null ? Number(row.weekly_rate) : null,
-    passengers: Number(row.passengers ?? 5),
-    luggage: Number(row.luggage ?? 2),
-    luggage_label: (row.luggage_label as string | null) ?? null,
-    luggage_label_en: (row.luggage_label_en as string | null) ?? null,
-    doors: Number(row.doors ?? 4),
-    air_conditioning: Boolean(row.air_conditioning ?? true),
-    transmission: (row.transmission as string) ?? "Automatic",
-    features,
-    image_url: (row.image_url as string | null) ?? null,
-    sort_order: Number(row.sort_order ?? 0),
-    published_on_web: Boolean(row.published_on_web),
-    is_active: Boolean(row.is_active ?? true),
-    created_at: row.created_at as string,
-    updated_at: row.updated_at as string,
-    deleted_at: (row.deleted_at as string | null) ?? null,
-  };
-}
-
-export async function listVehicleTypesAdmin(): Promise<
-  ActionResult<{ items: VehicleType[]; tableReady: boolean }>
-> {
-  try {
-    await assertPermission("settings.view");
-    if (!isSupabaseConfigured()) {
-      return actionError("Supabase no está configurado.");
-    }
-
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("vehicle_types")
-      .select("*")
-      .is("deleted_at", null)
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
-
-    if (error) {
-      if (isMissingRelationError(error)) {
-        return actionSuccess({ items: [], tableReady: false });
-      }
-      throw mapPostgresError(error);
-    }
-
-    return actionSuccess({
-      items: ((data ?? []) as Record<string, unknown>[]).map(mapVehicleTypeRow),
-      tableReady: true,
-    });
-  } catch (error) {
-    return actionError(toUserMessage(error));
-  }
 }
 
 async function ensureUniqueSlug(
