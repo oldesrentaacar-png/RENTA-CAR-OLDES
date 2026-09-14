@@ -111,14 +111,14 @@ function FleetTypeFields({
       <div className="sm:col-span-2 lg:col-span-3">
         <ImageCaptureField
           urlFieldName="imageUrl"
-          label="Imagen del tipo (subir desde el equipo o cámara)"
+          label="Imagen del tipo (cualquier foto — se adapta sola)"
           currentUrl={item?.image_url}
           onFileChange={onImageFileChange}
+          autoAdapt
         />
         <p className="mt-1 text-xs text-muted">
-          Suba una foto desde su dispositivo. Se comprime sola antes de guardar
-          (evita errores con fotos pesadas). Si ya tiene imagen, se conserva
-          hasta que suba otra o la quite.
+          Elija o tome una foto. El sistema la convierte a formato web, la
+          reduce y la sube sin errores por peso. Luego pulse Guardar.
         </p>
       </div>
       <label className="flex items-end gap-2 pb-2 text-sm">
@@ -167,7 +167,7 @@ export function VehicleTypesAdmin({
       setError(
         err instanceof Error
           ? err.message
-          : "No se pudo guardar el tipo. Si la foto es muy pesada, intente otra más liviana.",
+          : "No se pudo guardar. Pruebe otra imagen o revise la tarifa diaria.",
       );
     }
   }
@@ -196,7 +196,7 @@ export function VehicleTypesAdmin({
       setError(
         err instanceof Error
           ? err.message
-          : "No se pudo guardar el tipo. Si la foto es muy pesada, intente otra más liviana.",
+          : "No se pudo guardar. Pruebe otra imagen o revise la tarifa diaria.",
       );
     }
   }

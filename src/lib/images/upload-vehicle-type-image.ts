@@ -1,6 +1,6 @@
 "use client";
 
-import { compressImageFile, isBlobFile } from "@/lib/images/compress-image";
+import { adaptImageForUpload, isBlobFile } from "@/lib/images/compress-image";
 
 type SignedUploadParams = {
   cloudName: string;
@@ -10,20 +10,21 @@ type SignedUploadParams = {
   signature: string;
 };
 
+type ParamsResult =
+  | { success: true; data: SignedUploadParams }
+  | { success: false; error: string };
+
 /**
- * Compresses locally and uploads straight to Cloudinary (bypasses Vercel body limit).
+ * Adapta la foto y la sube directo a Cloudinary (sin pasar por el límite de Vercel).
  */
 export async function uploadImageViaSignedCloudinary(
   file: File,
-  getParams: () => Promise<
-    | { success: true; data: SignedUploadParams }
-    | { success: false; error: string }
-  >,
+  getParams: () => Promise<ParamsResult>,
 ): Promise<string> {
-  const compressed = await compressImageFile(file, {
+  const adapted = await adaptImageForUpload(file, {
     maxWidth: 1600,
     maxHeight: 1600,
-    maxBytes: 1_200_000,
+    maxBytes: 1_000_000,
   });
 
   const paramsResult = await getParams();
@@ -33,7 +34,7 @@ export async function uploadImageViaSignedCloudinary(
 
   const { cloudName, apiKey, timestamp, folder, signature } = paramsResult.data;
   const body = new FormData();
-  body.append("file", compressed);
+  body.append("file", adapted);
   body.append("api_key", apiKey);
   body.append("timestamp", String(timestamp));
   body.append("signature", signature);
@@ -52,7 +53,7 @@ export async function uploadImageViaSignedCloudinary(
   if (!response.ok || !payload?.secure_url) {
     throw new Error(
       payload?.error?.message ||
-        "No se pudo subir la imagen a Cloudinary. Intente con una foto más liviana.",
+        "No se pudo subir la imagen. Revise la conexión e intente de nuevo.",
     );
   }
 
@@ -62,10 +63,7 @@ export async function uploadImageViaSignedCloudinary(
 export async function prepareVehicleTypeImageFormData(
   formData: FormData,
   localFile: File | null,
-  getParams: () => Promise<
-    | { success: true; data: SignedUploadParams }
-    | { success: false; error: string }
-  >,
+  getParams: () => Promise<ParamsResult>,
 ): Promise<void> {
   const fromForm = formData.get("imageFile");
   const file =
@@ -75,7 +73,7 @@ export async function prepareVehicleTypeImageFormData(
         ? fromForm
         : null;
 
-  // Never send the binary through the Server Action (Vercel ~4.5MB limit).
+  // Nunca enviar el binario por Server Action.
   formData.delete("imageFile");
 
   if (!file) return;
