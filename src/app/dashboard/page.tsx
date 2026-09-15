@@ -184,21 +184,21 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-full min-w-0 space-y-6">
       <PageHeader
         title="Panel de control"
         description="Agenda operativa del día y resumen de su negocio de renta."
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
             <Link
               href="/dashboard/contratos/nuevo"
-              className="inline-flex min-h-11 items-center rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 touch-manipulation"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 touch-manipulation sm:w-auto"
             >
               Generar contrato
             </Link>
             <Link
               href="/dashboard/contratos"
-              className="inline-flex min-h-11 items-center rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium hover:bg-zinc-50 touch-manipulation"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium hover:bg-zinc-50 touch-manipulation sm:w-auto"
             >
               Cerrar / ver contratos
             </Link>
@@ -242,11 +242,13 @@ export default async function DashboardPage() {
             </Link>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             <Card>
-              <CardHeader className="flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base">Pendientes del día</CardTitle>
-                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+              <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+                <CardTitle className="min-w-0 flex-1 truncate text-base">
+                  Pendientes del día
+                </CardTitle>
+                <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
                   {agenda.pendingRequestsCount}
                 </span>
               </CardHeader>

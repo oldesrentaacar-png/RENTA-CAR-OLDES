@@ -16,10 +16,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <main
         className={[
           // min-h-0 es obligatorio en flex para que overflow-y-auto haga scroll
-          "min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4",
-          "[-webkit-overflow-scrolling:touch] touch-pan-y lg:p-6",
+          "min-h-0 w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4",
+          "[-webkit-overflow-scrolling:touch] touch-pan-y sm:px-4 lg:p-6",
           // Espacio para barra inferior tipo app (solo móvil)
-          "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-4 lg:pb-6",
+          "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:pb-4 lg:pb-6",
         ].join(" ")}
       >
         {children}
