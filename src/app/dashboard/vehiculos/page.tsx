@@ -3,6 +3,7 @@ import Link from "next/link";
 import { listVehicles } from "@/app/dashboard/vehiculos/actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
+import { VehicleListActions } from "@/components/dashboard/vehicle-list-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { VEHICLE_STATUS_LABELS } from "@/lib/labels";
@@ -88,6 +89,12 @@ export default async function VehiculosPage({
             header: "Web",
             cell: (row) => (row.published_on_web ? "Sí" : "No"),
             className: "hidden lg:table-cell",
+          },
+          {
+            key: "actions",
+            header: "Acciones",
+            cell: (row) => <VehicleListActions vehicleId={row.id} />,
+            className: "text-right",
           },
         ]}
       />

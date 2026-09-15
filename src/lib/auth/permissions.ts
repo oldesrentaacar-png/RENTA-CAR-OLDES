@@ -80,7 +80,19 @@ export async function getEffectivePermissions(
     );
   }
 
-  const { data: profile, error: profileError } = await supabase
+  // Fallback: prefer service-role so staff without roles.manage still load menus.
+  let reader = supabase;
+  try {
+    const { isSupabaseAdminConfigured } = await import("@/lib/env");
+    if (isSupabaseAdminConfigured()) {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      reader = createAdminClient();
+    }
+  } catch {
+    // Keep user-scoped client.
+  }
+
+  const { data: profile, error: profileError } = await reader
     .from("profiles")
     .select("role_id")
     .eq("id", userId)
@@ -94,13 +106,13 @@ export async function getEffectivePermissions(
 
   const [{ data: rolePermissionRows }, { data: overrideRows }] =
     await Promise.all([
-      supabase
+      reader
         .from("role_permissions")
         .select("permission_id")
         .eq("role_id", profileRow.role_id),
-      supabase
+      reader
         .from("user_permission_overrides")
-        .select("permission_id, granted")
+        .select("permission_id, effect")
         .eq("user_id", userId),
     ]);
 
@@ -110,12 +122,12 @@ export async function getEffectivePermissions(
     permissionIds.add(row.permission_id);
   }
 
-  const overrideMap = new Map<string, boolean>();
+  const overrideMap = new Map<string, "GRANT" | "DENY">();
   for (const row of (overrideRows ?? []) as Array<{
     permission_id: string;
-    granted: boolean;
+    effect: "GRANT" | "DENY";
   }>) {
-    overrideMap.set(row.permission_id, row.granted);
+    overrideMap.set(row.permission_id, row.effect);
   }
 
   if (permissionIds.size === 0 && overrideMap.size === 0) {
@@ -126,7 +138,7 @@ export async function getEffectivePermissions(
     ...new Set([...permissionIds, ...overrideMap.keys()]),
   ];
 
-  const { data: permissionRows } = await supabase
+  const { data: permissionRows } = await reader
     .from("permissions")
     .select("id, key")
     .in("id", allPermissionIds);
@@ -144,12 +156,12 @@ export async function getEffectivePermissions(
     }
   }
 
-  for (const [permissionId, granted] of overrideMap.entries()) {
+  for (const [permissionId, effect] of overrideMap.entries()) {
     const key = keyById.get(permissionId);
     if (!key || !isPermissionKey(key)) {
       continue;
     }
-    if (granted) {
+    if (effect === "GRANT") {
       effective.add(key);
     } else {
       effective.delete(key);

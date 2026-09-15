@@ -425,11 +425,13 @@ export async function createVehicle(
       return actionError(message);
     }
 
-    const slug = slugifyVehicle(
-      parsed.data.brand,
-      parsed.data.model,
-      parsed.data.year,
-      parsed.data.plate,
+    const slug = await ensureUniqueVehicleSlug(
+      slugifyVehicle(
+        parsed.data.brand,
+        parsed.data.model,
+        parsed.data.year,
+        parsed.data.plate,
+      ),
     );
 
     const supabase = await createClient();
@@ -449,7 +451,19 @@ export async function createVehicle(
       .select("id")
       .single();
 
-    if (error) throw mapPostgresError(error);
+    if (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        String((error as { code?: string }).code) === "23505"
+      ) {
+        return actionError(
+          "Ya existe un vehículo con esa placa o identificador.",
+        );
+      }
+      throw mapPostgresError(error);
+    }
 
     const id = (data as { id: string }).id;
 
@@ -472,6 +486,32 @@ export async function createVehicle(
   } catch (error) {
     return actionError(toUserMessage(error));
   }
+}
+
+async function ensureUniqueVehicleSlug(
+  base: string,
+  excludeId?: string,
+): Promise<string> {
+  const supabase = await createClient();
+  let candidate = base || `vehicle-${Date.now()}`;
+  let attempt = 0;
+
+  while (attempt < 20) {
+    let query = supabase
+      .from("vehicles")
+      .select("id")
+      .eq("slug", candidate)
+      .limit(1);
+    if (excludeId) query = query.neq("id", excludeId);
+
+    const { data, error } = await query;
+    if (error) throw mapPostgresError(error);
+    if (!data?.length) return candidate;
+    attempt += 1;
+    candidate = `${base}-${attempt + 1}`;
+  }
+
+  return `${base}-${Date.now()}`;
 }
 
 export async function updateVehicle(
@@ -532,12 +572,13 @@ export async function updateVehicle(
     if (parsed.data.brand && parsed.data.model && parsed.data.year) {
       const plate = parsed.data.plate;
       if (plate) {
-        row.slug = slugifyVehicle(
+        const desiredSlug = slugifyVehicle(
           parsed.data.brand,
           parsed.data.model,
           parsed.data.year,
           plate,
         );
+        row.slug = await ensureUniqueVehicleSlug(desiredSlug, id);
       }
     }
 
@@ -555,7 +596,19 @@ export async function updateVehicle(
       .eq("id", id)
       .is("deleted_at", null);
 
-    if (error) throw mapPostgresError(error);
+    if (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        String((error as { code?: string }).code) === "23505"
+      ) {
+        return actionError(
+          "Ya existe un vehículo con esa placa o identificador. Revise la placa o reactive el registro eliminado.",
+        );
+      }
+      throw mapPostgresError(error);
+    }
 
     if (parsed.data.publishedOnWeb !== undefined) {
       await syncPublicVehicleTypeFromUnit(
@@ -591,13 +644,69 @@ export async function archiveVehicle(id: string): Promise<ActionResult<void>> {
     }
 
     const supabase = await createClient();
+
+    const { data: blockingReservations, error: reservationError } = await supabase
+      .from("reservations")
+      .select("id, code, status")
+      .eq("vehicle_id", id)
+      .in("status", ["CONFIRMED", "ACTIVE"])
+      .is("deleted_at", null)
+      .limit(1);
+
+    if (reservationError) throw mapPostgresError(reservationError);
+    if (blockingReservations && blockingReservations.length > 0) {
+      const code = String(
+        (blockingReservations[0] as { code?: string }).code ?? "",
+      );
+      return actionError(
+        code
+          ? `No se puede eliminar: tiene la reserva ${code} activa o confirmada. Cancele o finalice esa reserva primero.`
+          : "No se puede eliminar: el vehículo tiene reservas activas o confirmadas.",
+      );
+    }
+
+    const { data: openContracts, error: contractError } = await supabase
+      .from("contracts")
+      .select("id, code, status")
+      .eq("vehicle_id", id)
+      .in("status", ["PENDING", "CLIENT_SIGNED", "REPRESENTATIVE_SIGNED"])
+      .is("deleted_at", null)
+      .limit(1);
+
+    if (contractError) throw mapPostgresError(contractError);
+    if (openContracts && openContracts.length > 0) {
+      const code = String((openContracts[0] as { code?: string }).code ?? "");
+      return actionError(
+        code
+          ? `No se puede eliminar: tiene el contrato ${code} abierto. Ciérrelo primero.`
+          : "No se puede eliminar: el vehículo tiene contratos abiertos.",
+      );
+    }
+
+    const { data: current, error: currentError } = await supabase
+      .from("vehicles")
+      .select("id, slug")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (currentError) throw mapPostgresError(currentError);
+    if (!current) {
+      return actionError("No se encontró el vehículo a eliminar.");
+    }
+
+    const currentSlug = String((current as { slug?: string }).slug || "vehicle");
+    const freedSlug = `${currentSlug}-deleted-${id.replace(/-/g, "").slice(0, 8)}-${Date.now()}`;
+
     const { error } = await supabase
       .from("vehicles")
       .update({
         status: "ARCHIVED",
         archived_at: new Date().toISOString(),
+        deleted_at: new Date().toISOString(),
         published_on_web: false,
         is_active: false,
+        slug: freedSlug,
       })
       .eq("id", id)
       .is("deleted_at", null);
@@ -606,16 +715,22 @@ export async function archiveVehicle(id: string): Promise<ActionResult<void>> {
 
     await writeAuditLog({
       userId: user.id,
-      action: "vehicle.archive",
+      action: "vehicle.delete",
       entityType: "vehicle",
       entityId: id,
     });
 
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath(`/dashboard/vehiculos/${id}`);
     return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));
   }
+}
+
+/** Alias claro para la UI: eliminar = soft-delete (no borra historial). */
+export async function deleteVehicle(id: string): Promise<ActionResult<void>> {
+  return archiveVehicle(id);
 }
 
 function slugifyTypeName(name: string): string {

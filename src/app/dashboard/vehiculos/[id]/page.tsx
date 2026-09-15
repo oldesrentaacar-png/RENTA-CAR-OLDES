@@ -11,6 +11,7 @@ import { VehicleDetailActions } from "@/app/dashboard/vehiculos/[id]/vehicle-act
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
+import { VehicleDetailHeaderActions } from "@/components/dashboard/vehicle-detail-header-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -463,14 +464,7 @@ export default async function VehiculoDetailPage({
             { label: vehicle?.plate ?? "Detalle" },
           ]}
           actions={
-            vehicle ? (
-              <Link
-                href={`/dashboard/vehiculos/${id}/edit`}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
-              >
-                Editar
-              </Link>
-            ) : null
+            vehicle ? <VehicleDetailHeaderActions vehicleId={id} /> : null
           }
         />
 

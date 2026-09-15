@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import {
-  archiveVehicle,
+  deleteVehicle,
   generateVehicleViewsFromPhoto,
   removeVehicleImage,
   setPrimaryVehicleImage,
@@ -53,7 +53,11 @@ export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }
     useState<InspectionWireframeType>(autoWireframe);
 
   async function handleArchive() {
-    const result = await archiveVehicle(vehicle.id);
+    const ok = window.confirm(
+      "¿Eliminar este vehículo de la flota?\n\nDesaparecerá del listado. El historial se conserva.",
+    );
+    if (!ok) return;
+    const result = await deleteVehicle(vehicle.id);
     if (!result.success) {
       setError(result.error);
       return;
@@ -175,7 +179,7 @@ export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }
             : "Publicar tipo en web"}
         </Button>
         <Button type="button" variant="danger" onClick={handleArchive}>
-          Archivar
+          Eliminar vehículo
         </Button>
         <select
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"

@@ -411,7 +411,11 @@ export async function createInspection(
       .from("inspection_checklist_items")
       .insert(checklistRows);
 
-    if (checklistError) throw mapPostgresError(checklistError);
+    if (checklistError) {
+      // Compensa inspección huérfana si falla el checklist (permiso/RLS).
+      await supabase.from("inspections").delete().eq("id", id);
+      throw mapPostgresError(checklistError);
+    }
 
     await writeAuditLog({
       userId: user.id,
