@@ -36,7 +36,8 @@ export default async function DashboardLayout({
       permissions={[...permissions]}
       profile={profile}
     >
-      <div className="flex min-h-dvh bg-background">
+      {/* h-dvh + overflow-hidden: el scroll vive en <main>, no en el documento */}
+      <div className="flex h-dvh max-h-dvh overflow-hidden bg-background">
         <Sidebar />
         <DashboardShell>{children}</DashboardShell>
       </div>

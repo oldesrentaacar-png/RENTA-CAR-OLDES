@@ -42,7 +42,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "hidden h-full flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg transition-[width] duration-200 md:flex",
+        "hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg transition-[width] duration-200 md:flex",
         collapsed ? "w-[4.5rem]" : "w-64",
         className,
       )}
@@ -69,7 +69,7 @@ export function Sidebar({
         ) : null}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-4" aria-label="Principal">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-4" aria-label="Principal">
         {groups.map((group) => (
           <div key={group.title} className="mb-4">
             {!collapsed ? (
