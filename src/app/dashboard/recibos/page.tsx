@@ -1,17 +1,25 @@
-import Link from "next/link";
-
 import { listPaymentReceipts } from "@/app/dashboard/recibos/actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
+import { ReceiptListActions } from "@/components/recibos/receipt-list-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
+import { getCurrentUser } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 import { formatAppDate } from "@/lib/dates";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
-import { receiptPdfHref } from "@/lib/pdf/pdf-cache";
 
 export default async function RecibosPage() {
   const configured = isSupabaseConfigured();
+  const user = configured ? await getCurrentUser() : null;
+  const [canEdit, canVoid] = user
+    ? await Promise.all([
+        hasPermission(user.id, "finance.edit"),
+        hasPermission(user.id, "finance.delete"),
+      ])
+    : [false, false];
+
   const result = configured
     ? await listPaymentReceipts({ pageSize: "100" })
     : null;
@@ -22,7 +30,7 @@ export default async function RecibosPage() {
   return (
     <ModuleListShell
       title="Recibos y devoluciones"
-      description="Comprobantes de abonos y devoluciones (PDF y WhatsApp)."
+      description="Comprobantes de abonos y devoluciones (PDF y WhatsApp). Anule para corregir montos."
       permission="finance.view"
       configured={configured}
       error={error}
@@ -47,9 +55,7 @@ export default async function RecibosPage() {
           {
             key: "code",
             header: "Número",
-            cell: (row) => (
-              <span className="font-medium">{row.code}</span>
-            ),
+            cell: (row) => <span className="font-medium">{row.code}</span>,
           },
           {
             key: "date",
@@ -84,27 +90,18 @@ export default async function RecibosPage() {
           },
           {
             key: "actions",
-            header: "",
+            header: "Acciones",
             cell: (row) => (
-              <div className="flex justify-end gap-2">
-                {row.contract_id ? (
-                  <Link
-                    href={`/dashboard/contratos/${row.contract_id}`}
-                    className="text-sm text-brand hover:underline"
-                  >
-                    Contrato
-                  </Link>
-                ) : null}
-                <a
-                  href={receiptPdfHref(row.id, row.updated_at)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-brand hover:underline"
-                >
-                  PDF
-                </a>
-              </div>
+              <ReceiptListActions
+                receiptId={row.id}
+                receiptCode={row.code}
+                contractId={row.contract_id}
+                updatedAt={row.updated_at}
+                canEdit={canEdit}
+                canVoid={canVoid}
+              />
             ),
+            className: "text-right",
           },
         ]}
       />

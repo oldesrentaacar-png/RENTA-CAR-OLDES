@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listCustomers } from "@/app/dashboard/clientes/actions";
+import { CustomerListActions } from "@/components/dashboard/customer-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { DataTable } from "@/components/shared/data-table";
@@ -79,6 +80,17 @@ export default async function ClientesPage({
             key: "status",
             header: "Estado",
             cell: (row) => <StatusBadge status={row.status} />,
+          },
+          {
+            key: "actions",
+            header: "Acciones",
+            cell: (row) => (
+              <CustomerListActions
+                customerId={row.id}
+                customerName={getCustomerDisplayName(row)}
+              />
+            ),
+            className: "text-right",
           },
         ]}
       />

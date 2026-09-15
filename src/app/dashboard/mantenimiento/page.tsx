@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { listMaintenanceRecords } from "@/app/dashboard/mantenimiento/actions";
+import { MaintenanceListActions } from "@/components/dashboard/maintenance-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -81,15 +82,9 @@ export default async function MantenimientoPage() {
           },
           {
             key: "actions",
-            header: "",
-            cell: (row) => (
-              <Link
-                href={`/dashboard/mantenimiento/${row.id}`}
-                className="text-sm text-brand hover:underline"
-              >
-                Ver
-              </Link>
-            ),
+            header: "Acciones",
+            cell: (row) => <MaintenanceListActions recordId={row.id} />,
+            className: "text-right",
           },
         ]}
       />

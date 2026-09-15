@@ -3,9 +3,12 @@ import { Plus } from "lucide-react";
 
 import { listIncomeTransactions } from "@/app/dashboard/ingresos/actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
+import { IncomeRowActions } from "@/components/ingresos/income-row-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 import { formatAppDate } from "@/lib/dates";
 import {
   DEPOSIT_STATUS_LABELS,
@@ -17,6 +20,14 @@ import { isSupabaseConfigured } from "@/lib/env";
 
 export default async function IngresosPage() {
   const configured = isSupabaseConfigured();
+  const user = configured ? await getCurrentUser() : null;
+  const [canEdit, canDelete] = user
+    ? await Promise.all([
+        hasPermission(user.id, "finance.edit"),
+        hasPermission(user.id, "finance.delete"),
+      ])
+    : [false, false];
+
   const result = configured
     ? await listIncomeTransactions({ pageSize: "100" })
     : null;
@@ -85,6 +96,19 @@ export default async function IngresosPage() {
             header: "Referencia",
             cell: (row) => row.reference ?? "—",
             className: "hidden lg:table-cell",
+          },
+          {
+            key: "actions",
+            header: "Acciones",
+            cell: (row) => (
+              <IncomeRowActions
+                incomeId={row.id}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                linkedToReceipt={Boolean(row.receipt_id)}
+              />
+            ),
+            className: "text-right",
           },
         ]}
       />

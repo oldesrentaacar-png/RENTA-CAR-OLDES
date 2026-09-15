@@ -914,6 +914,11 @@ export async function updateContract(
     if (status === "COMPLETED" || status === "CANCELLED") {
       return actionError("No se puede editar un contrato completado o cancelado.");
     }
+    if (status !== "PENDING") {
+      return actionError(
+        "Solo se pueden editar fechas y tarifas antes de firmar. Después use Anular o Cerrar renta.",
+      );
+    }
 
     const row: Record<string, unknown> = {};
     const terms = formData.get("terms");

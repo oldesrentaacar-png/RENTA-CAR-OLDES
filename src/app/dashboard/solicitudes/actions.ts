@@ -20,6 +20,7 @@ import {
   linkCustomerToRequestSchema,
   webRequestSearchSchema,
   webRequestStatusUpdateSchema,
+  webRequestUpdateSchema,
 } from "@/lib/validation/web-request";
 import type { Customer, WebRequest } from "@/types/database";
 import type { PaginatedResult } from "@/types/api";
@@ -94,6 +95,179 @@ export async function getWebRequest(
     if (!data) return actionError("Solicitud no encontrada.");
 
     return actionSuccess(mapWebRequestRow(data as WebRequestRow));
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export async function listVehicleCategoriesForRequests(): Promise<
+  ActionResult<Array<{ name: string }>>
+> {
+  try {
+    await assertPermission("requests.view");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("vehicle_types")
+      .select("name")
+      .is("deleted_at", null)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      // Table may be missing in older envs — allow free-text edit anyway.
+      return actionSuccess([]);
+    }
+
+    return actionSuccess(
+      ((data ?? []) as Array<{ name: string }>).map((row) => ({
+        name: row.name,
+      })),
+    );
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export async function updateWebRequest(
+  id: string,
+  formData: FormData,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { user } = await assertPermission("requests.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("web_requests")
+      .select("id, status")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Solicitud no encontrada.");
+
+    const status = (existing as { status: WebRequest["status"] }).status;
+    if (["CONVERTED", "REJECTED", "CANCELLED"].includes(status)) {
+      return actionError(
+        "No se puede editar una solicitud convertida, rechazada o cancelada.",
+      );
+    }
+
+    const parsed = webRequestUpdateSchema.safeParse({
+      firstName: formData.get("firstName"),
+      lastName: formData.get("lastName"),
+      phone: formData.get("phone"),
+      email: formData.get("email"),
+      pickupDate: formData.get("pickupDate"),
+      pickupTime: formData.get("pickupTime"),
+      returnDate: formData.get("returnDate"),
+      returnTime: formData.get("returnTime"),
+      vehicleCategory: formData.get("vehicleCategory"),
+      pickupLocation: formData.get("pickupLocation"),
+      returnLocation: formData.get("returnLocation"),
+      notes: formData.get("notes"),
+    });
+
+    if (!parsed.success) {
+      return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
+    }
+
+    const { error } = await supabase
+      .from("web_requests")
+      .update({
+        first_name: parsed.data.firstName,
+        last_name: parsed.data.lastName,
+        phone: parsed.data.phone,
+        email: parsed.data.email ?? null,
+        pickup_date: parsed.data.pickupDate,
+        pickup_time: parsed.data.pickupTime,
+        return_date: parsed.data.returnDate,
+        return_time: parsed.data.returnTime,
+        vehicle_category: parsed.data.vehicleCategory ?? null,
+        pickup_location: parsed.data.pickupLocation ?? null,
+        return_location: parsed.data.returnLocation ?? null,
+        notes: parsed.data.notes ?? null,
+      })
+      .eq("id", id)
+      .is("deleted_at", null);
+
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "web_request.update",
+      entityType: "web_request",
+      entityId: id,
+    });
+
+    revalidatePath("/dashboard/solicitudes");
+    revalidatePath(`/dashboard/solicitudes/${id}`);
+    revalidatePath(`/dashboard/solicitudes/${id}/edit`);
+    return actionSuccess({ id });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export async function deleteWebRequest(
+  id: string,
+): Promise<ActionResult<void>> {
+  try {
+    const { user } = await assertPermission("requests.delete");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("web_requests")
+      .select("id, status, code")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) {
+      return actionError("No se encontró la solicitud a eliminar.");
+    }
+
+    const status = (existing as { status: WebRequest["status"] }).status;
+    if (status === "CONVERTED") {
+      return actionError(
+        "No se puede eliminar una solicitud ya convertida a reserva/cotización.",
+      );
+    }
+
+    const { error } = await supabase
+      .from("web_requests")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id)
+      .is("deleted_at", null);
+
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "web_request.delete",
+      entityType: "web_request",
+      entityId: id,
+      metadata: {
+        code: (existing as { code: string }).code,
+        status,
+      },
+    });
+
+    revalidatePath("/dashboard/solicitudes");
+    revalidatePath(`/dashboard/solicitudes/${id}`);
+    return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));
   }

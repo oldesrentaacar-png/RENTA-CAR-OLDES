@@ -115,6 +115,14 @@ export function RequestActions({ request }: { request: WebRequest }) {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        {!closed ? (
+          <Link
+            href={`/dashboard/solicitudes/${request.id}/edit`}
+            className="inline-flex h-10 items-center rounded-lg border border-zinc-300 px-4 text-sm font-medium hover:bg-zinc-50"
+          >
+            Editar datos
+          </Link>
+        ) : null}
         {request.status === "PENDING" ? (
           <Button
             type="button"

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listReservations } from "@/app/dashboard/reservas/actions";
+import { ReservationListActions } from "@/components/dashboard/reservation-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { DataTable } from "@/components/shared/data-table";
@@ -99,6 +100,18 @@ export default async function ReservasPage({
             key: "status",
             header: "Estado",
             cell: (row) => <StatusBadge status={row.status} />,
+          },
+          {
+            key: "actions",
+            header: "Acciones",
+            cell: (row) => (
+              <ReservationListActions
+                reservationId={row.id}
+                reservationCode={row.code}
+                status={row.status}
+              />
+            ),
+            className: "text-right",
           },
         ]}
       />

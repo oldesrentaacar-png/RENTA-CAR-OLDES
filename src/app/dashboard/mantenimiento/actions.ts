@@ -130,6 +130,7 @@ export async function listMaintenanceRecords(
     let query = supabase
       .from("maintenance_records")
       .select("*, vehicles(id, brand, model, plate, status)", { count: "exact" })
+      .is("deleted_at", null)
       .order("maintenance_date", { ascending: false });
 
     if (filters.vehicleId) query = query.eq("vehicle_id", filters.vehicleId);
@@ -180,6 +181,7 @@ export async function getMaintenanceRecord(
       .from("maintenance_records")
       .select("*, vehicles(id, brand, model, plate, status)")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) throw mapPostgresError(error);
@@ -299,6 +301,7 @@ export async function updateMaintenanceRecord(
       .from("maintenance_records")
       .select("vehicle_id, status")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (fetchError) throw mapPostgresError(fetchError);
@@ -324,7 +327,8 @@ export async function updateMaintenanceRecord(
     const { error } = await supabase
       .from("maintenance_records")
       .update(row)
-      .eq("id", id);
+      .eq("id", id)
+      .is("deleted_at", null);
 
     if (error) throw mapPostgresError(error);
 
@@ -389,6 +393,7 @@ export async function updateMaintenanceStatus(
       .from("maintenance_records")
       .select("vehicle_id")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (fetchError) throw mapPostgresError(fetchError);
@@ -397,7 +402,8 @@ export async function updateMaintenanceStatus(
     const { error } = await supabase
       .from("maintenance_records")
       .update({ status: parsed.data })
-      .eq("id", id);
+      .eq("id", id)
+      .is("deleted_at", null);
 
     if (error) throw mapPostgresError(error);
 
@@ -462,6 +468,56 @@ export async function listMaintenanceVehicles(): Promise<
         return { id: v.id, label: `${v.brand} ${v.model} (${v.plate})` };
       }),
     );
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export async function deleteMaintenanceRecord(
+  id: string,
+): Promise<ActionResult<void>> {
+  try {
+    const { user } = await assertPermission("maintenance.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("maintenance_records")
+      .select("id, description, status")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) {
+      return actionError("No se encontró el registro a eliminar.");
+    }
+
+    const { error } = await supabase
+      .from("maintenance_records")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id)
+      .is("deleted_at", null);
+
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "maintenance.delete",
+      entityType: "maintenance_record",
+      entityId: id,
+      metadata: {
+        description: (existing as { description: string }).description,
+        status: (existing as { status: string }).status,
+      },
+    });
+
+    revalidatePath("/dashboard/mantenimiento");
+    revalidatePath(`/dashboard/mantenimiento/${id}`);
+    revalidatePath("/dashboard/vehiculos");
+    return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));
   }

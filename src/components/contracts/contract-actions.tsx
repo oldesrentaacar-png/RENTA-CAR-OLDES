@@ -80,10 +80,7 @@ export function ContractDetailActions({
     [contract.clauses],
   );
 
-  const editable =
-    canEdit &&
-    contract.status !== "COMPLETED" &&
-    contract.status !== "CANCELLED";
+  const editable = canEdit && contract.status === "PENDING";
 
   async function handleToggleIncludePagare(next: boolean) {
     setSavingPagareOption(true);
@@ -243,6 +240,14 @@ export function ContractDetailActions({
           <Textarea name="notes" label="Notas" rows={3} defaultValue={contract.notes ?? ""} />
           <SubmitButton>Guardar cambios</SubmitButton>
         </form>
+      ) : canEdit &&
+        contract.status !== "COMPLETED" &&
+        contract.status !== "CANCELLED" ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Este contrato ya no está en estado pendiente de firma. Las fechas y
+          tarifas ya no se editan. Use <strong>Anular</strong> o{" "}
+          <strong>Cerrar renta</strong> según corresponda.
+        </div>
       ) : null}
 
       {canSign && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (

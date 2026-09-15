@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getMaintenanceRecord } from "@/app/dashboard/mantenimiento/actions";
 import { PermissionGuard } from "@/components/auth/permission-guard";
+import { MaintenanceDeleteButton } from "@/components/dashboard/maintenance-delete-button";
 import { MaintenanceForm } from "@/components/forms/maintenance-form";
 import { MaintenanceStatusActions } from "@/app/dashboard/mantenimiento/maintenance-status-actions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -62,12 +63,17 @@ export default async function MantenimientoDetailPage({ params }: PageProps) {
             { label: MAINTENANCE_TYPE_LABELS[record.type] },
           ]}
           actions={
-            <Link
-              href="/dashboard/mantenimiento"
-              className="text-sm text-brand hover:underline"
-            >
-              Volver al listado
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <PermissionGuard permission="maintenance.edit" fallback={null}>
+                <MaintenanceDeleteButton recordId={record.id} />
+              </PermissionGuard>
+              <Link
+                href="/dashboard/mantenimiento"
+                className="text-sm text-brand hover:underline"
+              >
+                Volver al listado
+              </Link>
+            </div>
           }
         />
 

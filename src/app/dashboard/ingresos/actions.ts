@@ -246,6 +246,23 @@ export async function deleteIncomeTransaction(
     }
 
     const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("income_transactions")
+      .select("id, receipt_id")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) {
+      return actionError("No se encontró el ingreso a eliminar.");
+    }
+    if ((existing as { receipt_id?: string | null }).receipt_id) {
+      return actionError(
+        "Este ingreso está ligado a un recibo. Anule el recibo desde Recibos (no elimine el ingreso solo).",
+      );
+    }
+
     const { error } = await supabase
       .from("income_transactions")
       .update({ deleted_at: new Date().toISOString() })

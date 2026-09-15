@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { listWebRequests } from "@/app/dashboard/solicitudes/actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
+import { RequestListActions } from "@/components/dashboard/request-list-actions";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -72,6 +73,18 @@ export default async function SolicitudesPage({
             key: "status",
             header: "Estado",
             cell: (row) => <StatusBadge status={row.status} />,
+          },
+          {
+            key: "actions",
+            header: "Acciones",
+            cell: (row) => (
+              <RequestListActions
+                requestId={row.id}
+                requestCode={row.code}
+                status={row.status}
+              />
+            ),
+            className: "text-right",
           },
         ]}
       />

@@ -39,15 +39,17 @@ export default async function ContratoDetailPage({
   const contract = result?.success ? result.data : null;
 
   const user = configured ? await getCurrentUser() : null;
-  const [canEdit, canSign, canCancel, canFinanceCreate, canFinanceView] = user
-    ? await Promise.all([
-        hasPermission(user.id, "contracts.edit"),
-        hasPermission(user.id, "contracts.sign"),
-        hasPermission(user.id, "contracts.cancel"),
-        hasPermission(user.id, "finance.create"),
-        hasPermission(user.id, "finance.view"),
-      ])
-    : [false, false, false, false, false];
+  const [canEdit, canSign, canCancel, canFinanceCreate, canFinanceView, canFinanceDelete] =
+    user
+      ? await Promise.all([
+          hasPermission(user.id, "contracts.edit"),
+          hasPermission(user.id, "contracts.sign"),
+          hasPermission(user.id, "contracts.cancel"),
+          hasPermission(user.id, "finance.create"),
+          hasPermission(user.id, "finance.view"),
+          hasPermission(user.id, "finance.delete"),
+        ])
+      : [false, false, false, false, false, false];
 
   let operatorName: string | null = null;
   let operatorHasSignature = false;
@@ -293,6 +295,7 @@ export default async function ContratoDetailPage({
                   contractId={contract.id}
                   customerId={contract.customer_id}
                   canCreate={canFinanceCreate}
+                  canVoid={canFinanceDelete}
                   receipts={receipts}
                   amountPaid={contract.amount_paid}
                   balanceDue={contract.balance_due}

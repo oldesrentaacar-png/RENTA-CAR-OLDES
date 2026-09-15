@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { createIncomeTransaction } from "@/app/dashboard/ingresos/actions";
+import {
+  createIncomeTransaction,
+  updateIncomeTransaction,
+} from "@/app/dashboard/ingresos/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -50,7 +53,9 @@ export function IncomeForm({ income, options, redirectTo }: IncomeFormProps) {
 
   async function handleSubmit(formData: FormData) {
     setError(null);
-    const result = await createIncomeTransaction(formData);
+    const result = income
+      ? await updateIncomeTransaction(income.id, formData)
+      : await createIncomeTransaction(formData);
     if (!result.success) {
       setError(result.error);
       return;

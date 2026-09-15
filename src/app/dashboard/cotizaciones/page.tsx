@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listQuotes } from "@/app/dashboard/cotizaciones/actions";
+import { QuoteListActions } from "@/components/dashboard/quote-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { DataTable } from "@/components/shared/data-table";
@@ -89,6 +90,14 @@ export default async function CotizacionesPage({
             key: "status",
             header: "Estado",
             cell: (row) => <StatusBadge status={row.status} />,
+          },
+          {
+            key: "actions",
+            header: "Acciones",
+            cell: (row) => (
+              <QuoteListActions quoteId={row.id} quoteCode={row.code} />
+            ),
+            className: "text-right",
           },
         ]}
       />

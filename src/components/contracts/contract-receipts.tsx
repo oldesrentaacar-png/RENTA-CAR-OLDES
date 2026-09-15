@@ -7,6 +7,7 @@ import {
   createPaymentReceipt,
   createPaymentRefund,
   getReceiptWhatsAppLink,
+  voidPaymentReceipt,
 } from "@/app/dashboard/recibos/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ type ContractReceiptsSectionProps = {
   contractId: string;
   customerId: string;
   canCreate: boolean;
+  canVoid?: boolean;
   receipts: PaymentReceipt[];
   amountPaid?: number;
   balanceDue?: number;
@@ -45,6 +47,7 @@ export function ContractReceiptsSection({
   contractId,
   customerId,
   canCreate,
+  canVoid = false,
   receipts,
   amountPaid,
   balanceDue,
@@ -54,6 +57,7 @@ export function ContractReceiptsSection({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showRefundForm, setShowRefundForm] = useState(false);
+  const [voidingId, setVoidingId] = useState<string | null>(null);
 
   async function handleCreatePayment(formData: FormData) {
     setError(null);
@@ -96,6 +100,23 @@ export function ContractReceiptsSection({
       return;
     }
     window.open(result.data.url, "_blank");
+  }
+
+  async function handleVoid(receipt: PaymentReceipt) {
+    const ok = window.confirm(
+      `¿Anular el recibo ${receipt.code}?\n\nSe revertirá el saldo del contrato y el ingreso ligado.`,
+    );
+    if (!ok) return;
+    setVoidingId(receipt.id);
+    setError(null);
+    const result = await voidPaymentReceipt(receipt.id);
+    setVoidingId(null);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    setMessage(`Recibo ${receipt.code} anulado.`);
+    router.refresh();
   }
 
   return (
@@ -185,6 +206,24 @@ export function ContractReceiptsSection({
                     >
                       WhatsApp
                     </Button>
+                    {canCreate || canVoid ? (
+                      <a
+                        href={`/dashboard/recibos/${receipt.id}/edit`}
+                        className="inline-flex h-9 items-center rounded-lg border border-border px-3 text-sm font-medium hover:bg-surface-muted"
+                      >
+                        Corregir
+                      </a>
+                    ) : null}
+                    {canVoid ? (
+                      <Button
+                        type="button"
+                        variant="danger"
+                        disabled={voidingId === receipt.id}
+                        onClick={() => void handleVoid(receipt)}
+                      >
+                        {voidingId === receipt.id ? "Anulando…" : "Anular"}
+                      </Button>
+                    ) : null}
                   </div>
                 </li>
               );

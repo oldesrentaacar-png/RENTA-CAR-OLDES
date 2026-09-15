@@ -746,3 +746,183 @@ export async function getPaymentReceiptPdfData(
     receivedByName,
   };
 }
+
+export async function updatePaymentReceiptMeta(
+  id: string,
+  formData: FormData,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { user } = await assertPermission("finance.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const concept = String(formData.get("concept") ?? "").trim();
+    const notesRaw = formData.get("notes");
+    const paymentMethod = String(formData.get("paymentMethod") ?? "").trim();
+
+    if (!concept) return actionError("Concepto requerido.");
+    if (!["CASH", "CARD", "TRANSFER", "CHECK", "OTHER"].includes(paymentMethod)) {
+      return actionError("Método de pago inválido.");
+    }
+
+    const supabase = await createClient();
+    const dbClient = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+
+    const { data: existing, error: existingError } = await supabase
+      .from("payment_receipts")
+      .select("id, contract_id")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Recibo no encontrado.");
+
+    const { error } = await dbClient
+      .from("payment_receipts")
+      .update({
+        concept,
+        payment_method: paymentMethod,
+        notes: notesRaw != null ? String(notesRaw).trim() || null : null,
+      })
+      .eq("id", id)
+      .is("deleted_at", null);
+
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "receipt.update_meta",
+      entityType: "payment_receipt",
+      entityId: id,
+    });
+
+    revalidatePath("/dashboard/recibos");
+    revalidatePath("/dashboard/ingresos");
+    revalidatePath("/dashboard/contratos");
+    const contractId = (existing as { contract_id?: string | null }).contract_id;
+    if (contractId) revalidatePath(`/dashboard/contratos/${contractId}`);
+    return actionSuccess({ id });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+/**
+ * Anula un recibo (soft-delete) y revierte contrato + ingreso ligado.
+ * Para corregir un monto: anule y registre un recibo nuevo.
+ */
+export async function voidPaymentReceipt(
+  id: string,
+): Promise<ActionResult<void>> {
+  try {
+    const { user } = await assertPermission("finance.delete");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const dbClient = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+
+    const { data: existing, error: existingError } = await supabase
+      .from("payment_receipts")
+      .select("id, code, amount, contract_id, income_id, receipt_kind")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) {
+      return actionError("No se encontró el recibo a anular.");
+    }
+
+    const receipt = existing as {
+      id: string;
+      code: string;
+      amount: number;
+      contract_id: string | null;
+      income_id: string | null;
+      receipt_kind?: "PAYMENT" | "REFUND" | null;
+    };
+
+    const kind = receipt.receipt_kind === "REFUND" ? "REFUND" : "PAYMENT";
+    const amount = Number(receipt.amount ?? 0);
+
+    if (receipt.contract_id && amount > 0) {
+      // PAYMENT void ⇒ decrease paid (refund helper).
+      // REFUND void ⇒ increase paid again (abono helper).
+      const billing =
+        kind === "REFUND"
+          ? await readContractBilling(supabase, receipt.contract_id, amount)
+          : await readContractBillingForRefund(
+              supabase,
+              receipt.contract_id,
+              amount,
+            );
+      if (billing) {
+        await tryUpdateContractBilling(supabase, receipt.contract_id, billing);
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    const { error: receiptError } = await dbClient
+      .from("payment_receipts")
+      .update({ deleted_at: now })
+      .eq("id", id)
+      .is("deleted_at", null);
+
+    if (receiptError) throw mapPostgresError(receiptError);
+
+    const incomeIds = new Set<string>();
+    if (receipt.income_id) incomeIds.add(receipt.income_id);
+
+    const { data: linkedIncomes } = await dbClient
+      .from("income_transactions")
+      .select("id")
+      .eq("receipt_id", id)
+      .is("deleted_at", null);
+
+    for (const row of (linkedIncomes ?? []) as Array<{ id: string }>) {
+      incomeIds.add(row.id);
+    }
+
+    if (incomeIds.size > 0) {
+      const { error: incomeError } = await dbClient
+        .from("income_transactions")
+        .update({ deleted_at: now })
+        .in("id", [...incomeIds])
+        .is("deleted_at", null);
+      if (incomeError) throw mapPostgresError(incomeError);
+    }
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "receipt.void",
+      entityType: "payment_receipt",
+      entityId: id,
+      metadata: {
+        code: receipt.code,
+        kind,
+        amount,
+        contractId: receipt.contract_id,
+      },
+    });
+
+    revalidatePath("/dashboard/recibos");
+    revalidatePath("/dashboard/ingresos");
+    revalidatePath("/dashboard/finanzas");
+    revalidatePath("/dashboard/contratos");
+    if (receipt.contract_id) {
+      revalidatePath(`/dashboard/contratos/${receipt.contract_id}`);
+    }
+    return actionSuccess(undefined as void);
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
