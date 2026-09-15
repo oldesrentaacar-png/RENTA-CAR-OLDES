@@ -625,6 +625,8 @@ export interface Inspection {
   inspection_date: string;
   mileage: number | null;
   fuel_level: FuelLevel | null;
+  handover_person_name: string | null;
+  additional_driver_name: string | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;

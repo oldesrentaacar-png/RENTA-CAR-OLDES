@@ -205,6 +205,11 @@ export function VehicleTypesAdmin({
   }
 
   async function handleDeactivate(id: string) {
+    const ok = window.confirm(
+      "¿Desactivar este tipo de vehículo?\n\nDejará de aparecer en el catálogo activo. Puede reactivarlo más adelante si lo necesita.",
+    );
+    if (!ok) return;
+
     setError(null);
     const result = await deactivateVehicleType(id);
     if (!result.success) {

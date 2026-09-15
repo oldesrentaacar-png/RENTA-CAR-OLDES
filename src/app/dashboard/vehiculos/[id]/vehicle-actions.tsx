@@ -279,6 +279,10 @@ export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }
                       type="button"
                       className="ml-auto text-xs text-red-600 hover:underline"
                       onClick={async () => {
+                        const ok = window.confirm(
+                          "¿Eliminar esta foto del vehículo?\n\nEsta acción no se puede deshacer.",
+                        );
+                        if (!ok) return;
                         const r = await removeVehicleImage(img.id, vehicle.id);
                         if (r.success) router.refresh();
                       }}

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getInspection } from "@/app/dashboard/inspecciones/actions";
@@ -7,6 +6,7 @@ import { InspectionAccessoriesPanel } from "@/components/inspections/inspection-
 import { PhotoUploader } from "@/components/inspections/photo-uploader";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
 import { PermissionGuard } from "@/components/auth/permission-guard";
+import { InspectionDetailHeaderActions } from "@/components/dashboard/inspection-detail-header-actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,28 +65,20 @@ export default async function InspeccionDetailPage({
             { label: inspection?.code ?? "Detalle" },
           ]}
           actions={
-            inspection && deliveryFlow?.success && deliveryFlow.data ? (
-              <Link
-                href={`/dashboard/contratos/${deliveryFlow.data.contractId}#entrega`}
-                className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand/90"
-              >
-                Continuar entrega
-              </Link>
-            ) : inspection ? (
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`/dashboard/contratos/nuevo?reservation_id=${inspection.reservation_id}`}
-                  className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand/90"
-                >
-                  Crear contrato
-                </Link>
-                <Link
-                  href={`/dashboard/inspecciones/${id}/comparar?reservation_id=${inspection.reservation_id}`}
-                  className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-surface-muted"
-                >
-                  Comparar salida/entrada
-                </Link>
-              </div>
+            inspection ? (
+              <InspectionDetailHeaderActions
+                inspectionId={inspection.id}
+                inspectionCode={inspection.code}
+                reservationId={inspection.reservation_id}
+                showDeliveryContinue={Boolean(
+                  deliveryFlow?.success && deliveryFlow.data,
+                )}
+                contractId={
+                  deliveryFlow?.success && deliveryFlow.data
+                    ? deliveryFlow.data.contractId
+                    : null
+                }
+              />
             ) : null
           }
         />

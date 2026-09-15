@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listInspections } from "@/app/dashboard/inspecciones/actions";
+import { InspectionListActions } from "@/components/dashboard/inspection-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { DataTable } from "@/components/shared/data-table";
 import { FUEL_LEVEL_LABELS, INSPECTION_TYPE_LABELS } from "@/lib/inspections/defaults";
@@ -79,6 +80,17 @@ export default async function InspeccionesPage({
                 ? (FUEL_LEVEL_LABELS[row.fuel_level] ?? row.fuel_level)
                 : "—",
             className: "hidden lg:table-cell",
+          },
+          {
+            key: "actions",
+            header: "Acciones",
+            cell: (row) => (
+              <InspectionListActions
+                inspectionId={row.id}
+                inspectionCode={row.code}
+              />
+            ),
+            className: "text-right",
           },
         ]}
       />

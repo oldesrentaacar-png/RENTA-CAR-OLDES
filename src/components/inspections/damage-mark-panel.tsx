@@ -70,7 +70,18 @@ export function DamageMarkPanel({
           no encaje en las otras categorías.
         </p>
       ) : null}
-      <Button type="button" variant="danger" size="sm" onClick={onRemove}>
+      <Button
+        type="button"
+        variant="danger"
+        size="sm"
+        onClick={() => {
+          const ok = window.confirm(
+            `¿Eliminar la marca de daño #${mark.markNumber}?\n\nDeberá guardar el mapa de daños para confirmar el cambio.`,
+          );
+          if (!ok) return;
+          onRemove();
+        }}
+      >
         Eliminar marca #{mark.markNumber}
       </Button>
     </div>

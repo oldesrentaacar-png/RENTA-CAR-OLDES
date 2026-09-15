@@ -21,7 +21,6 @@ import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getDefaultChecklistFromCatalog } from "@/lib/inspections/accessory-catalog";
 import {
   DEFAULT_CHECKLIST_ITEMS,
-  percentToFuelLevel,
 } from "@/lib/inspections/defaults";
 import { uploadInspectionPhoto } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
@@ -442,25 +441,74 @@ export async function updateInspection(
       return actionError("Supabase no está configurado.");
     }
 
-    const fuelPercent = formData.get("fuelLevel");
-    const row: Record<string, unknown> = {};
+    const fuelLevelRaw = formData.get("fuelLevel");
+    const fuelLevel =
+      fuelLevelRaw != null && String(fuelLevelRaw).trim() !== ""
+        ? String(fuelLevelRaw)
+        : undefined;
 
-    const mileage = formData.get("mileage");
-    const notes = formData.get("notes");
-    const inspectionDate = formData.get("inspectionDate");
+    const mileageRaw = formData.get("mileage");
+    const notesRaw = formData.get("notes");
+    const inspectionDateRaw = formData.get("inspectionDate");
+    const handoverRaw = formData.get("handoverPersonName");
+    const additionalDriverRaw = formData.get("additionalDriverName");
 
-    if (mileage !== null && String(mileage) !== "") {
-      row.mileage = Number(mileage);
+    if (!inspectionDateRaw || String(inspectionDateRaw).trim() === "") {
+      return actionError("Fecha de inspección requerida.");
     }
-    if (fuelPercent !== null && String(fuelPercent) !== "") {
-      row.fuel_level = percentToFuelLevel(Number(fuelPercent));
+
+    const FUEL_LEVELS = new Set([
+      "EMPTY",
+      "ONE_EIGHTH",
+      "QUARTER",
+      "THREE_EIGHTHS",
+      "HALF",
+      "FIVE_EIGHTHS",
+      "THREE_QUARTERS",
+      "SEVEN_EIGHTHS",
+      "FULL",
+    ]);
+
+    let fuel_level: string | null = null;
+    if (fuelLevel) {
+      if (!FUEL_LEVELS.has(fuelLevel)) {
+        return actionError("Nivel de combustible inválido.");
+      }
+      fuel_level = fuelLevel;
     }
-    if (notes !== null) row.notes = String(notes).trim() || null;
-    if (inspectionDate) {
-      row.inspection_date = normalizeFormDateTimeToIso(inspectionDate);
+
+    let mileage: number | null = null;
+    if (mileageRaw !== null && String(mileageRaw).trim() !== "") {
+      const n = Number(mileageRaw);
+      if (!Number.isInteger(n) || n < 0 || n > 9_999_999) {
+        return actionError("Kilometraje inválido.");
+      }
+      mileage = n;
     }
+
+    const row = {
+      inspection_date: normalizeFormDateTimeToIso(inspectionDateRaw),
+      mileage,
+      fuel_level,
+      handover_person_name:
+        handoverRaw != null ? String(handoverRaw).trim() || null : null,
+      additional_driver_name:
+        additionalDriverRaw != null
+          ? String(additionalDriverRaw).trim() || null
+          : null,
+      notes: notesRaw != null ? String(notesRaw).trim() || null : null,
+    };
 
     const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("inspections")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Inspección no encontrada.");
+
     const { error } = await supabase.from("inspections").update(row).eq("id", id);
 
     if (error) throw mapPostgresError(error);
@@ -474,7 +522,61 @@ export async function updateInspection(
 
     revalidatePath("/dashboard/inspecciones");
     revalidatePath(`/dashboard/inspecciones/${id}`);
+    revalidatePath(`/dashboard/inspecciones/${id}/edit`);
+    await revalidateContractsLinkedToInspection(id);
     return actionSuccess({ id });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export async function deleteInspection(
+  id: string,
+): Promise<ActionResult<void>> {
+  try {
+    const { user } = await assertPermission("inspections.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("inspections")
+      .select("id, code, reservation_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) {
+      return actionError("No se encontró la inspección a eliminar.");
+    }
+
+    const reservationId = (existing as { reservation_id: string }).reservation_id;
+    const code = (existing as { code: string }).code;
+
+    // Touch linked contracts before delete so UI caches refresh after CASCADE.
+    await revalidateContractsLinkedToInspection(id);
+
+    const { error } = await supabase.from("inspections").delete().eq("id", id);
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "inspection.delete",
+      entityType: "inspection",
+      entityId: id,
+      metadata: { code, reservationId },
+    });
+
+    revalidatePath("/dashboard/inspecciones");
+    revalidatePath(`/dashboard/inspecciones/${id}`);
+    revalidatePath(`/dashboard/inspecciones/${id}/edit`);
+    if (reservationId) {
+      revalidatePath(
+        `/dashboard/inspecciones/${id}/comparar?reservation_id=${reservationId}`,
+      );
+    }
+    return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));
   }

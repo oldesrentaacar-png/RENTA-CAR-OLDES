@@ -542,6 +542,8 @@ type InspectionRow = {
   inspection_date: string;
   mileage: number | null;
   fuel_level: Inspection["fuel_level"];
+  handover_person_name?: string | null;
+  additional_driver_name?: string | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;
@@ -615,6 +617,8 @@ export function mapInspectionRow(row: InspectionRow): Inspection {
     inspection_date: row.inspection_date,
     mileage: row.mileage,
     fuel_level: row.fuel_level,
+    handover_person_name: row.handover_person_name ?? null,
+    additional_driver_name: row.additional_driver_name ?? null,
     notes: row.notes,
     created_by: row.created_by,
     created_at: row.created_at,

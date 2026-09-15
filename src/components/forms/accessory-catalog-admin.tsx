@@ -48,6 +48,11 @@ export function AccessoryCatalogAdmin({
   }
 
   async function handleDeactivate(id: string) {
+    const ok = window.confirm(
+      "¿Desactivar este accesorio?\n\nDejará de aparecer en el catálogo activo.",
+    );
+    if (!ok) return;
+
     setError(null);
     const result = await deactivateAccessory(id);
     if (!result.success) {
