@@ -182,7 +182,7 @@ export async function hasPermission(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("has_permission", {
     p_user_id: userId,
-    p_permission_key: permission,
+    p_key: permission,
   });
 
   if (!error && typeof data === "boolean") {

@@ -56,72 +56,7 @@ REVOKE ALL ON FUNCTION public.get_user_permissions(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_user_permissions(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_user_permissions(uuid) TO service_role;
 
--- Keep same types; rename 2nd arg so PostgREST accepts { p_permission_key }.
-CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
-RETURNS boolean
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_status public.user_status;
-  v_role_id uuid;
-  v_permission_id uuid;
-BEGIN
-  IF p_user_id IS NULL OR p_permission_key IS NULL THEN
-    RETURN false;
-  END IF;
-
-  SELECT p.status, p.role_id
-  INTO v_status, v_role_id
-  FROM public.profiles p
-  WHERE p.id = p_user_id;
-
-  IF NOT FOUND OR v_status <> 'ACTIVE' THEN
-    RETURN false;
-  END IF;
-
-  SELECT id INTO v_permission_id
-  FROM public.permissions
-  WHERE key = p_permission_key;
-
-  IF NOT FOUND THEN
-    RETURN false;
-  END IF;
-
-  IF EXISTS (
-    SELECT 1
-    FROM public.user_permission_overrides uo
-    WHERE uo.user_id = p_user_id
-      AND uo.permission_id = v_permission_id
-      AND uo.effect = 'DENY'
-  ) THEN
-    RETURN false;
-  END IF;
-
-  IF EXISTS (
-    SELECT 1
-    FROM public.user_permission_overrides uo
-    WHERE uo.user_id = p_user_id
-      AND uo.permission_id = v_permission_id
-      AND uo.effect = 'GRANT'
-  ) THEN
-    RETURN true;
-  END IF;
-
-  IF v_role_id IS NOT NULL AND EXISTS (
-    SELECT 1
-    FROM public.role_permissions rp
-    WHERE rp.role_id = v_role_id
-      AND rp.permission_id = v_permission_id
-  ) THEN
-    RETURN true;
-  END IF;
-
-  RETURN false;
-END;
-$$;
+-- NOTE: has_permission keeps SQL arg name p_key; the app calls it as p_key.
 
 DROP POLICY IF EXISTS inspection_checklist_items_staff ON public.inspection_checklist_items;
 CREATE POLICY inspection_checklist_items_staff ON public.inspection_checklist_items
