@@ -96,6 +96,7 @@ export async function fetchReportData(
     let maintenanceQuery = supabase
       .from("maintenance_records")
       .select("*")
+      .is("deleted_at", null)
       .order("maintenance_date", { ascending: false });
 
     if (filters.from) {
@@ -181,12 +182,14 @@ export async function fetchReportData(
       expense_date: row.expense_date,
     }));
 
-    const reservationRows: ProfitabilityReservationRow[] = reservations.map((row) => ({
-      vehicle_id: row.vehicle_id,
-      start_at: row.start_at,
-      end_at: row.end_at,
-      status: row.status,
-    }));
+    const reservationRows: ProfitabilityReservationRow[] = reservations
+      .filter((row) => row.status !== "CANCELLED")
+      .map((row) => ({
+        vehicle_id: row.vehicle_id,
+        start_at: row.start_at,
+        end_at: row.end_at,
+        status: row.status,
+      }));
 
     const filteredIncome = filterIncomeByDateRange(
       incomeRows,

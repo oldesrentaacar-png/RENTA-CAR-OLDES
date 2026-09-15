@@ -19,7 +19,7 @@ const CONTRACT_STATUS_OPTIONS: Array<{ value: ContractStatus; label: string }> =
       label: getStatusLabel("REPRESENTATIVE_SIGNED"),
     },
     { value: "COMPLETED", label: getStatusLabel("COMPLETED") },
-    { value: "CANCELLED", label: getStatusLabel("CANCELLED") },
+    { value: "CANCELLED", label: "Anulado" },
   ];
 
 export default async function ContratosPage({
@@ -107,7 +107,12 @@ export default async function ContratosPage({
           {
             key: "status",
             header: "Estado",
-            cell: (row) => <StatusBadge status={row.status} />,
+            cell: (row) => (
+              <StatusBadge
+                status={row.status}
+                label={row.status === "CANCELLED" ? "Anulado" : undefined}
+              />
+            ),
           },
         ]}
       />

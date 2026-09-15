@@ -460,15 +460,21 @@ export function ContractDetailActions({
       ) : null}
 
       {canCancel && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (
-        <details className="rounded-xl border border-red-200 bg-red-50/40 p-4">
-          <summary className="cursor-pointer text-sm font-medium text-red-900">
-            Zona peligrosa: anular contrato (no es cerrar la renta)
+        <details className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-amber-950">
+            Anular contrato (el registro se conserva)
           </summary>
           <div className="mt-3 space-y-3">
-            <p className="text-sm text-red-800">
-              <strong>Anular</strong> cancela el contrato y{" "}
-              <strong>ya no podrá cerrar la renta ni generar el acta</strong>.
-              Si el vehículo ya fue entregado o lo van a devolver, use{" "}
+            <p className="text-sm text-amber-950">
+              <strong>Anular</strong> marca el contrato como{" "}
+              <strong>Anulado</strong> y{" "}
+              <strong>conserva todo lo llenado</strong> (datos, montos, firmas)
+              para historial y auditoría.{" "}
+              <strong>No elimina</strong> el contrato.
+            </p>
+            <p className="text-sm text-amber-900">
+              Úselo si el cliente desiste antes de la entrega (sin dinero, no
+              acepta condiciones, etc.). Si el vehículo ya salió, use{" "}
               <a
                 href={`/dashboard/contratos/${contract.id}/cerrar`}
                 className="font-medium underline"
@@ -477,16 +483,12 @@ export function ContractDetailActions({
               </a>
               .
             </p>
-            <p className="text-xs text-red-700">
-              Solo anule si el contrato nunca se ejecutará (error de captura,
-              cliente desistió antes de la entrega).
-            </p>
             <Button
               type="button"
               variant="danger"
               onClick={async () => {
                 const ok = confirm(
-                  "ATENCIÓN: Anular NO es cerrar la renta.\n\nSi el vehículo ya salió o lo van a devolver, cancele esto y use «Cerrar renta».\n\n¿Seguro que quiere ANULAR el contrato?",
+                  "¿Anular este contrato?\n\nQuedará el registro completo marcado como ANULADO (no se borra).\n\nSi el vehículo ya salió, cancele y use «Cerrar renta».",
                 );
                 if (!ok) return;
                 const typed = window.prompt(
@@ -501,7 +503,7 @@ export function ContractDetailActions({
                 else router.refresh();
               }}
             >
-              Anular contrato (permanente)
+              Anular contrato (conserva el registro)
             </Button>
           </div>
         </details>

@@ -1083,15 +1083,53 @@ export async function cancelContract(
 
     if (error) throw mapPostgresError(error);
 
+    // Keep the full contract record (terms, amounts, signatures).
+    // Free the operational chain so the vehicle can be used again.
+    const { data: reservation } = await supabase
+      .from("reservations")
+      .select("id, vehicle_id, status")
+      .eq("id", row.reservation_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (reservation) {
+      const reservationRow = reservation as {
+        id: string;
+        vehicle_id: string;
+        status: string;
+      };
+      if (
+        reservationRow.status === "CONFIRMED" ||
+        reservationRow.status === "ACTIVE"
+      ) {
+        await supabase
+          .from("reservations")
+          .update({ status: "CANCELLED" })
+          .eq("id", reservationRow.id)
+          .is("deleted_at", null);
+      }
+
+      await supabase
+        .from("vehicles")
+        .update({ status: "AVAILABLE" })
+        .eq("id", reservationRow.vehicle_id)
+        .in("status", ["RESERVED", "RENTED"])
+        .is("deleted_at", null);
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "contract.cancel",
       entityType: "contract",
       entityId: id,
+      metadata: { preservedRecord: true },
     });
 
     revalidatePath("/dashboard/contratos");
     revalidatePath(`/dashboard/contratos/${id}`);
+    revalidatePath("/dashboard/reservas");
+    revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/dashboard/calendario");
     return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));

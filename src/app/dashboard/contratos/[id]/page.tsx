@@ -181,18 +181,23 @@ export default async function ContratoDetailPage({
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle>Resumen del contrato</CardTitle>
-                  <StatusBadge status={contract.status} />
+                  <StatusBadge
+                    status={contract.status}
+                    label={
+                      contract.status === "CANCELLED" ? "Anulado" : undefined
+                    }
+                  />
                 </div>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
                 {contract.status === "CANCELLED" ? (
-                  <div className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-                    <p className="font-semibold">Contrato anulado</p>
+                  <div className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                    <p className="font-semibold">Contrato anulado (registro conservado)</p>
                     <p className="mt-1">
-                      Anular no es lo mismo que cerrar la renta. Este contrato ya
-                      no admite cierre ni acta de recepción. Si el vehículo
-                      sigue en calle, cree un nuevo flujo de cierre desde un
-                      contrato activo o contacte soporte para corregir el caso.
+                      Se mantiene el historial de lo llenado (datos, montos y
+                      firmas). No se puede cerrar renta ni generar acta sobre un
+                      contrato anulado. Si el cliente desistió antes de la
+                      entrega, este es el estado correcto.
                     </p>
                   </div>
                 ) : null}
