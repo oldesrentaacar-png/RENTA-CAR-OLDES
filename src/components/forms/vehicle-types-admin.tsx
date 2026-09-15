@@ -7,6 +7,7 @@ import {
   createVehicleType,
   deactivateVehicleType,
   getVehicleTypeImageUploadParams,
+  reactivateVehicleType,
   updateVehicleType,
 } from "@/app/dashboard/configuracion/tipos-vehiculo/actions";
 import { ImageCaptureField } from "@/components/forms/image-capture-field";
@@ -206,12 +207,27 @@ export function VehicleTypesAdmin({
 
   async function handleDeactivate(id: string) {
     const ok = window.confirm(
-      "¿Desactivar este tipo de vehículo?\n\nDejará de aparecer en el catálogo activo. Puede reactivarlo más adelante si lo necesita.",
+      "¿Desactivar este tipo de vehículo?\n\nDejará de aparecer en el catálogo y en la web. No se puede desactivar si aún tiene vehículos asignados. Podrá reactivarlo después desde la lista de desactivados.",
     );
     if (!ok) return;
 
     setError(null);
     const result = await deactivateVehicleType(id);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function handleReactivate(id: string) {
+    const ok = window.confirm(
+      "¿Reactivar este tipo de vehículo?\n\nVolverá al catálogo activo (oculto en web hasta que lo publique).",
+    );
+    if (!ok) return;
+
+    setError(null);
+    const result = await reactivateVehicleType(id);
     if (!result.success) {
       setError(result.error);
       return;
@@ -228,6 +244,9 @@ export function VehicleTypesAdmin({
     );
   }
 
+  const activeItems = items.filter((item) => !item.deleted_at);
+  const deactivatedItems = items.filter((item) => Boolean(item.deleted_at));
+
   return (
     <div className="space-y-6">
       {error ? (
@@ -238,7 +257,8 @@ export function VehicleTypesAdmin({
 
       <p className="text-sm text-muted">
         Catálogo público por categoría (no unidades individuales). La landing
-        lee estos tipos desde la base de datos.
+        lee estos tipos desde la base de datos. Marque «Publicar en web» al
+        editar para que aparezca en el sitio.
       </p>
 
       <form
@@ -251,13 +271,14 @@ export function VehicleTypesAdmin({
         </div>
       </form>
 
-      {items.length === 0 ? (
+      {activeItems.length === 0 ? (
         <p className="text-sm text-muted">
-          No hay tipos de vehículo. Agregue al menos uno para el catálogo público.
+          No hay tipos de vehículo activos. Agregue al menos uno para el
+          catálogo público.
         </p>
       ) : (
         <div className="divide-y divide-border overflow-hidden rounded-xl border border-zinc-200 bg-white">
-          {items.map((item) =>
+          {activeItems.map((item) =>
             editingId === item.id ? (
               <form
                 key={item.id}
@@ -334,6 +355,37 @@ export function VehicleTypesAdmin({
           )}
         </div>
       )}
+
+      {deactivatedItems.length > 0 ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-zinc-800">
+            Tipos desactivados
+          </h3>
+          <div className="divide-y divide-border overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+            {deactivatedItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+              >
+                <div>
+                  <p className="font-medium text-zinc-700">{item.name}</p>
+                  <p className="text-xs text-muted">
+                    {formatMoney(item.daily_rate)}/día · desactivado
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleReactivate(item.id)}
+                >
+                  Reactivar
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

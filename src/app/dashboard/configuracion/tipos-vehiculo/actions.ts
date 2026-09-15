@@ -409,6 +409,19 @@ export async function deactivateVehicleType(
       return actionError("No se encontró el tipo de vehículo a desactivar.");
     }
 
+    const { count: linkedVehicles, error: linkedError } = await supabase
+      .from("vehicles")
+      .select("id", { count: "exact", head: true })
+      .eq("vehicle_type_id", id)
+      .is("deleted_at", null);
+
+    if (linkedError) throw mapPostgresError(linkedError);
+    if ((linkedVehicles ?? 0) > 0) {
+      return actionError(
+        `No se puede desactivar: hay ${linkedVehicles} vehículo(s) asignado(s) a este tipo. Reasígnelos primero.`,
+      );
+    }
+
     const currentSlug = String((current as { slug?: string }).slug || "tipo");
     // Libera el slug UNIQUE para que se pueda volver a crear/editar con ese nombre.
     const freedSlug = await ensureUniqueSlug(
@@ -438,6 +451,80 @@ export async function deactivateVehicleType(
     await writeAuditLog({
       userId: user.id,
       action: "vehicle_type.deactivate",
+      entityType: "vehicle_type",
+      entityId: id,
+    });
+
+    revalidatePath("/dashboard/configuracion/tipos-vehiculo");
+    revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/api/public/vehicle-types");
+    revalidatePath("/landing");
+    revalidatePath("/landing/");
+    return actionSuccess(undefined as void);
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export async function reactivateVehicleType(
+  id: string,
+): Promise<ActionResult<void>> {
+  try {
+    const { user } = await assertPermission("settings.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: current, error: currentError } = await supabase
+      .from("vehicle_types")
+      .select("id, name, slug, deleted_at")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (currentError) {
+      if (isMissingRelationError(currentError)) {
+        return actionError(
+          "La tabla de tipos de vehículo aún no está migrada en la base de datos.",
+        );
+      }
+      throw mapPostgresError(currentError);
+    }
+    if (!current) {
+      return actionError("No se encontró el tipo de vehículo a reactivar.");
+    }
+    if (!(current as { deleted_at?: string | null }).deleted_at) {
+      return actionError("Este tipo ya está activo.");
+    }
+
+    const name = String((current as { name?: string }).name || "tipo");
+    const restoredSlug = await ensureUniqueSlug(slugify(name) || "tipo", id);
+
+    const { error } = await supabase
+      .from("vehicle_types")
+      .update({
+        deleted_at: null,
+        is_active: true,
+        published_on_web: false,
+        slug: restoredSlug,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    if (error) {
+      const conflict = vehicleTypeConflictMessage(error);
+      if (conflict) return actionError(conflict);
+      if (isMissingRelationError(error)) {
+        return actionError(
+          "La tabla de tipos de vehículo aún no está migrada en la base de datos.",
+        );
+      }
+      throw mapPostgresError(error);
+    }
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "vehicle_type.reactivate",
       entityType: "vehicle_type",
       entityId: id,
     });

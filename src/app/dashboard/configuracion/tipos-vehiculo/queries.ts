@@ -59,7 +59,7 @@ export async function listVehicleTypesAdmin(): Promise<
     const { data, error } = await supabase
       .from("vehicle_types")
       .select("*")
-      .is("deleted_at", null)
+      .order("deleted_at", { ascending: true, nullsFirst: true })
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
 

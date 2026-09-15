@@ -745,8 +745,9 @@ function slugifyTypeName(name: string): string {
 }
 
 /**
- * Landing shows TYPES + rates only (not plates). Publishing a unit must also
- * publish/sync its vehicle_type so it appears on the public catalog.
+ * Landing shows TYPES + rates only (not plates).
+ * Publishing a unit must ensure its type is public, but must NOT overwrite
+ * curated catalog fields (rates, copy, images) managed in Tipos de vehículo.
  */
 async function syncPublicVehicleTypeFromUnit(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -767,32 +768,60 @@ async function syncPublicVehicleTypeFromUnit(
   const slug = slugifyTypeName(category);
   let typeId = (vehicle.vehicle_type_id as string | null) ?? null;
   let typeName: string | null = null;
+  let typeDeleted = false;
+  let typeImageUrl: string | null = null;
+  let typeSortOrder = 100;
 
   if (typeId) {
     const { data: existing } = await supabase
       .from("vehicle_types")
-      .select("id, name")
+      .select("id, name, deleted_at, image_url, sort_order, is_active")
       .eq("id", typeId)
       .maybeSingle();
-    typeName = existing?.name ?? null;
+
+    if (existing) {
+      typeName = (existing as { name?: string }).name ?? null;
+      typeDeleted = Boolean((existing as { deleted_at?: string | null }).deleted_at);
+      typeImageUrl =
+        ((existing as { image_url?: string | null }).image_url as string | null) ??
+        null;
+      typeSortOrder = Number(
+        (existing as { sort_order?: number | null }).sort_order ?? 100,
+      );
+      // Soft-deleted type cannot be used for public catalog — unlink and resolve again.
+      if (typeDeleted) {
+        typeId = null;
+        typeName = null;
+      }
+    } else {
+      typeId = null;
+    }
   }
 
   if (!typeId) {
     const { data: bySlug } = await supabase
       .from("vehicle_types")
-      .select("id, name")
+      .select("id, name, image_url, sort_order")
       .eq("slug", slug)
       .is("deleted_at", null)
+      .eq("is_active", true)
       .maybeSingle();
 
     if (bySlug) {
       typeId = bySlug.id;
       typeName = bySlug.name;
+      typeImageUrl =
+        ((bySlug as { image_url?: string | null }).image_url as string | null) ??
+        null;
+      typeSortOrder = Number(
+        (bySlug as { sort_order?: number | null }).sort_order ?? 100,
+      );
     } else {
+      const uniqueSlug = `${slug}-${Date.now().toString(36).slice(-4)}`;
       const { data: created, error: createError } = await supabase
         .from("vehicle_types")
         .insert({
-          slug,
+          slug: uniqueSlug,
           name: category,
           name_en: category,
           description: vehicle.public_description,
@@ -808,11 +837,15 @@ async function syncPublicVehicleTypeFromUnit(
           is_active: true,
           sort_order: 100,
         })
-        .select("id, name")
+        .select("id, name, image_url, sort_order")
         .single();
       if (createError) throw mapPostgresError(createError);
       typeId = created.id;
       typeName = created.name;
+      typeImageUrl =
+        ((created as { image_url?: string | null }).image_url as string | null) ??
+        null;
+      typeSortOrder = 100;
     }
 
     await supabase
@@ -821,7 +854,7 @@ async function syncPublicVehicleTypeFromUnit(
       .eq("id", vehicleId);
   }
 
-  if (publish) {
+  if (publish && typeId) {
     const images = (
       (vehicle.vehicle_images as Array<{
         url: string;
@@ -834,27 +867,39 @@ async function syncPublicVehicleTypeFromUnit(
         (a, b) =>
           Number(b.is_primary) - Number(a.is_primary) || a.position - b.position,
       );
-    const imageUrl = images[0]?.url ?? null;
+    const unitImageUrl = images[0]?.url ?? null;
+
+    // Auto-created types (sort_order >= 100) may inherit unit snapshot once.
+    // Curated catalog types only toggle public visibility (+ fill empty image).
+    const isAutoCreated = typeSortOrder >= 100;
+    const patch: Record<string, unknown> = {
+      published_on_web: true,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isAutoCreated) {
+      patch.daily_rate = Number(vehicle.daily_rate ?? 0);
+      patch.weekly_rate =
+        vehicle.weekly_rate != null ? Number(vehicle.weekly_rate) : null;
+      patch.passengers = Number(vehicle.passengers ?? 5);
+      patch.luggage = Number(vehicle.luggage ?? 2);
+      patch.doors = Number(vehicle.doors ?? 4);
+      patch.air_conditioning = Boolean(vehicle.air_conditioning ?? true);
+      patch.transmission = String(vehicle.transmission || "Automatic");
+      if (vehicle.public_description) {
+        patch.description = vehicle.public_description;
+      }
+      if (unitImageUrl) patch.image_url = unitImageUrl;
+    } else if (!typeImageUrl && unitImageUrl) {
+      patch.image_url = unitImageUrl;
+    }
 
     const { error: typeUpdateError } = await supabase
       .from("vehicle_types")
-      .update({
-        published_on_web: true,
-        is_active: true,
-        daily_rate: Number(vehicle.daily_rate ?? 0),
-        weekly_rate:
-          vehicle.weekly_rate != null ? Number(vehicle.weekly_rate) : null,
-        passengers: Number(vehicle.passengers ?? 5),
-        luggage: Number(vehicle.luggage ?? 2),
-        doors: Number(vehicle.doors ?? 4),
-        air_conditioning: Boolean(vehicle.air_conditioning ?? true),
-        transmission: String(vehicle.transmission || "Automatic"),
-        description:
-          (vehicle.public_description as string | null) || undefined,
-        image_url: imageUrl || undefined,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", typeId);
+      .update(patch)
+      .eq("id", typeId)
+      .is("deleted_at", null);
 
     if (typeUpdateError) throw mapPostgresError(typeUpdateError);
   } else if (typeId) {
@@ -870,7 +915,8 @@ async function syncPublicVehicleTypeFromUnit(
       await supabase
         .from("vehicle_types")
         .update({ published_on_web: false })
-        .eq("id", typeId);
+        .eq("id", typeId)
+        .is("deleted_at", null);
     }
   }
 
@@ -913,6 +959,9 @@ export async function toggleVehiclePublished(
     revalidatePath("/dashboard/vehiculos");
     revalidatePath(`/dashboard/vehiculos/${id}`);
     revalidatePath("/dashboard/configuracion/tipos-vehiculo");
+    revalidatePath("/api/public/vehicle-types");
+    revalidatePath("/landing");
+    revalidatePath("/landing/");
     return actionSuccess({ typeName });
   } catch (error) {
     return actionError(toUserMessage(error));
