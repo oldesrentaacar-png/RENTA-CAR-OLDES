@@ -228,6 +228,9 @@ export async function createVehicleType(
     revalidatePath("/dashboard/configuracion/tipos-vehiculo");
     revalidatePath("/dashboard/configuracion");
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/api/public/vehicle-types");
+    revalidatePath("/landing");
+    revalidatePath("/landing/");
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -322,6 +325,11 @@ export async function updateVehicleType(
       row.transmission = parsed.data.transmission ?? "Automatic";
     if (parsed.data.publishedOnWeb !== undefined)
       row.published_on_web = parsed.data.publishedOnWeb;
+    // El formulario de edición siempre incluye el checkbox: forzar el valor real
+    // para que "Publicado en web" se guarde y la landing muestre el tipo/imagen.
+    if (formData.has("publishedOnWebField")) {
+      row.published_on_web = formData.get("publishedOnWeb") === "on";
+    }
     try {
       const resolved = await resolveVehicleTypeImageUrl(formData);
       if (resolved !== undefined) {
@@ -363,6 +371,9 @@ export async function updateVehicleType(
 
     revalidatePath("/dashboard/configuracion/tipos-vehiculo");
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/api/public/vehicle-types");
+    revalidatePath("/landing");
+    revalidatePath("/landing/");
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -433,6 +444,9 @@ export async function deactivateVehicleType(
 
     revalidatePath("/dashboard/configuracion/tipos-vehiculo");
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/api/public/vehicle-types");
+    revalidatePath("/landing");
+    revalidatePath("/landing/");
     return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));

@@ -77,8 +77,8 @@ export async function GET(request: Request) {
       .eq("published_on_web", true)
       .eq("is_active", true)
       .is("deleted_at", null)
-      .order("daily_rate", { ascending: true })
       .order("sort_order", { ascending: true })
+      .order("daily_rate", { ascending: true })
       .order("name", { ascending: true });
 
     if (error) {
@@ -120,7 +120,12 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json(apiSuccess(data), { headers: corsHeaders });
+    return NextResponse.json(apiSuccess(data), {
+      headers: {
+        ...corsHeaders,
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch {
     return NextResponse.json(
       apiError("Error interno del servidor.", { code: "INTERNAL_ERROR" }),

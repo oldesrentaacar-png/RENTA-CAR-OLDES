@@ -3,6 +3,7 @@ import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
 import { DataTable } from "@/components/shared/data-table";
 import { Pagination } from "@/components/shared/pagination";
+import { formatAuditAction, formatAuditEntity } from "@/lib/audit-labels";
 import { formatAppDateTime } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
 
@@ -19,8 +20,8 @@ export default async function AuditoriaPage({
 
   const timelineItems = (data?.items ?? []).slice(0, 8).map((log) => ({
     id: log.id,
-    title: log.action,
-    description: `${log.entity_type}${log.entity_id ? ` · ${log.entity_id.slice(0, 8)}…` : ""}`,
+    title: formatAuditAction(log.action),
+    description: `${formatAuditEntity(log.entity_type)}${log.entity_id ? ` · ${log.entity_id.slice(0, 8)}…` : ""}`,
     timestamp: formatAppDateTime(log.created_at),
     tone: "info" as const,
   }));
@@ -28,7 +29,7 @@ export default async function AuditoriaPage({
   return (
     <ModuleListShell
       title="Auditoría"
-      description="Historial de acciones realizadas en el sistema."
+      description="Historial de acciones realizadas en el sistema (incluye tipos de vehículo, fotos y publicación en web)."
       permission="audit.view"
       configured={configured}
       error={error}
@@ -54,11 +55,15 @@ export default async function AuditoriaPage({
                 header: "Fecha",
                 cell: (row) => formatAppDateTime(row.created_at),
               },
-              { key: "action", header: "Acción", cell: (row) => row.action },
+              {
+                key: "action",
+                header: "Acción",
+                cell: (row) => formatAuditAction(row.action),
+              },
               {
                 key: "entity",
                 header: "Entidad",
-                cell: (row) => row.entity_type,
+                cell: (row) => formatAuditEntity(row.entity_type),
                 className: "hidden sm:table-cell",
               },
               {

@@ -119,9 +119,12 @@ function FleetTypeFields({
         <p className="mt-1 text-xs text-muted">
           Elija o tome una foto. El sistema la convierte a formato web, la
           reduce y la sube sin errores por peso. Luego pulse Guardar.
+          Marque <strong>Publicado en web</strong> para que el tipo y la
+          imagen aparezcan en la landing.
         </p>
       </div>
       <label className="flex items-end gap-2 pb-2 text-sm">
+        <input type="hidden" name="publishedOnWebField" value="1" />
         <input
           type="checkbox"
           name="publishedOnWeb"

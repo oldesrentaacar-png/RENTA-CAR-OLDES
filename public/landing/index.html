@@ -683,7 +683,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
     <div class="hero-copy hero-panel">
       <a href="#reseñas" class="google-badge" aria-label="Google reviews">
         <span class="g-stars" aria-hidden="true">★★★★★</span>
-        <span class="g-score">4.9</span>
+        <span class="g-score">5</span>
         <span data-i18n="hero_google_badge">on Google</span>
       </a>
       <h1 class="hero-headline" data-i18n="hero_headline">Book in minutes, drive without limits: the easiest way to rent a car in El Salvador.</h1>
@@ -842,7 +842,7 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 
       <div class="reviews-summary">
         <div style="text-align:center;">
-          <div class="reviews-score">4.9</div>
+          <div class="reviews-score">5</div>
           <div class="reviews-stars" aria-label="5 stars">★★★★★</div>
         </div>
         <div style="text-align:center;">
@@ -1826,7 +1826,7 @@ function isValidEmail(value){
 }
 
 async function fetchJson(path){
-  const res=await fetch(`${CFG.apiBase}${path}`);
+  const res=await fetch(`${CFG.apiBase}${path}`,{cache:"no-store"});
   const json=await res.json();
   if(!res.ok||!json.success)throw new Error(json.error?.message||`Error ${path}`);
   return json.data||[];
@@ -1849,7 +1849,17 @@ async function loadPublicData(){
   applyRows(FALLBACK_TYPES);
   try{
     const rows=await fetchJson("/api/public/vehicle-types");
-    if(rows.length)applyRows(rows);
+    if(Array.isArray(rows)&&rows.length){
+      // Conserva imagen de respaldo por slug si el tipo en BD no tiene foto aún.
+      const bySlug=Object.fromEntries(FALLBACK_TYPES.map(t=>[t.slug,t]));
+      const merged=rows.map(r=>{
+        const fb=bySlug[r.slug];
+        if(r.imageUrl)return r;
+        if(fb&&fb.imageUrl)return{...r,imageUrl:fb.imageUrl};
+        return r;
+      });
+      applyRows(merged);
+    }
   }catch(err){
     console.error(err);
   }
