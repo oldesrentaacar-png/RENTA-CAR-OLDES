@@ -82,6 +82,25 @@ export function mapPostgresError(error: unknown): AppError {
     });
   }
 
+  if (code === "23505") {
+    const detail = `${pgError.details ?? ""} ${pgError.message ?? ""}`.toLowerCase();
+    const codeCollision =
+      detail.includes("(code)=") ||
+      detail.includes("_code_key") ||
+      detail.includes("code_key");
+    return new AppError(
+      codeCollision
+        ? "El código del documento ya existe (secuencia desfasada). Intente de nuevo; si persiste, contacte soporte."
+        : POSTGRES_MESSAGES["23505"],
+      {
+        code: "CONFLICT",
+        statusCode: 409,
+        details: pgError.details,
+        cause: error,
+      },
+    );
+  }
+
   const message = POSTGRES_MESSAGES[code];
   if (message) {
     return new AppError(message, {
