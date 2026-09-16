@@ -124,6 +124,7 @@ export const ALERT_TYPE_LABELS: Record<string, string> = {
   maintenance_due_date: "Mantenimiento por fecha",
   maintenance_due_mileage: "Mantenimiento por kilometraje",
   web_request_pending: "Solicitud web (72h)",
+  webboost_notice: "WebBoost",
 };
 
 export function webRequestStatusVariant(

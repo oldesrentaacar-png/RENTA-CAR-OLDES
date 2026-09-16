@@ -63,7 +63,13 @@ export default async function AlertasPage() {
             key: "type",
             header: "Tipo",
             cell: (row) => (
-              <Badge variant="info">
+              <Badge
+                variant={
+                  row.alert_type === "webboost_notice"
+                    ? "warning"
+                    : "info"
+                }
+              >
                 {ALERT_TYPE_LABELS[row.alert_type] ?? row.alert_type}
               </Badge>
             ),

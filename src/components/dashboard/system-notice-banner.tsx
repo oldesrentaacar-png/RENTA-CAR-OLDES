@@ -1,10 +1,10 @@
 "use client";
 
-import { X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 /** Bump this key to show the notice again after a prior dismiss. */
-const NOTICE_STORAGE_KEY = "oldes.system-notice.errors-priority.v1";
+const NOTICE_STORAGE_KEY = "oldes.system-notice.errors-priority.v2";
 
 export function SystemNoticeBanner() {
   const [visible, setVisible] = useState(false);
@@ -34,21 +34,28 @@ export function SystemNoticeBanner() {
   return (
     <div
       role="status"
-      className="shrink-0 border-b border-sky-200 bg-sky-50 px-3 py-2.5 text-sky-950 sm:px-4 lg:px-6"
+      className="shrink-0 border-b-4 border-accent bg-brand px-3 py-3 text-white shadow-md sm:px-4 lg:px-6"
     >
-      <div className="flex items-start gap-3">
-        <p className="min-w-0 flex-1 text-sm leading-relaxed">
-          Todos los errores reportados están siendo trabajados. Se le notificará
-          pronto. Se está dando{" "}
-          <span className="font-semibold">prioridad absoluta</span>.
-        </p>
+      <div className="flex items-start gap-3 sm:items-center">
+        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-white shadow-sm ring-2 ring-white/30 sm:mt-0">
+          <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-accent-light">
+            Aviso WebBoost · Prioridad absoluta
+          </p>
+          <p className="text-sm font-semibold leading-snug text-white sm:text-base">
+            Todos los errores reportados están siendo trabajados. Pronto se le
+            notificará. Estamos dando prioridad absoluta a su atención.
+          </p>
+        </div>
         <button
           type="button"
           onClick={dismiss}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sky-800 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           aria-label="Cerrar aviso"
         >
-          <X className="h-4 w-4" aria-hidden="true" />
+          <X className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
     </div>

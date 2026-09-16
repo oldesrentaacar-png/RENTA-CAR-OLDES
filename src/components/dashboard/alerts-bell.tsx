@@ -143,7 +143,11 @@ export function AlertsBell() {
                     <p className="text-xs text-muted">
                       {ALERT_TYPE_LABELS[alert.alert_type] ?? alert.alert_type}
                     </p>
-                    {alert.entity_type === "web_request" && alert.entity_id ? (
+                    {alert.alert_type === "webboost_notice" ? (
+                      <p className="text-sm font-semibold text-brand">
+                        {alert.title}
+                      </p>
+                    ) : alert.entity_type === "web_request" && alert.entity_id ? (
                       <Link
                         href={`/dashboard/solicitudes/${alert.entity_id}`}
                         className="text-sm font-medium text-brand hover:underline"
