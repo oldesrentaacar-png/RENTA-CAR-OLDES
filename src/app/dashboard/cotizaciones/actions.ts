@@ -824,14 +824,14 @@ export async function sendQuoteEmail(
       businessName: "OLDES Rent-a-Car",
       businessPhone: "+503 7435-0381",
       businessWhatsapp: "+503 7435-0381",
-      businessEmail: "soporte@oldesrentacar.com",
+      businessEmail: "soporte@oldescarrentalelsalvador.com",
     };
     const emailResult = await sendEmail({
       to: email,
       subject: buildQuoteEmailSubject(q.code),
       html: buildQuoteEmailHtml(templateInput),
       text: buildQuoteEmailText(templateInput),
-      replyTo: "soporte@oldesrentacar.com",
+      replyTo: "soporte@oldescarrentalelsalvador.com",
       attachments: [
         {
           filename: `cotizacion-${q.code}.pdf`,
@@ -1172,6 +1172,7 @@ export async function getQuotePdfData(
     businessPhone: contact.businessPhone,
     businessEmail: contact.businessEmail,
     businessWhatsapp: contact.businessWhatsapp,
+    businessWebsite: contact.businessWebsite,
     quoteCode: q.code,
     issuedAtLabel: formatAppDate(mapped.created_at),
     language: mapped.language === "es" ? ("es" as const) : ("en" as const),

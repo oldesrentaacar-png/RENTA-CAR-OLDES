@@ -17,6 +17,7 @@ export type PaymentReceiptPdfProps = {
   businessPhone?: string | null;
   businessEmail?: string | null;
   businessWhatsapp?: string | null;
+  businessWebsite?: string | null;
   contactPhone?: string | null;
   logoDataUrl?: string | null;
   receiptCode: string;
@@ -242,6 +243,7 @@ export function PaymentReceiptPdfDocument(props: PaymentReceiptPdfProps) {
             <Text style={styles.brandMeta}>
               Tel: {contactPhone}
               {props.businessEmail ? ` · ${props.businessEmail}` : ""}
+              {props.businessWebsite ? ` · ${props.businessWebsite}` : ""}
             </Text>
           </View>
           <View>

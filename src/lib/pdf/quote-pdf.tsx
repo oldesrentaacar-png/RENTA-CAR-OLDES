@@ -23,6 +23,7 @@ export type QuotePdfProps = {
   businessPhone?: string | null;
   businessEmail?: string | null;
   businessWhatsapp?: string | null;
+  businessWebsite?: string | null;
   logoDataUrl?: string | null;
   quoteCode: string;
   issuedAtLabel?: string | null;
@@ -420,6 +421,9 @@ export function QuotePdfDocument(props: QuotePdfProps) {
               ) : null}
               {props.businessEmail ? (
                 <Text style={styles.brandMeta}>{props.businessEmail}</Text>
+              ) : null}
+              {props.businessWebsite ? (
+                <Text style={styles.brandMeta}>{props.businessWebsite}</Text>
               ) : null}
             </View>
           </View>

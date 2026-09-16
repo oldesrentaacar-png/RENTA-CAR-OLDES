@@ -722,6 +722,7 @@ export async function getPaymentReceiptPdfData(
     businessPhone: contact.businessPhone,
     businessEmail: contact.businessEmail,
     businessWhatsapp: contact.businessWhatsapp,
+    businessWebsite: contact.businessWebsite,
     contactPhone: contact.businessWhatsapp || contact.businessPhone,
     receiptCode: row.code,
     issuedAtLabel: formatAppDate(row.issued_at),

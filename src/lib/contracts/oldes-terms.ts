@@ -6,8 +6,8 @@ export const OLDES_COMPANY = {
   brandName: "OLDES Rent-a-Car",
   slogan: "¡Ofreciéndote siempre lo mejor!",
   address: "CWXV+297, San Luis Talpa",
-  email: "soporte@oldesrentacar.com",
-  website: "www.oldes.com.sv",
+  email: "soporte@oldescarrentalelsalvador.com",
+  website: "www.oldescarrentalelsalvador.com",
   phones: ["+503 7435-0381"],
   whatsapp: "+503 7435-0381",
   social: "@OLDES RENTA AUTOSV",
@@ -134,7 +134,10 @@ function isUsableEmail(value?: string | null): value is string {
   const normalized = value.trim().toLowerCase();
   return !(
     normalized === "info@oldesrentacar.com" ||
-    normalized === "administracion@oldes.com.sv"
+    normalized === "soporte@oldesrentacar.com" ||
+    normalized === "administracion@oldes.com.sv" ||
+    normalized.endsWith("@oldesrentacar.com") ||
+    normalized.endsWith("@oldes.com.sv")
   );
 }
 

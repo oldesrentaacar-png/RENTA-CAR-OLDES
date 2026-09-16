@@ -17,7 +17,7 @@ import {
   machoteStyles,
 } from "@/lib/pdf/machote-box";
 
-export const CLOSE_ACT_PDF_VERSION = "2026-09-04-v2";
+export const CLOSE_ACT_PDF_VERSION = "2026-09-16-v1";
 
 export type CloseActAccessoryRow = {
   label: string;

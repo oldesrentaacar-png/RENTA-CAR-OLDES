@@ -6,7 +6,7 @@ export const PDF_NO_STORE_HEADERS = {
 } as const;
 
 /** Bump when quote PDF layout or billing logic changes. */
-export const QUOTE_PDF_TEMPLATE_VERSION = "2026-09-08-v1";
+export const QUOTE_PDF_TEMPLATE_VERSION = "2026-09-16-v1";
 
 export function quotePdfHref(
   quoteId: string,
@@ -24,7 +24,7 @@ export function quotePdfHref(
 }
 
 /** Bump when receipt PDF layout changes. */
-export const RECEIPT_PDF_TEMPLATE_VERSION = "2026-09-08-v1";
+export const RECEIPT_PDF_TEMPLATE_VERSION = "2026-09-16-v1";
 
 export function receiptPdfHref(
   receiptId: string,
@@ -42,7 +42,7 @@ export function receiptPdfHref(
 }
 
 /** Bump when close-act PDF layout changes (keep in sync with CLOSE_ACT_PDF_VERSION). */
-export const CLOSE_ACT_PDF_TEMPLATE_VERSION = "2026-09-04-v2";
+export const CLOSE_ACT_PDF_TEMPLATE_VERSION = "2026-09-16-v1";
 
 export function closeActPdfHref(
   contractId: string,
