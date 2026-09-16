@@ -40,7 +40,8 @@ export async function sendEmail(
   if (!isResendConfigured()) {
     return {
       ok: false,
-      message: "Servicio de correo no configurado.",
+      message:
+        "Servicio de correo no configurado. En Vercel agregue RESEND_API_KEY y EMAIL_FROM, luego vuelva a desplegar.",
     };
   }
 
@@ -48,7 +49,8 @@ export async function sendEmail(
   if (!client) {
     return {
       ok: false,
-      message: "Servicio de correo no configurado.",
+      message:
+        "Servicio de correo no configurado. En Vercel agregue RESEND_API_KEY y EMAIL_FROM, luego vuelva a desplegar.",
     };
   }
 

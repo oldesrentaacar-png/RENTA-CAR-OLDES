@@ -17,6 +17,11 @@ import {
 import { formatAppDate, formatAppDateTime, normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { sendEmail } from "@/lib/email/resend";
+import {
+  buildQuoteEmailHtml,
+  buildQuoteEmailSubject,
+  buildQuoteEmailText,
+} from "@/lib/email/quote-email-template";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { resolvePdfBusinessContact } from "@/lib/contracts/oldes-terms";
@@ -806,29 +811,29 @@ export async function sendQuoteEmail(
     }
 
     const pdfShareUrl = buildQuotePdfShareUrl(quoteId);
-    const greetingName = customer.first_name?.trim() || "cliente";
+    const greetingName =
+      `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim() ||
+      "cliente";
+    const templateInput = {
+      customerName: greetingName,
+      quoteCode: q.code,
+      vehicleLabel,
+      total: mapped.total,
+      startAtLabel: formatAppDateTime(mapped.start_at),
+      endAtLabel: formatAppDateTime(mapped.end_at),
+      rentalDays: mapped.rental_days,
+      pdfShareUrl,
+      businessName: "OLDES Rent-a-Car",
+      businessPhone: "+503 7435-0381",
+      businessWhatsapp: "+503 7435-0381",
+      businessEmail: "soporte@oldesrentacar.com",
+    };
     const emailResult = await sendEmail({
       to: email,
-      subject: `Cotización ${q.code} — OLDES Rent-a-Car`,
-      html: `<p>Estimado/a ${greetingName},</p>
-        <p>Adjuntamos el PDF de su cotización <strong>${q.code}</strong>.</p>
-        <p>Vehículo: ${vehicleLabel}</p>
-        <p>Total: ${formatMoney(mapped.total)}</p>
-        <p>Periodo: ${formatAppDateTime(mapped.start_at)} – ${formatAppDateTime(mapped.end_at)}</p>
-        ${
-          pdfShareUrl
-            ? `<p>También puede descargarlo aquí: <a href="${pdfShareUrl}">Ver cotización PDF</a></p>`
-            : ""
-        }
-        <p>Quedamos atentos para confirmar su reserva.</p>`,
-      text: [
-        `Cotización ${q.code}.`,
-        `Vehículo: ${vehicleLabel}.`,
-        `Total: ${formatMoney(mapped.total)}.`,
-        pdfShareUrl ? `PDF: ${pdfShareUrl}` : "",
-      ]
-        .filter(Boolean)
-        .join(" "),
+      subject: buildQuoteEmailSubject(q.code),
+      html: buildQuoteEmailHtml(templateInput),
+      text: buildQuoteEmailText(templateInput),
+      replyTo: "soporte@oldesrentacar.com",
       attachments: [
         {
           filename: `cotizacion-${q.code}.pdf`,
