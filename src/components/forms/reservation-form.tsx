@@ -15,7 +15,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { toDatetimeLocalValue } from "@/lib/dates";
-import { parseMoneyInput } from "@/lib/money";
+import { formatMoney, parseMoneyInput } from "@/lib/money";
 import type { Reservation } from "@/types/database";
 
 type VehicleOption = {
@@ -26,6 +26,13 @@ type VehicleOption = {
   category?: string | null;
 };
 
+export type ReservationQuoteLine = {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+};
+
 type ReservationFormProps = {
   customers: Array<{ id: string; label: string; searchText?: string }>;
   vehicles: VehicleOption[];
@@ -34,16 +41,20 @@ type ReservationFormProps = {
     customerId?: string;
     vehicleId?: string;
     quoteId?: string;
+    quoteCode?: string;
     startAt?: string;
     endAt?: string;
     agreedRate?: number;
     deposit?: number;
-    insurance?: number;
     cashAmount?: number;
     cardAmount?: number;
     additionalCosts?: number;
     vehicleType?: string;
     total?: number;
+    pickupLocation?: string;
+    returnLocation?: string;
+    notes?: string;
+    quoteExtraLines?: ReservationQuoteLine[];
   };
 };
 
@@ -56,6 +67,7 @@ export function ReservationForm({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const isEdit = Boolean(reservation);
+  const fromQuote = Boolean(defaults?.quoteId && !isEdit);
 
   const initialVehicleId =
     reservation?.vehicle_id ?? defaults?.vehicleId ?? "";
@@ -91,9 +103,6 @@ export function ReservationForm({
         0,
     ),
   );
-  const [insurance, setInsurance] = useState(
-    String(reservation?.insurance ?? defaults?.insurance ?? 0),
-  );
   const [vehicleType, setVehicleType] = useState(
     reservation?.vehicle_type ??
       defaults?.vehicleType ??
@@ -115,6 +124,8 @@ export function ReservationForm({
     String(reservation?.additional_costs ?? defaults?.additionalCosts ?? 0),
   );
 
+  const quoteExtraLines = defaults?.quoteExtraLines ?? [];
+
   const preview = useMemo(() => {
     if (!startAt || !endAt || agreedRate === "") return null;
     try {
@@ -122,21 +133,34 @@ export function ReservationForm({
         startAt,
         endAt,
         agreedRate: parseMoneyInput(agreedRate),
-        insurance: parseMoneyInput(insurance),
+        insurance: 0,
+        additionalCosts: parseMoneyInput(additionalCosts || 0),
       });
     } catch {
       return null;
     }
-  }, [startAt, endAt, agreedRate, insurance]);
+  }, [startAt, endAt, agreedRate, additionalCosts]);
+
+  const extrasAmount = parseMoneyInput(additionalCosts || 0);
+  const linesSum = quoteExtraLines.reduce((sum, line) => sum + line.amount, 0);
+  const adjustment = Math.round((extrasAmount - linesSum) * 100) / 100;
 
   async function handleSubmit(formData: FormData) {
     setError(null);
-    if (preview) {
-      formData.set("total", String(preview.total));
-    }
+    const computed = preview
+      ? preview
+      : calculateReservationTotal({
+          startAt,
+          endAt,
+          agreedRate: parseMoneyInput(agreedRate),
+          insurance: 0,
+          additionalCosts: parseMoneyInput(additionalCosts || 0),
+        });
+
+    formData.set("total", String(computed.total));
     formData.set("agreedRate", String(parseMoneyInput(agreedRate)));
     formData.set("deposit", String(parseMoneyInput(deposit)));
-    formData.set("insurance", String(parseMoneyInput(insurance)));
+    formData.set("insurance", "0");
     formData.set("cashAmount", String(parseMoneyInput(cashAmount || 0)));
     formData.set("cardAmount", String(parseMoneyInput(cardAmount || 0)));
     formData.set(
@@ -165,14 +189,26 @@ export function ReservationForm({
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">
-        Elija vehículo y fechas: la tarifa y el <strong>total se calculan
-        automáticamente</strong>. No necesita sumar a mano.
-      </div>
+      {fromQuote ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950">
+          Datos heredados de la cotización{" "}
+          <strong>{defaults?.quoteCode ?? ""}</strong>. El total incluye renta +
+          extras para que cuadre antes del contrato. El seguro diario no se
+          cobra aparte (va incluido en la tarifa); use extras solo para cargos
+          reales (silla, entrega fuera de horario, seguro internacional, etc.).
+        </div>
+      ) : (
+        <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">
+          Elija vehículo y fechas: la tarifa y el{" "}
+          <strong>total se calculan automáticamente</strong> (días × tarifa +
+          extras). El seguro diario no aplica: va incluido en el precio.
+        </div>
+      )}
 
       {defaults?.quoteId && !isEdit ? (
         <input type="hidden" name="quoteId" value={defaults.quoteId} />
       ) : null}
+      <input type="hidden" name="insurance" value="0" />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <SearchableSelect
@@ -198,8 +234,11 @@ export function ReservationForm({
           onChange={(next) => {
             const v = vehicles.find((item) => item.id === next);
             if (v) {
-              setAgreedRate(String(v.dailyRate));
-              setDeposit(String(v.deposit ?? 0));
+              // From a quote, keep the quoted rate unless user changes it manually later.
+              if (!fromQuote) {
+                setAgreedRate(String(v.dailyRate));
+                setDeposit(String(v.deposit ?? 0));
+              }
               if (v.category) setVehicleType(v.category);
             }
           }}
@@ -217,7 +256,9 @@ export function ReservationForm({
         />
         {isEdit ? (
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-zinc-700">Estado</label>
+            <label className="block text-sm font-medium text-zinc-700">
+              Estado
+            </label>
             <select
               name="status"
               defaultValue={reservation?.status}
@@ -257,16 +298,22 @@ export function ReservationForm({
           onChange={(e) => setAgreedRate(e.target.value)}
           required
         />
-        <Input
-          name="insurance"
-          label="Seguro (USD)"
-          type="number"
-          step="0.01"
-          min="0"
-          inputMode="decimal"
-          value={insurance}
-          onChange={(e) => setInsurance(e.target.value)}
-        />
+        <div className="space-y-1">
+          <Input
+            name="additionalCosts"
+            label="Extras (USD)"
+            type="number"
+            step="0.01"
+            min="0"
+            inputMode="decimal"
+            value={additionalCosts}
+            onChange={(e) => setAdditionalCosts(e.target.value)}
+          />
+          <p className="text-xs text-muted">
+            Silla, entrega fuera de horario, motorista, seguro internacional,
+            etc.
+          </p>
+        </div>
         <Input
           name="deposit"
           label="Depósito / garantía (USD)"
@@ -280,12 +327,16 @@ export function ReservationForm({
         <Input
           name="pickupLocation"
           label="Lugar recogida"
-          defaultValue={reservation?.pickup_location ?? ""}
+          defaultValue={
+            reservation?.pickup_location ?? defaults?.pickupLocation ?? ""
+          }
         />
         <Input
           name="returnLocation"
           label="Lugar devolución"
-          defaultValue={reservation?.return_location ?? ""}
+          defaultValue={
+            reservation?.return_location ?? defaults?.returnLocation ?? ""
+          }
         />
       </div>
 
@@ -296,9 +347,36 @@ export function ReservationForm({
             rentalDays={preview.rentalDays}
             dailyRate={parseMoneyInput(agreedRate)}
             subtotal={preview.rentalSubtotal}
-            insurance={preview.insurance}
+            insurance={0}
+            extras={
+              quoteExtraLines.length > 0
+                ? Math.max(0, adjustment)
+                : preview.additionalCosts
+            }
+            extrasLabel={
+              quoteExtraLines.length > 0
+                ? "Otros / ajustes de cotización"
+                : "Extras"
+            }
+            discount={
+              quoteExtraLines.length > 0 && adjustment < 0
+                ? Math.abs(adjustment)
+                : 0
+            }
             deposit={parseMoneyInput(deposit)}
             total={preview.total}
+            lines={
+              quoteExtraLines.length > 0
+                ? quoteExtraLines.map((line) => ({
+                    description: line.description,
+                    amount: line.amount,
+                    detail:
+                      line.quantity > 1
+                        ? `${line.quantity} × ${formatMoney(line.unitPrice)}`
+                        : undefined,
+                  }))
+                : undefined
+            }
           />
         </>
       ) : (
@@ -312,7 +390,7 @@ export function ReservationForm({
         <p className="text-xs text-amber-800">
           Nota: los pagos con tarjeta tienen un recargo del 10% (informativo).
         </p>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Input
             name="cashAmount"
             label="Monto en efectivo (USD)"
@@ -333,24 +411,20 @@ export function ReservationForm({
             value={cardAmount}
             onChange={(e) => setCardAmount(e.target.value)}
           />
-          <Input
-            name="additionalCosts"
-            label="Costos adicionales (USD)"
-            type="number"
-            step="0.01"
-            min="0"
-            inputMode="decimal"
-            value={additionalCosts}
-            onChange={(e) => setAdditionalCosts(e.target.value)}
-          />
         </div>
       </div>
 
-      <Textarea name="notes" label="Notas" defaultValue={reservation?.notes ?? ""} />
+      <Textarea
+        name="notes"
+        label="Notas"
+        defaultValue={reservation?.notes ?? defaults?.notes ?? ""}
+      />
       {!isEdit ? <input type="hidden" name="status" value="CONFIRMED" /> : null}
 
       <div className="flex gap-3">
-        <SubmitButton>{isEdit ? "Guardar cambios" : "Crear reserva"}</SubmitButton>
+        <SubmitButton>
+          {isEdit ? "Guardar cambios" : "Crear reserva"}
+        </SubmitButton>
         <Link
           href={
             reservation

@@ -3,7 +3,10 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ReservationForm } from "@/components/forms/reservation-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
+import { deriveReservationPricingFromQuote } from "@/lib/calculations/quote";
+import { toCustomerSelectOption } from "@/lib/customers";
 import { isSupabaseConfigured } from "@/lib/env";
+import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import {
   mapCustomerRow,
@@ -11,7 +14,6 @@ import {
   type CustomerRow,
   type VehicleRow,
 } from "@/lib/db/mappers";
-import { toCustomerSelectOption } from "@/lib/customers";
 
 export default async function NuevaReservaPage({
   searchParams,
@@ -32,21 +34,38 @@ export default async function NuevaReservaPage({
     customerId?: string;
     vehicleId?: string;
     quoteId?: string;
+    quoteCode?: string;
     startAt?: string;
     endAt?: string;
     agreedRate?: number;
     deposit?: number;
-    insurance?: number;
     cashAmount?: number;
+    additionalCosts?: number;
     total?: number;
     vehicleType?: string;
+    notes?: string;
+    quoteExtraLines?: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      amount: number;
+    }>;
   } = {};
 
   if (configured) {
     const supabase = await createClient();
     const [{ data: customerRows }, { data: vehicleRows }] = await Promise.all([
-      supabase.from("customers").select("*").is("deleted_at", null).order("last_name"),
-      supabase.from("vehicles").select("*").is("deleted_at", null).eq("is_active", true).order("brand"),
+      supabase
+        .from("customers")
+        .select("*")
+        .is("deleted_at", null)
+        .order("last_name"),
+      supabase
+        .from("vehicles")
+        .select("*")
+        .is("deleted_at", null)
+        .eq("is_active", true)
+        .order("brand"),
     ]);
 
     customers = ((customerRows ?? []) as CustomerRow[]).map((row) =>
@@ -69,16 +88,61 @@ export default async function NuevaReservaPage({
       const quoteResult = await getQuote(quoteId);
       if (quoteResult.success) {
         const q = quoteResult.data;
+        const { data: itemRows } = await supabase
+          .from("quote_items")
+          .select(
+            "description, quantity, unit_price, amount, item_type, sort_order",
+          )
+          .eq("quote_id", quoteId)
+          .order("sort_order", { ascending: true });
+
+        const lines = (itemRows ?? []).map((item) => ({
+          description: String(item.description ?? ""),
+          quantity: asNumber(item.quantity, 0),
+          unit_price: asNumber(item.unit_price, 0),
+          amount: asNumber(
+            item.amount,
+            asNumber(item.quantity, 0) * asNumber(item.unit_price, 0),
+          ),
+          item_type: (item.item_type as string | null) ?? null,
+        }));
+
+        const pricing = deriveReservationPricingFromQuote({
+          dailyRate: q.daily_rate,
+          rentalDays: q.rental_days,
+          quoteTotal: q.total,
+          lines,
+        });
+
+        const extrasNote =
+          pricing.extraLines.length > 0
+            ? [
+                `Extras desde cotización ${q.code}:`,
+                ...pricing.extraLines.map(
+                  (line) =>
+                    `- ${line.description}: $${line.amount.toFixed(2)}`,
+                ),
+              ].join("\n")
+            : pricing.additionalCosts > 0
+              ? `Extras desde cotización ${q.code}: $${pricing.additionalCosts.toFixed(2)}`
+              : "";
+
         defaults.quoteId = q.id;
+        defaults.quoteCode = q.code;
         defaults.customerId = q.customer_id;
         defaults.vehicleId = q.vehicle_id ?? undefined;
         defaults.startAt = q.start_at;
         defaults.endAt = q.end_at;
-        defaults.agreedRate = q.daily_rate;
+        defaults.agreedRate = pricing.agreedRate;
         defaults.deposit = q.deposit_amount;
-        defaults.insurance = q.insurance_amount;
-        defaults.total = q.total;
-        defaults.cashAmount = q.total;
+        defaults.additionalCosts = pricing.additionalCosts;
+        defaults.total = pricing.total;
+        defaults.cashAmount = pricing.total;
+        defaults.quoteExtraLines = pricing.extraLines;
+        defaults.notes = [q.notes?.trim() || "", extrasNote]
+          .filter(Boolean)
+          .join("\n\n");
+
         if (q.vehicle_id) {
           const matched = vehicles.find((v) => v.id === q.vehicle_id);
           if (matched?.category) defaults.vehicleType = matched.category;

@@ -61,12 +61,25 @@ export default async function ReservaDetailPage({
                 <p><span className="text-muted">Fin:</span> {formatAppDateTime(reservation.end_at)}</p>
                 <p><span className="text-muted">Tipo:</span> {reservation.vehicle_type ?? "—"}</p>
                 <p><span className="text-muted">Tarifa:</span> {formatMoney(reservation.agreed_rate)}</p>
-                <p><span className="text-muted">Total:</span> {formatMoney(reservation.total)}</p>
+                <p><span className="text-muted">Extras:</span> {formatMoney(reservation.additional_costs)}</p>
+                <p className="font-semibold"><span className="text-muted">Total a cobrar:</span> {formatMoney(reservation.total)}</p>
                 <p><span className="text-muted">Depósito:</span> {formatMoney(reservation.deposit)}</p>
-                <p><span className="text-muted">Seguro:</span> {formatMoney(reservation.insurance)}</p>
+                {reservation.insurance > 0 ? (
+                  <p><span className="text-muted">Seguro:</span> {formatMoney(reservation.insurance)}</p>
+                ) : null}
                 <p><span className="text-muted">Efectivo:</span> {formatMoney(reservation.cash_amount)}</p>
                 <p><span className="text-muted">Tarjeta:</span> {formatMoney(reservation.card_amount)}</p>
-                <p><span className="text-muted">Costos adicionales:</span> {formatMoney(reservation.additional_costs)}</p>
+                {reservation.quote_id ? (
+                  <p>
+                    <span className="text-muted">Cotización:</span>{" "}
+                    <Link
+                      href={`/dashboard/cotizaciones/${reservation.quote_id}`}
+                      className="text-brand hover:underline"
+                    >
+                      Ver origen
+                    </Link>
+                  </p>
+                ) : null}
                 <p><span className="text-muted">Recogida:</span> {reservation.pickup_location ?? "—"}</p>
                 <p><span className="text-muted">Devolución:</span> {reservation.return_location ?? "—"}</p>
                 {reservation.notes ? (

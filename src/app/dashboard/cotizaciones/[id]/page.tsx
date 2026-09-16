@@ -54,9 +54,13 @@ export default async function CotizacionDetailPage({
                 <p><span className="text-muted">Días:</span> {quote.rental_days}</p>
                 <p><span className="text-muted">Tarifa/día:</span> {formatMoney(quote.daily_rate)}</p>
                 <p><span className="text-muted">Subtotal:</span> {formatMoney(quote.subtotal)}</p>
-                <p><span className="text-muted">Seguro:</span> {formatMoney(quote.insurance_amount)}</p>
+                {quote.insurance_amount > 0 ? (
+                  <p><span className="text-muted">Seguro:</span> {formatMoney(quote.insurance_amount)}</p>
+                ) : null}
                 <p><span className="text-muted">Depósito:</span> {formatMoney(quote.deposit_amount)}</p>
-                <p><span className="text-muted">Impuesto:</span> {formatMoney(quote.tax_amount)}</p>
+                {quote.tax_amount > 0 ? (
+                  <p><span className="text-muted">Impuesto:</span> {formatMoney(quote.tax_amount)}</p>
+                ) : null}
                 <p className="font-semibold"><span className="text-muted">Total:</span> {formatMoney(quote.total)}</p>
                 {quote.valid_until ? (
                   <p><span className="text-muted">Válida hasta:</span> {formatAppDate(quote.valid_until)}</p>

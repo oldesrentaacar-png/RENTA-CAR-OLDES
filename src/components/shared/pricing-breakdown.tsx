@@ -6,12 +6,19 @@ export type PricingBreakdownProps = {
   dailyRate: number;
   subtotal: number;
   insurance?: number;
+  extras?: number;
+  extrasLabel?: string;
   deliveryFee?: number;
   discount?: number;
   tax?: number;
   deposit?: number;
   total: number;
   className?: string;
+  lines?: Array<{
+    description: string;
+    amount: number;
+    detail?: string;
+  }>;
 };
 
 function Row({
@@ -44,12 +51,15 @@ export function PricingBreakdown({
   dailyRate,
   subtotal,
   insurance = 0,
+  extras = 0,
+  extrasLabel = "Extras",
   deliveryFee = 0,
   discount = 0,
   tax = 0,
   deposit = 0,
   total,
   className,
+  lines,
 }: PricingBreakdownProps) {
   return (
     <div
@@ -63,6 +73,26 @@ export function PricingBreakdown({
         label={`${rentalDays} día${rentalDays === 1 ? "" : "s"} × ${formatMoney(dailyRate)}`}
         value={formatMoney(subtotal)}
       />
+      {lines && lines.length > 0 ? (
+        <div className="space-y-1 border-t border-border/70 pt-2">
+          <p className="text-xs font-medium text-muted">Desglose de extras</p>
+          {lines.map((line, index) => (
+            <div key={`${line.description}-${index}`} className="space-y-0.5">
+              <Row
+                label={line.description}
+                value={formatMoney(line.amount)}
+                muted
+              />
+              {line.detail ? (
+                <p className="text-[11px] text-muted">{line.detail}</p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {extras > 0 ? (
+        <Row label={extrasLabel} value={formatMoney(extras)} />
+      ) : null}
       {insurance > 0 ? (
         <Row label="Seguro" value={formatMoney(insurance)} />
       ) : null}

@@ -108,7 +108,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
             href={`/dashboard/reservas/nuevo?quoteId=${quote.id}`}
             className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
           >
-            Crear reserva manualmente
+            Crear reserva desde cotización
           </Link>
         )}
         <Button

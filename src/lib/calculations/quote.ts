@@ -163,22 +163,89 @@ export function normalizeQuoteVehicleLines<
   });
 }
 
-/** Reservation total = (tarifa × días) + seguro. Depósito no se suma. */
+/** Reservation total = (tarifa × días) + extras. Depósito no se suma.
+ * Seguro diario queda en 0 (va incluido en tarifa); extras cubren
+ * silla, entrega fuera de horario, seguro internacional, etc. */
 export function calculateReservationTotal(input: {
   startAt: Date | string;
   endAt: Date | string;
   agreedRate: MoneyInput;
   insurance?: MoneyInput;
+  additionalCosts?: MoneyInput;
 }): {
   rentalDays: number;
   rentalSubtotal: number;
   insurance: number;
+  additionalCosts: number;
   total: number;
 } {
   const rentalDays = rentalDaysBetween(input.startAt, input.endAt);
   const agreedRate = parseMoneyInput(input.agreedRate);
   const insurance = parseMoneyInput(input.insurance);
+  const additionalCosts = parseMoneyInput(input.additionalCosts);
   const rentalSubtotal = toNumber(multiply(agreedRate, rentalDays));
-  const total = toNumber(add(rentalSubtotal, insurance));
-  return { rentalDays, rentalSubtotal, insurance, total };
+  const total = toNumber(add(rentalSubtotal, add(insurance, additionalCosts)));
+  return { rentalDays, rentalSubtotal, insurance, additionalCosts, total };
+}
+
+/** Build reservation pricing from an accepted quote so totals match. */
+export function deriveReservationPricingFromQuote(input: {
+  dailyRate: MoneyInput;
+  rentalDays: number;
+  quoteTotal: MoneyInput;
+  lines?: Array<{
+    description: string;
+    quantity: MoneyInput;
+    unit_price: MoneyInput;
+    amount?: MoneyInput;
+    item_type?: string | null;
+  }>;
+}): {
+  agreedRate: number;
+  rentalSubtotal: number;
+  additionalCosts: number;
+  total: number;
+  extraLines: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
+} {
+  const agreedRate = parseMoneyInput(input.dailyRate);
+  const rentalDays = Math.max(0, Number(input.rentalDays) || 0);
+  const quoteTotal = parseMoneyInput(input.quoteTotal);
+  const rentalSubtotal = toNumber(multiply(agreedRate, rentalDays));
+
+  const extraLines = (input.lines ?? [])
+    .filter((line) => String(line.item_type ?? "").toUpperCase() !== "VEHICLE")
+    .map((line) => {
+      const unitPrice = parseMoneyInput(line.unit_price);
+      const quantity = parseMoneyInput(line.quantity);
+      const amount =
+        line.amount !== undefined && line.amount !== ""
+          ? parseMoneyInput(line.amount)
+          : toNumber(multiply(quantity, unitPrice));
+      return {
+        description: String(line.description || "Extra").trim() || "Extra",
+        quantity,
+        unitPrice,
+        amount,
+      };
+    });
+
+  // Keep reservation total identical to quote total; extras absorb
+  // non-rental lines plus tax/discount adjustments on the quote.
+  const additionalCosts = Math.max(
+    0,
+    toNumber(subtract(quoteTotal, rentalSubtotal)),
+  );
+
+  return {
+    agreedRate,
+    rentalSubtotal,
+    additionalCosts,
+    total: toNumber(add(rentalSubtotal, additionalCosts)),
+    extraLines,
+  };
 }

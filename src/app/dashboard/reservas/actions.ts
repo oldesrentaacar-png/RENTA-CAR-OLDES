@@ -13,7 +13,7 @@ import {
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
-import { calculateReservationTotal } from "@/lib/calculations/quote";
+import { calculateReservationTotal, deriveReservationPricingFromQuote } from "@/lib/calculations/quote";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { parseMoneyInput } from "@/lib/money";
@@ -202,7 +202,8 @@ export async function createReservation(
     const endAt = normalizeFormDateTimeToIso(formData.get("endAt"));
     const agreedRate = parseMoneyInput(formData.get("agreedRate"));
     const deposit = parseMoneyInput(formData.get("deposit"));
-    const insurance = parseMoneyInput(formData.get("insurance"));
+    // Seguro diario omitido (incluido en tarifa). Extras: silla, entrega, etc.
+    const insurance = 0;
     const cashAmount = parseMoneyInput(formData.get("cashAmount") || 0);
     const cardAmount = parseMoneyInput(formData.get("cardAmount") || 0);
     const additionalCosts = parseMoneyInput(
@@ -213,6 +214,7 @@ export async function createReservation(
       endAt,
       agreedRate,
       insurance,
+      additionalCosts,
     });
 
     const parsed = reservationSchema.safeParse({
@@ -349,6 +351,25 @@ export async function createReservationFromQuote(
       );
     }
 
+    const { data: itemRows, error: itemsError } = await supabase
+      .from("quote_items")
+      .select("description, quantity, unit_price, amount, item_type")
+      .eq("quote_id", quoteId);
+    if (itemsError) throw mapPostgresError(itemsError);
+
+    const pricing = deriveReservationPricingFromQuote({
+      dailyRate: q.daily_rate,
+      rentalDays: q.rental_days,
+      quoteTotal: q.total,
+      lines: (itemRows ?? []).map((item) => ({
+        description: String(item.description ?? ""),
+        quantity: Number(item.quantity ?? 0),
+        unit_price: Number(item.unit_price ?? 0),
+        amount: Number(item.amount ?? 0),
+        item_type: (item.item_type as string | null) ?? null,
+      })),
+    });
+
     const { data: blockedCustomer, error: blockedError } = await supabase
       .from("customers")
       .select("is_blocked")
@@ -362,6 +383,16 @@ export async function createReservationFromQuote(
       );
     }
 
+    const extrasNote =
+      pricing.extraLines.length > 0
+        ? [
+            `Extras desde cotización ${q.code}:`,
+            ...pricing.extraLines.map(
+              (line) => `- ${line.description}: $${line.amount.toFixed(2)}`,
+            ),
+          ].join("\n")
+        : "";
+
     const { data, error } = await supabase
       .from("reservations")
       .insert({
@@ -370,13 +401,14 @@ export async function createReservationFromQuote(
         quote_id: quoteId,
         start_at: q.start_at,
         end_at: q.end_at,
-        agreed_rate: q.daily_rate,
+        agreed_rate: pricing.agreedRate,
         deposit: q.deposit_amount,
-        insurance: q.insurance_amount,
-        total: q.total,
-        cash_amount: q.total,
+        insurance: 0,
+        total: pricing.total,
+        cash_amount: pricing.total,
         card_amount: 0,
-        additional_costs: 0,
+        additional_costs: pricing.additionalCosts,
+        notes: [q.notes?.trim() || "", extrasNote].filter(Boolean).join("\n\n") || null,
         status: "CONFIRMED",
         created_by: user.id,
       })
@@ -455,10 +487,8 @@ export async function updateReservation(
         depositRaw !== null && depositRaw !== ""
           ? parseMoneyInput(depositRaw)
           : undefined,
-      insurance:
-        insuranceRaw !== null && insuranceRaw !== ""
-          ? parseMoneyInput(insuranceRaw)
-          : undefined,
+      // Seguro diario omitido (incluido en tarifa).
+      insurance: 0,
       cashAmount:
         cashAmountRaw !== null && cashAmountRaw !== ""
           ? parseMoneyInput(cashAmountRaw)
@@ -493,8 +523,7 @@ export async function updateReservation(
     if (parsed.data.agreedRate !== undefined)
       row.agreed_rate = parsed.data.agreedRate;
     if (parsed.data.deposit !== undefined) row.deposit = parsed.data.deposit;
-    if (parsed.data.insurance !== undefined)
-      row.insurance = parsed.data.insurance;
+    row.insurance = 0;
     if (parsed.data.cashAmount !== undefined)
       row.cash_amount = parsed.data.cashAmount;
     if (parsed.data.cardAmount !== undefined)
@@ -509,12 +538,13 @@ export async function updateReservation(
       parsed.data.startAt ||
       parsed.data.endAt ||
       parsed.data.agreedRate !== undefined ||
-      parsed.data.insurance !== undefined
+      parsed.data.additionalCosts !== undefined ||
+      insuranceRaw !== null
     ) {
       const supabaseForRead = await createClient();
       const { data: current, error: currentError } = await supabaseForRead
         .from("reservations")
-        .select("start_at, end_at, agreed_rate, insurance")
+        .select("start_at, end_at, agreed_rate, additional_costs")
         .eq("id", id)
         .is("deleted_at", null)
         .maybeSingle();
@@ -526,7 +556,7 @@ export async function updateReservation(
         start_at: string;
         end_at: string;
         agreed_rate: number;
-        insurance: number;
+        additional_costs: number;
       };
 
       const computed = calculateReservationTotal({
@@ -536,10 +566,11 @@ export async function updateReservation(
           parsed.data.agreedRate !== undefined
             ? parsed.data.agreedRate
             : currentRow.agreed_rate,
-        insurance:
-          parsed.data.insurance !== undefined
-            ? parsed.data.insurance
-            : currentRow.insurance,
+        insurance: 0,
+        additionalCosts:
+          parsed.data.additionalCosts !== undefined
+            ? parsed.data.additionalCosts
+            : currentRow.additional_costs,
       });
       row.total = computed.total;
     }
