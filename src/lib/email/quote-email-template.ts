@@ -8,7 +8,6 @@ export type QuoteEmailTemplateInput = {
   startAtLabel: string;
   endAtLabel: string;
   rentalDays?: number | null;
-  pdfShareUrl?: string | null;
   businessName?: string;
   businessPhone?: string | null;
   businessWhatsapp?: string | null;
@@ -37,11 +36,11 @@ export function buildQuoteEmailText(input: QuoteEmailTemplateInput): string {
     `Estimado/a ${input.customerName},`,
     "",
     `Adjuntamos el PDF de su cotización ${input.quoteCode} de ${business}.`,
+    "Puede revisarlo en el archivo adjunto.",
     `Vehículo: ${input.vehicleLabel}`,
     `Periodo: ${input.startAtLabel} – ${input.endAtLabel}`,
     input.rentalDays ? `Días: ${input.rentalDays}` : "",
     `Total: ${formatMoney(input.total)}`,
-    input.pdfShareUrl ? `Ver PDF: ${input.pdfShareUrl}` : "",
     "",
     "Quedamos atentos para confirmar su reserva.",
     "",
@@ -67,7 +66,6 @@ export function buildQuoteEmailHtml(input: QuoteEmailTemplateInput): string {
     input.rentalDays != null && input.rentalDays > 0
       ? String(input.rentalDays)
       : null;
-  const pdfUrl = input.pdfShareUrl ? escapeHtml(input.pdfShareUrl) : null;
   const phone = input.businessPhone ? escapeHtml(input.businessPhone) : null;
   const whatsapp = input.businessWhatsapp
     ? escapeHtml(input.businessWhatsapp)
@@ -98,7 +96,7 @@ export function buildQuoteEmailHtml(input: QuoteEmailTemplateInput): string {
               <p style="margin:0 0 16px;font-size:15px;line-height:1.55;">Estimado/a <strong>${name}</strong>,</p>
               <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#334155;">
                 Adjuntamos el PDF de su cotización <strong style="color:${BRAND_NAVY};">${code}</strong>.
-                Puede revisarlo en el archivo adjunto${pdfUrl ? " o con el botón de abajo" : ""}.
+                Puede revisarlo en el archivo adjunto.
               </p>
 
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:20px;">
@@ -116,20 +114,6 @@ export function buildQuoteEmailHtml(input: QuoteEmailTemplateInput): string {
                   </td>
                 </tr>
               </table>
-
-              ${
-                pdfUrl
-                  ? `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 20px;">
-                <tr>
-                  <td style="border-radius:8px;background:${BRAND_RED};">
-                    <a href="${pdfUrl}" style="display:inline-block;padding:12px 18px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">
-                      Ver / descargar PDF
-                    </a>
-                  </td>
-                </tr>
-              </table>`
-                  : ""
-              }
 
               <p style="margin:0 0 8px;font-size:15px;line-height:1.55;color:#334155;">
                 Quedamos atentos para confirmar su reserva.

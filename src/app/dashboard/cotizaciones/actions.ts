@@ -810,7 +810,6 @@ export async function sendQuoteEmail(
       return actionError("No se pudo generar el PDF de la cotización.");
     }
 
-    const pdfShareUrl = buildQuotePdfShareUrl(quoteId);
     const greetingName =
       `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim() ||
       "cliente";
@@ -822,7 +821,6 @@ export async function sendQuoteEmail(
       startAtLabel: formatAppDateTime(mapped.start_at),
       endAtLabel: formatAppDateTime(mapped.end_at),
       rentalDays: mapped.rental_days,
-      pdfShareUrl,
       businessName: "OLDES Rent-a-Car",
       businessPhone: "+503 7435-0381",
       businessWhatsapp: "+503 7435-0381",
