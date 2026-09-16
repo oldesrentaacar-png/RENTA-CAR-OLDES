@@ -199,8 +199,10 @@ export function ReservationForm({
         </div>
       ) : (
         <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">
-          Elija vehículo y fechas: la tarifa y el{" "}
-          <strong>total se calculan automáticamente</strong> (días × tarifa +
+          <strong>No requiere cotización.</strong> Para cliente conocido puede
+          crear la reserva directa (vehículo, fechas y extras). Si viene de una
+          cotización, use “Crear reserva desde cotización” para jalar el
+          desglose. El total se calcula automáticamente (días × tarifa +
           extras). El seguro diario no aplica: va incluido en el precio.
         </div>
       )}
