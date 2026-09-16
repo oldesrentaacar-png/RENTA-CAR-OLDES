@@ -18,16 +18,19 @@ import { formatAppDate, formatAppDateTime, normalizeFormDateTimeToIso } from "@/
 import { getCustomerDisplayName } from "@/lib/customers";
 import { sendEmail } from "@/lib/email/resend";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { resolvePdfBusinessContact } from "@/lib/contracts/oldes-terms";
 import { formatMoney, multiply, toNumber } from "@/lib/money";
 import { asNumber } from "@/lib/safe-number";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
 import {
   buildQuoteWhatsAppMessage,
   buildWaMeLink,
 } from "@/lib/whatsapp";
+import { buildQuotePdfShareUrl } from "@/lib/quotes/share-token";
+import { renderQuotePdf } from "@/lib/pdf/render";
 import {
   quoteSchema,
   quoteSearchSchema,
@@ -37,6 +40,7 @@ import {
 import { createReservationFromQuote } from "@/app/dashboard/reservas/actions";
 import type { Quote } from "@/types/database";
 import type { PaginatedResult } from "@/types/api";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 function parseLinesFromForm(formData: FormData): QuoteLineInput[] | undefined {
   const raw = formData.get("lines");
@@ -746,64 +750,108 @@ export async function sendQuoteEmail(
         "*, customers(first_name, last_name, email, phone), vehicles(brand, model, year), vehicle_types(name)",
       )
       .eq("id", quoteId)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) throw mapPostgresError(error);
     if (!quote) return actionError("Cotización no encontrada.");
 
     const q = quote as QuoteRow & {
-      customers: {
-        first_name: string;
-        last_name: string;
-        email: string | null;
-        phone: string;
-      };
-      vehicles: { brand: string; model: string; year: number } | null;
-      vehicle_types: { name: string } | null;
+      customers:
+        | {
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            phone: string;
+          }
+        | Array<{
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            phone: string;
+          }>;
+      vehicles:
+        | { brand: string; model: string; year: number }
+        | Array<{ brand: string; model: string; year: number }>
+        | null;
+      vehicle_types: { name: string } | Array<{ name: string }> | null;
     };
 
-    if (!q.customers.email) {
-      return actionError("El cliente no tiene correo registrado.");
+    const customer = firstRelation(q.customers);
+    if (!customer) {
+      return actionError("No se encontró el cliente de la cotización.");
+    }
+    if (!customer.email?.trim()) {
+      return actionError(
+        "El cliente no tiene correo registrado. Actualice los datos del cliente.",
+      );
     }
 
     const mapped = mapQuoteRow(q);
     const vehicleLabel =
       vehicleTypeLabelFromJoin(firstRelation(q.vehicle_types), "es") ??
-      vehicleLabelFromJoin(q.vehicles);
-    const emailResult = await sendEmail({
-      to: q.customers.email,
-      subject: `Cotización ${q.code}`,
-      html: `<p>Estimado/a ${q.customers.first_name},</p>
-        <p>Adjuntamos su cotización <strong>${q.code}</strong>.</p>
-        <p>Vehículo: ${vehicleLabel}</p>
-        <p>Total: ${formatMoney(mapped.total)}</p>
-        <p>Periodo: ${formatAppDateTime(mapped.start_at)} – ${formatAppDateTime(mapped.end_at)}</p>`,
-      text: `Cotización ${q.code}. Vehículo: ${vehicleLabel}. Total: ${formatMoney(mapped.total)}.`,
-    });
+      vehicleLabelFromJoin(firstRelation(q.vehicles));
 
-    if (emailResult.ok) {
-      await supabase
-        .from("quotes")
-        .update({ status: "SENT" })
-        .eq("id", quoteId);
-
-      await writeAuditLog({
-        userId: user.id,
-        action: "quote.send_email",
-        entityType: "quote",
-        entityId: quoteId,
-      });
-
-      revalidatePath(`/dashboard/cotizaciones/${quoteId}`);
-      return actionSuccess({
-        emailSent: true,
-        message: "Correo enviado correctamente.",
-      });
+    const pdfData = await getQuotePdfData(quoteId);
+    if (!pdfData) {
+      return actionError("No se pudo preparar el PDF de la cotización.");
     }
 
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = await renderQuotePdf(pdfData);
+    } catch {
+      return actionError("No se pudo generar el PDF de la cotización.");
+    }
+
+    const pdfShareUrl = buildQuotePdfShareUrl(quoteId);
+    const emailResult = await sendEmail({
+      to: customer.email.trim(),
+      subject: `Cotización ${q.code} — OLDES Rent-a-Car`,
+      html: `<p>Estimado/a ${customer.first_name},</p>
+        <p>Adjuntamos el PDF de su cotización <strong>${q.code}</strong>.</p>
+        <p>Vehículo: ${vehicleLabel}</p>
+        <p>Total: ${formatMoney(mapped.total)}</p>
+        <p>Periodo: ${formatAppDateTime(mapped.start_at)} – ${formatAppDateTime(mapped.end_at)}</p>
+        ${
+          pdfShareUrl
+            ? `<p>También puede descargarlo aquí: <a href="${pdfShareUrl}">Ver cotización PDF</a></p>`
+            : ""
+        }
+        <p>Quedamos atentos para confirmar su reserva.</p>`,
+      text: [
+        `Cotización ${q.code}.`,
+        `Vehículo: ${vehicleLabel}.`,
+        `Total: ${formatMoney(mapped.total)}.`,
+        pdfShareUrl ? `PDF: ${pdfShareUrl}` : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      attachments: [
+        {
+          filename: `cotizacion-${q.code}.pdf`,
+          content: pdfBuffer,
+        },
+      ],
+    });
+
+    if (!emailResult.ok) {
+      return actionError(emailResult.message);
+    }
+
+    await supabase.from("quotes").update({ status: "SENT" }).eq("id", quoteId);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "quote.send_email",
+      entityType: "quote",
+      entityId: quoteId,
+    });
+
+    revalidatePath(`/dashboard/cotizaciones/${quoteId}`);
     return actionSuccess({
-      emailSent: false,
-      message: emailResult.message,
+      emailSent: true,
+      message: "Correo enviado con el PDF de la cotización.",
     });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -826,6 +874,7 @@ export async function getQuoteWhatsAppLink(
         "code, total, customers(first_name, last_name, phone, whatsapp), vehicles(brand, model, year), vehicle_types(name)",
       )
       .eq("id", quoteId)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) throw mapPostgresError(error);
@@ -866,6 +915,7 @@ export async function getQuoteWhatsAppLink(
       );
     }
 
+    const pdfUrl = buildQuotePdfShareUrl(quoteId);
     const message = buildQuoteWhatsAppMessage({
       customerName: `${customer.first_name} ${customer.last_name}`.trim(),
       quoteCode: q.code,
@@ -873,6 +923,7 @@ export async function getQuoteWhatsAppLink(
         vehicleTypeLabelFromJoin(firstRelation(q.vehicle_types), "es") ??
         vehicleLabelFromJoin(firstRelation(q.vehicles)),
       totalLabel: formatMoney(q.total),
+      pdfUrl,
     });
 
     return actionSuccess({
@@ -883,10 +934,18 @@ export async function getQuoteWhatsAppLink(
   }
 }
 
-export async function getQuotePdfData(quoteId: string) {
+export async function getQuotePdfData(
+  quoteId: string,
+  options?: { publicAccess?: boolean },
+) {
   if (!isSupabaseConfigured()) return null;
 
-  const supabase = await createClient();
+  const useAdmin =
+    Boolean(options?.publicAccess) && isSupabaseAdminConfigured();
+  const supabase: SupabaseClient = useAdmin
+    ? createAdminClient()
+    : await createClient();
+
   const { data } = await supabase
     .from("quotes")
     .select(
@@ -911,27 +970,51 @@ export async function getQuotePdfData(quoteId: string) {
     .order("sort_order", { ascending: true });
 
   const q = data as QuoteRow & {
-    customers: {
-      first_name: string;
-      last_name: string;
-      phone: string | null;
-      email: string | null;
-      company_name?: string | null;
-      customer_type?: string | null;
-    };
-    vehicles: {
-      brand: string;
-      model: string;
-      year: number;
-      plate: string | null;
-    } | null;
-    vehicle_types: { name: string; name_en: string | null } | null;
+    customers:
+      | {
+          first_name: string;
+          last_name: string;
+          phone: string | null;
+          email: string | null;
+          company_name?: string | null;
+          customer_type?: string | null;
+        }
+      | Array<{
+          first_name: string;
+          last_name: string;
+          phone: string | null;
+          email: string | null;
+          company_name?: string | null;
+          customer_type?: string | null;
+        }>
+      | null;
+    vehicles:
+      | {
+          brand: string;
+          model: string;
+          year: number;
+          plate: string | null;
+        }
+      | Array<{
+          brand: string;
+          model: string;
+          year: number;
+          plate: string | null;
+        }>
+      | null;
+    vehicle_types:
+      | { name: string; name_en: string | null }
+      | Array<{ name: string; name_en: string | null }>
+      | null;
     welcome_text?: string | null;
     payment_conditions?: string | null;
     delivery_instructions?: string | null;
     insurance_policy_text?: string | null;
     driving_guidelines?: string | null;
   };
+
+  const customer = firstRelation(q.customers);
+  if (!customer) return null;
 
   const mapped = mapQuoteRow(q);
   const settingsRow = settings as {
@@ -943,9 +1026,9 @@ export async function getQuotePdfData(quoteId: string) {
   } | null;
 
   const customerName =
-    q.customers.customer_type === "COMPANY" && q.customers.company_name
-      ? q.customers.company_name
-      : `${q.customers.first_name} ${q.customers.last_name}`;
+    customer.customer_type === "COMPANY" && customer.company_name
+      ? customer.company_name
+      : `${customer.first_name} ${customer.last_name}`;
 
   const rawLines = (items ?? []).map((item) => ({
     description: String(item.description ?? ""),
@@ -984,10 +1067,11 @@ export async function getQuotePdfData(quoteId: string) {
     firstRelation(q.vehicle_types),
     mapped.language === "es" ? "es" : "en",
   );
+  const vehicle = firstRelation(q.vehicles);
   const vehicleLabel =
     typeLabel ??
-    (q.vehicles
-      ? vehicleLabelFromJoin(q.vehicles)
+    (vehicle
+      ? vehicleLabelFromJoin(vehicle)
       : mapped.language === "en"
         ? "Vehicle type"
         : "Tipo de vehículo");
@@ -1004,8 +1088,8 @@ export async function getQuotePdfData(quoteId: string) {
     issuedAtLabel: formatAppDate(mapped.created_at),
     language: mapped.language === "es" ? ("es" as const) : ("en" as const),
     customerName,
-    customerPhone: q.customers.phone,
-    customerEmail: q.customers.email,
+    customerPhone: customer.phone,
+    customerEmail: customer.email,
     vehicleLabel,
     startAtLabel: formatAppDateTime(mapped.start_at),
     endAtLabel: formatAppDateTime(mapped.end_at),

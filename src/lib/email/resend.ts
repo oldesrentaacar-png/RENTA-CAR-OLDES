@@ -2,12 +2,18 @@ import { Resend } from "resend";
 
 import { env, isResendConfigured } from "@/lib/env";
 
+export type SendEmailAttachment = {
+  filename: string;
+  content: Buffer | string;
+};
+
 export type SendEmailInput = {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
   replyTo?: string;
+  attachments?: SendEmailAttachment[];
 };
 
 export type SendEmailResult =
@@ -54,6 +60,10 @@ export async function sendEmail(
       html: input.html,
       text: input.text,
       replyTo: input.replyTo,
+      attachments: input.attachments?.map((file) => ({
+        filename: file.filename,
+        content: file.content,
+      })),
     });
 
     if (error) {

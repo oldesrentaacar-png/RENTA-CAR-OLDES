@@ -9,9 +9,10 @@ import {
   QUOTE_PDF_TEMPLATE_VERSION,
 } from "@/lib/pdf/pdf-cache";
 import { renderQuotePdf } from "@/lib/pdf/render";
+import { verifyQuotePdfShareToken } from "@/lib/quotes/share-token";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
@@ -23,23 +24,30 @@ export async function GET(
     );
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: { message: "No autenticado." } },
-      { status: 401 },
-    );
+  const token = new URL(request.url).searchParams.get("token");
+  const hasShareToken = verifyQuotePdfShareToken(id, token);
+
+  if (!hasShareToken) {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: { message: "No autenticado." } },
+        { status: 401 },
+      );
+    }
+
+    const allowed = await hasPermission(user.id, "quotes.view");
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: { message: "Sin permiso." } },
+        { status: 403 },
+      );
+    }
   }
 
-  const allowed = await hasPermission(user.id, "quotes.view");
-  if (!allowed) {
-    return NextResponse.json(
-      { success: false, error: { message: "Sin permiso." } },
-      { status: 403 },
-    );
-  }
-
-  const pdfData = await getQuotePdfData(id);
+  const pdfData = await getQuotePdfData(id, {
+    publicAccess: hasShareToken,
+  });
   if (!pdfData) {
     return NextResponse.json(
       { success: false, error: { message: "Cotización no encontrada." } },
@@ -54,7 +62,14 @@ export async function GET(
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="cotizacion-${pdfData.quoteCode}-${QUOTE_PDF_TEMPLATE_VERSION}.pdf"`,
-        ...PDF_NO_STORE_HEADERS,
+        ...(hasShareToken
+          ? {
+              "Cache-Control":
+                "private, no-store, no-cache, must-revalidate, max-age=0",
+              Pragma: "no-cache",
+              Expires: "0",
+            }
+          : PDF_NO_STORE_HEADERS),
         "X-PDF-Template-Version": QUOTE_PDF_TEMPLATE_VERSION,
       },
     });

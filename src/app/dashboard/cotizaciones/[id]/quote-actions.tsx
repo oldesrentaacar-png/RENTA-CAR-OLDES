@@ -21,8 +21,12 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [openingWhatsApp, setOpeningWhatsApp] = useState(false);
 
   async function handleStatus(status: Quote["status"]) {
+    setError(null);
+    setMessage(null);
     const result = await updateQuoteStatus(quote.id, status);
     if (!result.success) setError(result.error);
     else router.refresh();
@@ -35,6 +39,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
     if (!ok) return;
     setDeleting(true);
     setError(null);
+    setMessage(null);
     const result = await deleteQuote(quote.id);
     setDeleting(false);
     if (!result.success) {
@@ -80,12 +85,20 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
         </PermissionGuard>
 
         {quote.status === "DRAFT" ? (
-          <Button type="button" variant="secondary" onClick={() => handleStatus("SENT")}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => handleStatus("SENT")}
+          >
             Marcar enviada
           </Button>
         ) : null}
         {quote.status !== "REJECTED" && quote.status !== "ACCEPTED" ? (
-          <Button type="button" variant="danger" onClick={() => handleStatus("REJECTED")}>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={() => handleStatus("REJECTED")}
+          >
             Rechazar
           </Button>
         ) : null}
@@ -93,10 +106,14 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           <Button
             type="button"
             onClick={async () => {
+              setError(null);
+              setMessage(null);
               const result = await acceptQuote(quote.id);
               if (!result.success) setError(result.error);
               else {
-                setMessage("Cotización aceptada. Cree la reserva manualmente cuando corresponda.");
+                setMessage(
+                  "Cotización aceptada. Cree la reserva manualmente cuando corresponda.",
+                );
                 router.refresh();
               }
             }}
@@ -111,29 +128,49 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
             Crear reserva desde cotización
           </Link>
         )}
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={async () => {
-            const result = await sendQuoteEmail(quote.id);
-            if (!result.success) setError(result.error);
-            else setMessage(result.data.message);
-            router.refresh();
-          }}
-        >
-          Enviar correo
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={async () => {
-            const result = await getQuoteWhatsAppLink(quote.id);
-            if (!result.success) setError(result.error);
-            else window.open(result.data.url, "_blank");
-          }}
-        >
-          WhatsApp
-        </Button>
+        <PermissionGuard permission="quotes.send" fallback={null}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={sendingEmail}
+            onClick={async () => {
+              setSendingEmail(true);
+              setError(null);
+              setMessage(null);
+              const result = await sendQuoteEmail(quote.id);
+              setSendingEmail(false);
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage(result.data.message);
+              router.refresh();
+            }}
+          >
+            {sendingEmail ? "Enviando PDF…" : "Enviar correo"}
+          </Button>
+        </PermissionGuard>
+        <PermissionGuard permission="quotes.send" fallback={null}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={openingWhatsApp}
+            onClick={async () => {
+              setOpeningWhatsApp(true);
+              setError(null);
+              setMessage(null);
+              const result = await getQuoteWhatsAppLink(quote.id);
+              setOpeningWhatsApp(false);
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              window.open(result.data.url, "_blank");
+            }}
+          >
+            {openingWhatsApp ? "Preparando…" : "WhatsApp"}
+          </Button>
+        </PermissionGuard>
         <Link
           href={quotePdfHref(quote.id, quote.updated_at)}
           target="_blank"
