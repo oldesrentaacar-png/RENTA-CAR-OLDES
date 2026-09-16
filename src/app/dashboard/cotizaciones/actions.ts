@@ -824,14 +824,14 @@ export async function sendQuoteEmail(
       businessName: "OLDES Rent-a-Car",
       businessPhone: "+503 7435-0381",
       businessWhatsapp: "+503 7435-0381",
-      businessEmail: "soporte@oldescarrentalelsalvador.com",
+      businessEmail: "soporte@oldesrentacar.com",
     };
     const emailResult = await sendEmail({
       to: email,
       subject: buildQuoteEmailSubject(q.code),
       html: buildQuoteEmailHtml(templateInput),
       text: buildQuoteEmailText(templateInput),
-      replyTo: "soporte@oldescarrentalelsalvador.com",
+      replyTo: "soporte@oldesrentacar.com",
       attachments: [
         {
           filename: `cotizacion-${q.code}.pdf`,
