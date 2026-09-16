@@ -124,7 +124,12 @@ export async function updateRolePermissions(
       .getAll("permissionIds")
       .map((value) => String(value));
 
-    await supabase.from("role_permissions").delete().eq("role_id", roleId);
+    const { error: deleteError } = await supabase
+      .from("role_permissions")
+      .delete()
+      .eq("role_id", roleId);
+
+    if (deleteError) throw mapPostgresError(deleteError);
 
     if (selectedIds.length > 0) {
       const rows = selectedIds.map((permissionId) => ({
@@ -149,6 +154,8 @@ export async function updateRolePermissions(
 
     revalidatePath("/dashboard/roles");
     revalidatePath(`/dashboard/roles/${roleId}`);
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
     return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));

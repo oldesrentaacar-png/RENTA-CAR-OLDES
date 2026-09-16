@@ -392,13 +392,20 @@ export async function deleteCustomer(id: string): Promise<ActionResult<void>> {
     }
 
     const supabase = await createClient();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("customers")
       .update({ deleted_at: new Date().toISOString(), is_active: false })
       .eq("id", id)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
 
     if (error) throw mapPostgresError(error);
+    if (!data) {
+      return actionError(
+        "No se pudo eliminar el cliente. Verifique que exista y que tenga permiso.",
+      );
+    }
 
     await writeAuditLog({
       userId: user.id,

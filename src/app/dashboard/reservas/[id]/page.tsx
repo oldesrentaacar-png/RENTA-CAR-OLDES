@@ -35,12 +35,14 @@ export default async function ReservaDetailPage({
           ]}
           actions={
             reservation ? (
-              <Link
-                href={`/dashboard/reservas/${id}/edit`}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
-              >
-                Editar
-              </Link>
+              <PermissionGuard permission="reservations.edit" fallback={null}>
+                <Link
+                  href={`/dashboard/reservas/${id}/edit`}
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+                >
+                  Editar
+                </Link>
+              </PermissionGuard>
             ) : null
           }
         />

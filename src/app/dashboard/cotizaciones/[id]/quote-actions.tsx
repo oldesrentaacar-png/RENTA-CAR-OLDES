@@ -212,48 +212,56 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
         </PermissionGuard>
 
         {quote.status === "DRAFT" ? (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => handleStatus("SENT")}
-          >
-            Marcar enviada
-          </Button>
+          <PermissionGuard permission="quotes.edit" fallback={null}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => handleStatus("SENT")}
+            >
+              Marcar enviada
+            </Button>
+          </PermissionGuard>
         ) : null}
         {quote.status !== "REJECTED" && quote.status !== "ACCEPTED" ? (
-          <Button
-            type="button"
-            variant="danger"
-            onClick={() => handleStatus("REJECTED")}
-          >
-            Rechazar
-          </Button>
+          <PermissionGuard permission="quotes.edit" fallback={null}>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => handleStatus("REJECTED")}
+            >
+              Rechazar
+            </Button>
+          </PermissionGuard>
         ) : null}
         {quote.status !== "ACCEPTED" ? (
-          <Button
-            type="button"
-            onClick={async () => {
-              setError(null);
-              setMessage(null);
-              const result = await acceptQuote(quote.id);
-              if (!result.success) setError(result.error);
-              else {
-                setMessage(
-                  "Cotización aceptada. Cree la reserva manualmente cuando corresponda.",
-                );
-                router.refresh();
-              }
-            }}
-          >
-            Aceptar cotización
-          </Button>
+          <PermissionGuard permission="quotes.accept" fallback={null}>
+            <Button
+              type="button"
+              onClick={async () => {
+                setError(null);
+                setMessage(null);
+                const result = await acceptQuote(quote.id);
+                if (!result.success) setError(result.error);
+                else {
+                  setMessage(
+                    "Cotización aceptada. Cree la reserva manualmente cuando corresponda.",
+                  );
+                  router.refresh();
+                }
+              }}
+            >
+              Aceptar cotización
+            </Button>
+          </PermissionGuard>
         ) : (
-          <Link
-            href={`/dashboard/reservas/nuevo?quoteId=${quote.id}`}
-            className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-          >
-            Crear reserva desde cotización
-          </Link>
+          <PermissionGuard permission="reservations.create" fallback={null}>
+            <Link
+              href={`/dashboard/reservas/nuevo?quoteId=${quote.id}`}
+              className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Crear reserva desde cotización
+            </Link>
+          </PermissionGuard>
         )}
         <PermissionGuard permission="quotes.send" fallback={null}>
           <Button

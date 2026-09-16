@@ -32,6 +32,8 @@ import {
   formatAppDateTime,
 } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
+import { getEffectivePermissions } from "@/lib/auth/permissions";
+import { getSession } from "@/lib/auth/session";
 
 function formatAgendaDay(ymd: string): string {
   return formatAppDate(appLocalDateTimeToUtc(ymd, "12:00"));
@@ -178,31 +180,55 @@ function OpenContractsList({
 }
 
 export default async function DashboardPage() {
+  const auth = await getSession();
+  const permissions = auth
+    ? await getEffectivePermissions(auth.user.id)
+    : new Set();
+  const can = (key: Parameters<typeof permissions.has>[0]) =>
+    permissions.has(key);
+
   const [metrics, agenda] = await Promise.all([
     fetchDashboardMetrics(),
     fetchDashboardOpsAgenda(),
   ]);
 
+  const showRequests = can("requests.view");
+  const showReservations = can("reservations.view");
+  const showVehicles = can("vehicles.view");
+  const showCustomers = can("customers.view");
+  const showContracts = can("contracts.view");
+  const showFinance = can("finance.view");
+  const showDashboard = can("dashboard.view");
+
   return (
+    <PermissionGuard permission="dashboard.view" fallback={
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-sm text-amber-950">
+        No tiene permiso para ver el panel principal.
+      </div>
+    }>
     <div className="max-w-full min-w-0 space-y-6">
       <PageHeader
         title="Panel de control"
         description="Agenda operativa del día y resumen de su negocio de renta."
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
-            <Link
-              href="/dashboard/contratos/nuevo"
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 touch-manipulation sm:w-auto"
-            >
-              Generar contrato
-            </Link>
-            <Link
-              href="/dashboard/contratos"
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium hover:bg-zinc-50 touch-manipulation sm:w-auto"
-            >
-              Cerrar / ver contratos
-            </Link>
-          </div>
+          showContracts ? (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+              <PermissionGuard permission="contracts.create" fallback={null}>
+                <Link
+                  href="/dashboard/contratos/nuevo"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 touch-manipulation sm:w-auto"
+                >
+                  Generar contrato
+                </Link>
+              </PermissionGuard>
+              <Link
+                href="/dashboard/contratos"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium hover:bg-zinc-50 touch-manipulation sm:w-auto"
+              >
+                Cerrar / ver contratos
+              </Link>
+            </div>
+          ) : null
         }
       />
 
@@ -222,7 +248,7 @@ export default async function DashboardPage() {
       ) : null}
 
       {/* §14 Operational agenda — prioritized above charts */}
-      {agenda.configured && !agenda.error ? (
+      {showDashboard && agenda.configured && !agenda.error ? (
         <section className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
@@ -243,88 +269,100 @@ export default async function DashboardPage() {
           </div>
 
           <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            <Card>
-              <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-                <CardTitle className="min-w-0 flex-1 truncate text-base">
-                  Pendientes del día
-                </CardTitle>
-                <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
-                  {agenda.pendingRequestsCount}
-                </span>
-              </CardHeader>
-              <CardContent>
-                <PendingRequestsList
-                  items={agenda.pendingRequests}
-                  total={agenda.pendingRequestsCount}
-                />
-              </CardContent>
-            </Card>
+            {showRequests ? (
+              <Card>
+                <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+                  <CardTitle className="min-w-0 flex-1 truncate text-base">
+                    Pendientes del día
+                  </CardTitle>
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+                    {agenda.pendingRequestsCount}
+                  </span>
+                </CardHeader>
+                <CardContent>
+                  <PendingRequestsList
+                    items={agenda.pendingRequests}
+                    total={agenda.pendingRequestsCount}
+                  />
+                </CardContent>
+              </Card>
+            ) : null}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Calendar className="h-4 w-4 text-muted" />
-                  Reservas de hoy
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ReservationAgendaList items={agenda.reservationsToday} />
-              </CardContent>
-            </Card>
+            {showReservations ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Calendar className="h-4 w-4 text-muted" />
+                    Reservas de hoy
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReservationAgendaList items={agenda.reservationsToday} />
+                </CardContent>
+              </Card>
+            ) : null}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Calendar className="h-4 w-4 text-muted" />
-                  Reservas de mañana
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ReservationAgendaList items={agenda.reservationsTomorrow} />
-              </CardContent>
-            </Card>
+            {showReservations ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Calendar className="h-4 w-4 text-muted" />
+                    Reservas de mañana
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReservationAgendaList items={agenda.reservationsTomorrow} />
+                </CardContent>
+              </Card>
+            ) : null}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Car className="h-4 w-4 text-muted" />
-                  Vehículos a entregar hoy
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ReservationAgendaList items={agenda.deliveriesToday} />
-              </CardContent>
-            </Card>
+            {showReservations || showVehicles ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Car className="h-4 w-4 text-muted" />
+                    Vehículos a entregar hoy
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReservationAgendaList items={agenda.deliveriesToday} />
+                </CardContent>
+              </Card>
+            ) : null}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ArrowRightLeft className="h-4 w-4 text-muted" />
-                  Vehículos a recibir hoy
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ReservationAgendaList
-                  items={agenda.returnsToday}
-                  timeField="end_at"
-                />
-              </CardContent>
-            </Card>
+            {showReservations || showVehicles ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ArrowRightLeft className="h-4 w-4 text-muted" />
+                    Vehículos a recibir hoy
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReservationAgendaList
+                    items={agenda.returnsToday}
+                    timeField="end_at"
+                  />
+                </CardContent>
+              </Card>
+            ) : null}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FileText className="h-4 w-4 text-muted" />
-                  Contratos abiertos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <OpenContractsList items={agenda.openContracts} showCloseLink />
-              </CardContent>
-            </Card>
+            {showContracts ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <FileText className="h-4 w-4 text-muted" />
+                    Contratos abiertos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <OpenContractsList items={agenda.openContracts} showCloseLink />
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
 
-          {agenda.openContractAlerts.length > 0 ? (
+          {showContracts && agenda.openContractAlerts.length > 0 ? (
             <Card className="border-amber-200 bg-amber-50/40">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base text-amber-950">
@@ -348,57 +386,70 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard
-          title="Solicitudes pendientes"
-          value={metrics.pendingRequests}
-          icon={ClipboardList}
-        />
-        <MetricCard
-          title="Reservas activas"
-          value={metrics.activeReservations}
-          icon={Calendar}
-        />
-        <MetricCard
-          title="Vehículos disponibles"
-          value={metrics.availableVehicles}
-          icon={Car}
-        />
-        <MetricCard
-          title="Clientes activos"
-          value={metrics.totalCustomers}
-          icon={Users}
-        />
-        <MetricCard
-          title="Alertas activas"
-          value={metrics.activeAlerts}
-          icon={Bell}
-          subtitle="Entregas, devoluciones y mantenimiento"
-        />
+        {showRequests ? (
+          <MetricCard
+            title="Solicitudes pendientes"
+            value={metrics.pendingRequests}
+            icon={ClipboardList}
+          />
+        ) : null}
+        {showReservations ? (
+          <MetricCard
+            title="Reservas activas"
+            value={metrics.activeReservations}
+            icon={Calendar}
+          />
+        ) : null}
+        {showVehicles ? (
+          <MetricCard
+            title="Vehículos disponibles"
+            value={metrics.availableVehicles}
+            icon={Car}
+          />
+        ) : null}
+        {showCustomers ? (
+          <MetricCard
+            title="Clientes activos"
+            value={metrics.totalCustomers}
+            icon={Users}
+          />
+        ) : null}
+        {showDashboard ? (
+          <MetricCard
+            title="Alertas activas"
+            value={metrics.activeAlerts}
+            icon={Bell}
+            subtitle="Entregas, devoluciones y mantenimiento"
+          />
+        ) : null}
       </div>
 
-      <PermissionGuard permission="finance.view">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <MetricCard
-            title="Ingresos del mes"
-            value={formatMoney(metrics.monthlyIncome)}
-            icon={DollarSign}
-            subtitle="Utilidad real (depósitos reembolsables excluidos)"
-          />
-          <MetricCard
-            title="Gastos del mes"
-            value={formatMoney(metrics.monthlyExpenses)}
-            icon={DollarSign}
-            subtitle="Transacciones registradas este mes"
-          />
-        </div>
-      </PermissionGuard>
+      {showFinance ? (
+        <PermissionGuard permission="finance.view">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MetricCard
+              title="Ingresos del mes"
+              value={formatMoney(metrics.monthlyIncome)}
+              icon={DollarSign}
+              subtitle="Utilidad real (depósitos reembolsables excluidos)"
+            />
+            <MetricCard
+              title="Gastos del mes"
+              value={formatMoney(metrics.monthlyExpenses)}
+              icon={DollarSign}
+              subtitle="Transacciones registradas este mes"
+            />
+          </div>
+        </PermissionGuard>
+      ) : null}
 
-      {metrics.configured && !metrics.error ? (
+      {metrics.configured && !metrics.error && (showVehicles || showRequests) ? (
         <DashboardCharts
-          vehiclesByStatus={metrics.vehiclesByStatus}
-          requestsByStatus={metrics.requestsByStatus}
+          vehiclesByStatus={showVehicles ? metrics.vehiclesByStatus : []}
+          requestsByStatus={showRequests ? metrics.requestsByStatus : []}
         />
       ) : null}
     </div>
+    </PermissionGuard>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listCustomers } from "@/app/dashboard/clientes/actions";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { CustomerListActions } from "@/components/dashboard/customer-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
@@ -34,12 +35,14 @@ export default async function ClientesPage({
       count={data.length}
       countLabel="clientes mostrados"
       actions={
-        <Link
-          href="/dashboard/clientes/nuevo"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-        >
-          Nuevo cliente
-        </Link>
+        <PermissionGuard permission="customers.create" fallback={null}>
+          <Link
+            href="/dashboard/clientes/nuevo"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          >
+            Nuevo cliente
+          </Link>
+        </PermissionGuard>
       }
     >
       <form method="get" className="mb-4">
