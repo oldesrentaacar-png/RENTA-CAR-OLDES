@@ -33,19 +33,17 @@ export function buildQuoteWhatsAppMessage(input: {
   pdfUrl?: string | null;
 }): string {
   const business = input.businessName ?? "OLDES Rent-a-Car";
-  const pdfPart = input.pdfUrl
-    ? ` Puede ver y descargar el PDF aquí: ${input.pdfUrl}`
-    : "";
-  return [
+  const lines = [
     `Hola ${input.customerName},`,
     `le compartimos su cotización ${input.quoteCode} de ${business}.`,
     `Vehículo: ${input.vehicleLabel}.`,
     `Total: ${input.totalLabel}.`,
-    "Quedamos atentos para confirmar su reserva.",
-    pdfPart.trim(),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ];
+  if (input.pdfUrl) {
+    lines.push(`PDF de la cotización (ábrelo aquí): ${input.pdfUrl}`);
+  }
+  lines.push("Quedamos atentos para confirmar su reserva.");
+  return lines.join(" ");
 }
 
 export function buildReservationWhatsAppMessage(input: {

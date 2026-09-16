@@ -736,11 +736,17 @@ export async function acceptQuoteAndCreateReservation(
 
 export async function sendQuoteEmail(
   quoteId: string,
+  toEmail: string,
 ): Promise<ActionResult<{ emailSent: boolean; message: string }>> {
   try {
     const { user } = await assertPermission("quotes.send");
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
+    }
+
+    const email = toEmail.trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return actionError("Ingrese un correo válido para enviar la cotización.");
     }
 
     const supabase = await createClient();
@@ -781,11 +787,6 @@ export async function sendQuoteEmail(
     if (!customer) {
       return actionError("No se encontró el cliente de la cotización.");
     }
-    if (!customer.email?.trim()) {
-      return actionError(
-        "El cliente no tiene correo registrado. Actualice los datos del cliente.",
-      );
-    }
 
     const mapped = mapQuoteRow(q);
     const vehicleLabel =
@@ -805,10 +806,11 @@ export async function sendQuoteEmail(
     }
 
     const pdfShareUrl = buildQuotePdfShareUrl(quoteId);
+    const greetingName = customer.first_name?.trim() || "cliente";
     const emailResult = await sendEmail({
-      to: customer.email.trim(),
+      to: email,
       subject: `Cotización ${q.code} — OLDES Rent-a-Car`,
-      html: `<p>Estimado/a ${customer.first_name},</p>
+      html: `<p>Estimado/a ${greetingName},</p>
         <p>Adjuntamos el PDF de su cotización <strong>${q.code}</strong>.</p>
         <p>Vehículo: ${vehicleLabel}</p>
         <p>Total: ${formatMoney(mapped.total)}</p>
@@ -846,12 +848,67 @@ export async function sendQuoteEmail(
       action: "quote.send_email",
       entityType: "quote",
       entityId: quoteId,
+      metadata: { to: email },
     });
 
     revalidatePath(`/dashboard/cotizaciones/${quoteId}`);
     return actionSuccess({
       emailSent: true,
-      message: "Correo enviado con el PDF de la cotización.",
+      message: `Correo enviado a ${email} con el PDF de la cotización.`,
+    });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export async function getQuoteShareDefaults(
+  quoteId: string,
+): Promise<
+  ActionResult<{ customerEmail: string; customerName: string }>
+> {
+  try {
+    await assertPermission("quotes.send");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: quote, error } = await supabase
+      .from("quotes")
+      .select("customers(first_name, last_name, email)")
+      .eq("id", quoteId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) throw mapPostgresError(error);
+    if (!quote) return actionError("Cotización no encontrada.");
+
+    const customer = firstRelation(
+      (
+        quote as {
+          customers:
+            | {
+                first_name: string;
+                last_name: string;
+                email: string | null;
+              }
+            | Array<{
+                first_name: string;
+                last_name: string;
+                email: string | null;
+              }>
+            | null;
+        }
+      ).customers,
+    );
+
+    if (!customer) {
+      return actionError("No se encontró el cliente de la cotización.");
+    }
+
+    return actionSuccess({
+      customerEmail: customer.email?.trim() ?? "",
+      customerName: `${customer.first_name} ${customer.last_name}`.trim(),
     });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -860,9 +917,17 @@ export async function sendQuoteEmail(
 
 export async function getQuoteWhatsAppLink(
   quoteId: string,
-): Promise<ActionResult<{ url: string }>> {
+  baseUrl?: string | null,
+): Promise<
+  ActionResult<{
+    url: string;
+    pdfUrl: string;
+    quoteCode: string;
+    filename: string;
+  }>
+> {
   try {
-    await assertPermission("quotes.send");
+    const { user } = await assertPermission("quotes.send");
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -915,7 +980,13 @@ export async function getQuoteWhatsAppLink(
       );
     }
 
-    const pdfUrl = buildQuotePdfShareUrl(quoteId);
+    const pdfUrl = buildQuotePdfShareUrl(quoteId, baseUrl);
+    if (!pdfUrl) {
+      return actionError(
+        "No se pudo generar el enlace del PDF. Verifique la URL de la aplicación.",
+      );
+    }
+
     const message = buildQuoteWhatsAppMessage({
       customerName: `${customer.first_name} ${customer.last_name}`.trim(),
       quoteCode: q.code,
@@ -926,8 +997,22 @@ export async function getQuoteWhatsAppLink(
       pdfUrl,
     });
 
+    await supabase.from("quotes").update({ status: "SENT" }).eq("id", quoteId);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "quote.send_whatsapp",
+      entityType: "quote",
+      entityId: quoteId,
+    });
+
+    revalidatePath(`/dashboard/cotizaciones/${quoteId}`);
+
     return actionSuccess({
       url: buildWaMeLink(phone, message),
+      pdfUrl,
+      quoteCode: q.code,
+      filename: `cotizacion-${q.code}.pdf`,
     });
   } catch (error) {
     return actionError(toUserMessage(error));

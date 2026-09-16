@@ -7,14 +7,38 @@ import { useState } from "react";
 import {
   acceptQuote,
   deleteQuote,
+  getQuoteShareDefaults,
   getQuoteWhatsAppLink,
   sendQuoteEmail,
   updateQuoteStatus,
 } from "@/app/dashboard/cotizaciones/actions";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { quotePdfHref } from "@/lib/pdf/pdf-cache";
 import type { Quote } from "@/types/database";
+
+async function downloadPdfFile(pdfUrl: string, filename: string): Promise<File> {
+  const response = await fetch(pdfUrl, { credentials: "omit", cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("No se pudo descargar el PDF de la cotización.");
+  }
+  const blob = await response.blob();
+  return new File([blob], filename, { type: "application/pdf" });
+}
+
+function triggerBrowserDownload(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = file.name;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+}
 
 export function QuoteDetailActions({ quote }: { quote: Quote }) {
   const router = useRouter();
@@ -23,6 +47,9 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
   const [deleting, setDeleting] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [openingWhatsApp, setOpeningWhatsApp] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailHint, setEmailHint] = useState<string | null>(null);
 
   async function handleStatus(status: Quote["status"]) {
     setError(null);
@@ -48,6 +75,106 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
     }
     router.push("/dashboard/cotizaciones");
     router.refresh();
+  }
+
+  async function openEmailDialog() {
+    setError(null);
+    setMessage(null);
+    setEmailHint(null);
+    setEmailDialogOpen(true);
+    const defaults = await getQuoteShareDefaults(quote.id);
+    if (defaults.success) {
+      setEmailTo(defaults.data.customerEmail);
+      setEmailHint(
+        defaults.data.customerEmail
+          ? `Sugerido: correo de ${defaults.data.customerName}`
+          : "Escriba el correo al que desea enviar el PDF.",
+      );
+    } else {
+      setEmailTo("");
+      setEmailHint("Escriba el correo al que desea enviar el PDF.");
+    }
+  }
+
+  async function confirmSendEmail() {
+    setSendingEmail(true);
+    setError(null);
+    setMessage(null);
+    const result = await sendQuoteEmail(quote.id, emailTo);
+    setSendingEmail(false);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    setEmailDialogOpen(false);
+    setMessage(result.data.message);
+    router.refresh();
+  }
+
+  async function handleWhatsApp() {
+    setOpeningWhatsApp(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await getQuoteWhatsAppLink(
+        quote.id,
+        window.location.origin,
+      );
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+
+      const { url, pdfUrl, filename } = result.data;
+      let pdfFile: File | null = null;
+      try {
+        pdfFile = await downloadPdfFile(pdfUrl, filename);
+      } catch {
+        // Seguir con el enlace aunque falle la descarga local.
+      }
+
+      if (pdfFile) {
+        const canShareFile =
+          typeof navigator.share === "function" &&
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [pdfFile] });
+
+        if (canShareFile) {
+          try {
+            await navigator.share({
+              files: [pdfFile],
+              title: `Cotización ${result.data.quoteCode}`,
+              text: `Cotización ${result.data.quoteCode} — OLDES Rent-a-Car`,
+            });
+            setMessage(
+              "PDF listo. Si eligió WhatsApp en el menú de compartir, el archivo ya va adjunto.",
+            );
+            router.refresh();
+            return;
+          } catch (shareError) {
+            if (
+              shareError instanceof DOMException &&
+              shareError.name === "AbortError"
+            ) {
+              return;
+            }
+            // Continuar con descarga + wa.me
+          }
+        }
+
+        triggerBrowserDownload(pdfFile);
+      }
+
+      window.open(url, "_blank", "noopener,noreferrer");
+      setMessage(
+        pdfFile
+          ? "PDF descargado y WhatsApp abierto con el enlace. En WhatsApp puede adjuntar el PDF descargado o tocar el enlace."
+          : "WhatsApp abierto con el enlace del PDF.",
+      );
+      router.refresh();
+    } finally {
+      setOpeningWhatsApp(false);
+    }
   }
 
   return (
@@ -133,21 +260,9 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
             type="button"
             variant="secondary"
             disabled={sendingEmail}
-            onClick={async () => {
-              setSendingEmail(true);
-              setError(null);
-              setMessage(null);
-              const result = await sendQuoteEmail(quote.id);
-              setSendingEmail(false);
-              if (!result.success) {
-                setError(result.error);
-                return;
-              }
-              setMessage(result.data.message);
-              router.refresh();
-            }}
+            onClick={() => void openEmailDialog()}
           >
-            {sendingEmail ? "Enviando PDF…" : "Enviar correo"}
+            Enviar correo
           </Button>
         </PermissionGuard>
         <PermissionGuard permission="quotes.send" fallback={null}>
@@ -155,20 +270,9 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
             type="button"
             variant="secondary"
             disabled={openingWhatsApp}
-            onClick={async () => {
-              setOpeningWhatsApp(true);
-              setError(null);
-              setMessage(null);
-              const result = await getQuoteWhatsAppLink(quote.id);
-              setOpeningWhatsApp(false);
-              if (!result.success) {
-                setError(result.error);
-                return;
-              }
-              window.open(result.data.url, "_blank");
-            }}
+            onClick={() => void handleWhatsApp()}
           >
-            {openingWhatsApp ? "Preparando…" : "WhatsApp"}
+            {openingWhatsApp ? "Preparando PDF…" : "WhatsApp + PDF"}
           </Button>
         </PermissionGuard>
         <Link
@@ -179,6 +283,51 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           Ver PDF
         </Link>
       </div>
+
+      <Dialog
+        open={emailDialogOpen}
+        onOpenChange={setEmailDialogOpen}
+        title="Enviar cotización por correo"
+        description="Escriba el correo al que desea enviar el PDF. Puede usar el del cliente o el suyo."
+        size="sm"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Correo destinatario"
+            type="email"
+            autoComplete="email"
+            placeholder="correo@ejemplo.com"
+            value={emailTo}
+            onChange={(event) => setEmailTo(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void confirmSendEmail();
+              }
+            }}
+          />
+          {emailHint ? (
+            <p className="text-xs text-muted">{emailHint}</p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setEmailDialogOpen(false)}
+              disabled={sendingEmail}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={sendingEmail || !emailTo.trim()}
+              onClick={() => void confirmSendEmail()}
+            >
+              {sendingEmail ? "Enviando PDF…" : "Enviar PDF"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
