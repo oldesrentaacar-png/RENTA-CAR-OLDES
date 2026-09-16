@@ -243,7 +243,41 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
 .ifield{width:100%;padding:.6rem .875rem;border:1.5px solid #d1d9e0;border-radius:.625rem;font-family:inherit;font-size:.875rem;font-weight:500;background:#fff;outline:none;transition:border-color .2s,box-shadow .2s;color:#111}
 .ifield:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,31,92,.1)}
 .ifield.err{border-color:var(--red)}
-.phone-row{display:grid;grid-template-columns:92px 1fr;gap:.5rem}
+.phone-row{display:grid;grid-template-columns:minmax(128px,auto) 1fr;gap:.5rem;align-items:stretch}
+.phone-cc{position:relative;min-width:0}
+.phone-cc-btn{
+  width:100%;height:100%;min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:.35rem;
+  padding:.55rem .65rem;border:1.5px solid #d1d9e0;border-radius:.625rem;background:#fff;
+  font-family:inherit;font-size:.84rem;font-weight:700;color:#111;cursor:pointer;
+  transition:border-color .2s,box-shadow .2s;
+}
+.phone-cc-btn:focus,.phone-cc.open .phone-cc-btn{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,31,92,.1);outline:none}
+.phone-cc-btn-main{display:flex;align-items:center;gap:.4rem;min-width:0}
+.phone-cc-flag{font-size:1.05rem;line-height:1}
+.phone-cc-dial{letter-spacing:.01em}
+.phone-cc-chev{width:14px;height:14px;color:#6b7280;flex-shrink:0;transition:transform .2s}
+.phone-cc.open .phone-cc-chev{transform:rotate(180deg)}
+.phone-cc-panel{
+  display:none;position:absolute;left:0;right:auto;top:calc(100% + 6px);z-index:40;
+  width:min(320px,calc(100vw - 2.5rem));max-height:280px;
+  background:#fff;border:1px solid #e5e7eb;border-radius:.75rem;
+  box-shadow:0 16px 40px rgba(15,23,42,.18);overflow:hidden;
+}
+.phone-cc.open .phone-cc-panel{display:flex;flex-direction:column}
+.phone-cc-search{
+  width:100%;border:0;border-bottom:1px solid #e5e7eb;padding:.7rem .85rem;
+  font-family:inherit;font-size:.85rem;outline:none;background:#f8fafc;color:#111;
+}
+.phone-cc-list{overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:230px;padding:.25rem}
+.phone-cc-opt{
+  width:100%;display:flex;align-items:center;gap:.55rem;padding:.65rem .7rem;
+  border:0;border-radius:.5rem;background:transparent;cursor:pointer;text-align:left;
+  font-family:inherit;font-size:.84rem;color:#111;
+}
+.phone-cc-opt:hover,.phone-cc-opt:focus,.phone-cc-opt[aria-selected="true"]{background:#eff6ff;outline:none}
+.phone-cc-opt-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.phone-cc-opt-dial{color:#64748b;font-weight:700;flex-shrink:0}
+.phone-cc-empty{padding:.85rem;font-size:.82rem;color:#94a3b8;text-align:center}
 .form-hint{font-size:.68rem;color:#9ca3af;margin:-.15rem 0 .35rem;line-height:1.4}
 .form-note-lines{text-align:center;font-size:.7rem;color:#9ca3af;line-height:1.55;margin:0}
 .form-note-lines strong{color:#6b7280;font-weight:700}
@@ -745,10 +779,23 @@ body{background:#f4f6f8;color:#1a202c;font-family:'Plus Jakarta Sans',sans-serif
         </div>
         <div>
           <label style="display:block;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:.3rem;" data-i18n="label_phone">WhatsApp / Phone</label>
-          <p class="form-hint" data-i18n="phone_area_hint">Include country/area code so we can reach you.</p>
+          <p class="form-hint" data-i18n="phone_area_hint">Tap the country code, pick from the list, then enter your number.</p>
           <div class="phone-row">
-            <input type="tel" id="r-tel-area" class="ifield" value="+503" aria-label="Area code"/>
-            <input type="tel" id="r-tel" class="ifield" data-i18n-placeholder="ph_phone" placeholder="telefono/Phone" autocomplete="tel-national"/>
+            <div class="phone-cc" id="phone-cc">
+              <button type="button" class="phone-cc-btn" id="phone-cc-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Country code">
+                <span class="phone-cc-btn-main">
+                  <span class="phone-cc-flag" id="phone-cc-flag">🇸🇻</span>
+                  <span class="phone-cc-dial" id="phone-cc-dial">+503</span>
+                </span>
+                <svg class="phone-cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="phone-cc-panel" id="phone-cc-panel" role="listbox" hidden>
+                <input type="search" class="phone-cc-search" id="phone-cc-search" data-i18n-placeholder="ph_country_search" placeholder="Search country…" autocomplete="off"/>
+                <div class="phone-cc-list" id="phone-cc-list"></div>
+              </div>
+              <input type="hidden" id="r-tel-area" value="+503"/>
+            </div>
+            <input type="tel" id="r-tel" class="ifield" data-i18n-placeholder="ph_phone" placeholder="Teléfono" autocomplete="tel-national" inputmode="numeric"/>
           </div>
           <p class="ferr" id="err-tel" data-i18n="err_phone">Please enter your phone number with area code.</p>
         </div>
@@ -1318,10 +1365,11 @@ const I18N={
     label_email:"Email",
     label_phone:"WhatsApp / Phone",
     name_hint:"First and last name required for a formal quote.",
-    phone_area_hint:"Include country/area code so we can reach you.",
-    ph_fullname:"YOUR FULL NAME",
+    phone_area_hint:"Tap the country code, pick from the list, then enter your number.",
+    ph_country_search:"Search country…",
+    ph_name:"YOUR FULL NAME",
     ph_email:"your@email.com",
-    ph_phone:"Teléfono",
+    ph_phone:"Phone number",
     daily_rate_label:"Daily Rate",
     err_required:"Required.",
     err_name_full:"Please enter your first and last name.",
@@ -1483,10 +1531,11 @@ const I18N={
     label_email:"Correo electrónico",
     label_phone:"WhatsApp / Teléfono",
     name_hint:"Nombre y apellido requeridos para una cotización formal.",
-    phone_area_hint:"Incluye código de país/área para poder contactarte.",
+    phone_area_hint:"Toca el código de país, elige de la lista y escribe tu número.",
+    ph_country_search:"Buscar país…",
     ph_fullname:"TU NOMBRE COMPLETO",
     ph_email:"tu@correo.com",
-    ph_phone:"Teléfono",
+    ph_phone:"Número de teléfono",
     daily_rate_label:"Tarifa diaria",
     err_required:"Requerido.",
     err_name_full:"Ingresa nombre y apellido.",
@@ -1707,6 +1756,10 @@ function applyLang(lang){
   if(waHelp)waHelp.href=`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(t("wa_prefill"))}`;
   const btnText=document.getElementById("btn-text");
   if(btnText&&!document.getElementById("reserve-btn")?.disabled)btnText.textContent=t("btn_submit");
+  if(typeof setSelectedCountry==="function")setSelectedCountry(selectedDialIso);
+  if(document.getElementById("phone-cc")?.classList.contains("open")&&typeof renderPhoneCcList==="function"){
+    renderPhoneCcList(document.getElementById("phone-cc-search")?.value||"");
+  }
   if(vehicleTypes.length){
     renderPublicCars();
     renderVehicleTypeSelect();
@@ -1810,6 +1863,157 @@ function splitName(full){
 function isFullName(name){
   const parts=name.trim().split(/\s+/).filter(Boolean);
   return parts.length>=2&&parts.every(p=>p.length>=2);
+}
+
+/* ── Country dial picker ── */
+const COUNTRY_DIALS=[
+  {iso:"SV",dial:"+503",flag:"🇸🇻",en:"El Salvador",es:"El Salvador"},
+  {iso:"US",dial:"+1",flag:"🇺🇸",en:"United States",es:"Estados Unidos"},
+  {iso:"CA",dial:"+1",flag:"🇨🇦",en:"Canada",es:"Canadá"},
+  {iso:"MX",dial:"+52",flag:"🇲🇽",en:"Mexico",es:"México"},
+  {iso:"GT",dial:"+502",flag:"🇬🇹",en:"Guatemala",es:"Guatemala"},
+  {iso:"HN",dial:"+504",flag:"🇭🇳",en:"Honduras",es:"Honduras"},
+  {iso:"NI",dial:"+505",flag:"🇳🇮",en:"Nicaragua",es:"Nicaragua"},
+  {iso:"CR",dial:"+506",flag:"🇨🇷",en:"Costa Rica",es:"Costa Rica"},
+  {iso:"PA",dial:"+507",flag:"🇵🇦",en:"Panama",es:"Panamá"},
+  {iso:"BZ",dial:"+501",flag:"🇧🇿",en:"Belize",es:"Belice"},
+  {iso:"CO",dial:"+57",flag:"🇨🇴",en:"Colombia",es:"Colombia"},
+  {iso:"VE",dial:"+58",flag:"🇻🇪",en:"Venezuela",es:"Venezuela"},
+  {iso:"EC",dial:"+593",flag:"🇪🇨",en:"Ecuador",es:"Ecuador"},
+  {iso:"PE",dial:"+51",flag:"🇵🇪",en:"Peru",es:"Perú"},
+  {iso:"CL",dial:"+56",flag:"🇨🇱",en:"Chile",es:"Chile"},
+  {iso:"AR",dial:"+54",flag:"🇦🇷",en:"Argentina",es:"Argentina"},
+  {iso:"BR",dial:"+55",flag:"🇧🇷",en:"Brazil",es:"Brasil"},
+  {iso:"UY",dial:"+598",flag:"🇺🇾",en:"Uruguay",es:"Uruguay"},
+  {iso:"PY",dial:"+595",flag:"🇵🇾",en:"Paraguay",es:"Paraguay"},
+  {iso:"BO",dial:"+591",flag:"🇧🇴",en:"Bolivia",es:"Bolivia"},
+  {iso:"CU",dial:"+53",flag:"🇨🇺",en:"Cuba",es:"Cuba"},
+  {iso:"DO",dial:"+1",flag:"🇩🇴",en:"Dominican Republic",es:"República Dominicana"},
+  {iso:"PR",dial:"+1",flag:"🇵🇷",en:"Puerto Rico",es:"Puerto Rico"},
+  {iso:"ES",dial:"+34",flag:"🇪🇸",en:"Spain",es:"España"},
+  {iso:"PT",dial:"+351",flag:"🇵🇹",en:"Portugal",es:"Portugal"},
+  {iso:"FR",dial:"+33",flag:"🇫🇷",en:"France",es:"Francia"},
+  {iso:"DE",dial:"+49",flag:"🇩🇪",en:"Germany",es:"Alemania"},
+  {iso:"IT",dial:"+39",flag:"🇮🇹",en:"Italy",es:"Italia"},
+  {iso:"GB",dial:"+44",flag:"🇬🇧",en:"United Kingdom",es:"Reino Unido"},
+  {iso:"IE",dial:"+353",flag:"🇮🇪",en:"Ireland",es:"Irlanda"},
+  {iso:"NL",dial:"+31",flag:"🇳🇱",en:"Netherlands",es:"Países Bajos"},
+  {iso:"BE",dial:"+32",flag:"🇧🇪",en:"Belgium",es:"Bélgica"},
+  {iso:"CH",dial:"+41",flag:"🇨🇭",en:"Switzerland",es:"Suiza"},
+  {iso:"AT",dial:"+43",flag:"🇦🇹",en:"Austria",es:"Austria"},
+  {iso:"SE",dial:"+46",flag:"🇸🇪",en:"Sweden",es:"Suecia"},
+  {iso:"NO",dial:"+47",flag:"🇳🇴",en:"Norway",es:"Noruega"},
+  {iso:"DK",dial:"+45",flag:"🇩🇰",en:"Denmark",es:"Dinamarca"},
+  {iso:"FI",dial:"+358",flag:"🇫🇮",en:"Finland",es:"Finlandia"},
+  {iso:"PL",dial:"+48",flag:"🇵🇱",en:"Poland",es:"Polonia"},
+  {iso:"AU",dial:"+61",flag:"🇦🇺",en:"Australia",es:"Australia"},
+  {iso:"NZ",dial:"+64",flag:"🇳🇿",en:"New Zealand",es:"Nueva Zelanda"},
+  {iso:"JP",dial:"+81",flag:"🇯🇵",en:"Japan",es:"Japón"},
+  {iso:"KR",dial:"+82",flag:"🇰🇷",en:"South Korea",es:"Corea del Sur"},
+  {iso:"CN",dial:"+86",flag:"🇨🇳",en:"China",es:"China"},
+  {iso:"IN",dial:"+91",flag:"🇮🇳",en:"India",es:"India"},
+  {iso:"PH",dial:"+63",flag:"🇵🇭",en:"Philippines",es:"Filipinas"},
+  {iso:"AE",dial:"+971",flag:"🇦🇪",en:"United Arab Emirates",es:"Emiratos Árabes"},
+  {iso:"IL",dial:"+972",flag:"🇮🇱",en:"Israel",es:"Israel"},
+  {iso:"ZA",dial:"+27",flag:"🇿🇦",en:"South Africa",es:"Sudáfrica"},
+];
+
+let selectedDialIso="SV";
+
+function countryLabel(c){
+  return currentLang==="es"?c.es:c.en;
+}
+
+function setSelectedCountry(iso){
+  const c=COUNTRY_DIALS.find(x=>x.iso===iso)||COUNTRY_DIALS[0];
+  selectedDialIso=c.iso;
+  const hidden=document.getElementById("r-tel-area");
+  const flag=document.getElementById("phone-cc-flag");
+  const dial=document.getElementById("phone-cc-dial");
+  if(hidden)hidden.value=c.dial;
+  if(flag)flag.textContent=c.flag;
+  if(dial)dial.textContent=c.dial;
+  const btn=document.getElementById("phone-cc-btn");
+  if(btn)btn.setAttribute("aria-label",countryLabel(c)+" "+c.dial);
+}
+
+function closePhoneCc(){
+  const wrap=document.getElementById("phone-cc");
+  const btn=document.getElementById("phone-cc-btn");
+  const panel=document.getElementById("phone-cc-panel");
+  if(!wrap)return;
+  wrap.classList.remove("open");
+  if(btn)btn.setAttribute("aria-expanded","false");
+  if(panel)panel.hidden=true;
+}
+
+function openPhoneCc(){
+  const wrap=document.getElementById("phone-cc");
+  const btn=document.getElementById("phone-cc-btn");
+  const panel=document.getElementById("phone-cc-panel");
+  const search=document.getElementById("phone-cc-search");
+  if(!wrap)return;
+  wrap.classList.add("open");
+  if(btn)btn.setAttribute("aria-expanded","true");
+  if(panel)panel.hidden=false;
+  if(search){search.value="";}
+  renderPhoneCcList("");
+  if(search){setTimeout(()=>search.focus(),30);}
+}
+
+function renderPhoneCcList(query){
+  const list=document.getElementById("phone-cc-list");
+  if(!list)return;
+  const q=String(query||"").trim().toLowerCase();
+  const rows=COUNTRY_DIALS.filter(c=>{
+    if(!q)return true;
+    return [c.en,c.es,c.dial,c.iso].join(" ").toLowerCase().includes(q);
+  });
+  if(!rows.length){
+    list.innerHTML='<div class="phone-cc-empty">'+(currentLang==="es"?"Sin resultados":"No results")+'</div>';
+    return;
+  }
+  list.innerHTML=rows.map(c=>{
+    const selected=c.iso===selectedDialIso?' aria-selected="true"':' aria-selected="false"';
+    return '<button type="button" class="phone-cc-opt" role="option" data-iso="'+c.iso+'"'+selected+'>'
+      +'<span class="phone-cc-flag">'+c.flag+'</span>'
+      +'<span class="phone-cc-opt-name">'+countryLabel(c)+'</span>'
+      +'<span class="phone-cc-opt-dial">'+c.dial+'</span>'
+      +'</button>';
+  }).join("");
+  list.querySelectorAll(".phone-cc-opt").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      setSelectedCountry(btn.getAttribute("data-iso"));
+      closePhoneCc();
+      const tel=document.getElementById("r-tel");
+      if(tel)tel.focus();
+    });
+  });
+}
+
+function initPhoneCountryPicker(){
+  const wrap=document.getElementById("phone-cc");
+  const btn=document.getElementById("phone-cc-btn");
+  const search=document.getElementById("phone-cc-search");
+  if(!wrap||!btn)return;
+  setSelectedCountry(selectedDialIso);
+  btn.addEventListener("click",(e)=>{
+    e.preventDefault();
+    if(wrap.classList.contains("open"))closePhoneCc();
+    else openPhoneCc();
+  });
+  if(search){
+    search.addEventListener("input",()=>renderPhoneCcList(search.value));
+    search.addEventListener("keydown",(e)=>{
+      if(e.key==="Escape"){e.preventDefault();closePhoneCc();}
+    });
+  }
+  document.addEventListener("click",(e)=>{
+    if(!wrap.contains(e.target))closePhoneCc();
+  });
+  document.addEventListener("keydown",(e)=>{
+    if(e.key==="Escape")closePhoneCc();
+  });
 }
 
 function buildPhone(){
@@ -2070,7 +2274,7 @@ document.getElementById("reserve-form").addEventListener("submit",async e=>{
       code,
     });
     showToast(t("toast_ok"));
-    setTimeout(()=>{window.open(`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(msg)}`,"_blank");document.getElementById("reserve-form").reset();document.getElementById("reserve-summary").style.display="none";pendingTypeSlug=null;},1500);
+    setTimeout(()=>{window.open(`https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(msg)}`,"_blank");document.getElementById("reserve-form").reset();setSelectedCountry("SV");document.getElementById("reserve-summary").style.display="none";pendingTypeSlug=null;},1500);
   }catch(err){showToast(t("toast_err",err.message));}
   finally{btn.disabled=false;spinner.style.display="none";btnText.textContent=t("btn_submit");btnIcon.style.display="inline";}
 });
@@ -2112,6 +2316,7 @@ document.querySelectorAll(".faq-q").forEach(btn=>{
   });
 });
 
+initPhoneCountryPicker();
 applyLang(currentLang);
 refreshIcons();
 </script>
