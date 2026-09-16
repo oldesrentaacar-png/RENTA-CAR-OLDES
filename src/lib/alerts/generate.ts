@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
+import {
+  WEB_REQUEST_ALERT_TTL_HOURS,
+  findRelatedRequestsInWindow,
+  formatRelatedRequestsNote,
+  webRequestAlertWindowStart,
+  type RecentWebRequestRef,
+} from "@/lib/alerts/web-request-window";
 
 const PICKUP_RETURN_WINDOW_HOURS = 48;
 const MAINTENANCE_DATE_WINDOW_DAYS = 14;
@@ -72,7 +79,10 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
     let created = 0;
     const activeDedupeKeys = new Set<string>();
 
-    const [reservationsRes, maintenanceRes, webRequestsRes] = await Promise.all([
+    const requestAlertWindowStart = webRequestAlertWindowStart(now);
+
+    const [reservationsRes, maintenanceRes, webRequestsRes, recentRequestsRes] =
+      await Promise.all([
       supabase
         .from("reservations")
         .select(
@@ -95,13 +105,25 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         )
         .eq("status", "PENDING")
         .is("deleted_at", null)
+        .gte("created_at", requestAlertWindowStart.toISOString())
         .order("created_at", { ascending: false })
         .limit(100),
+      // Full 72h history (any status) to flag repeat callers after reject/cancel.
+      supabase
+        .from("web_requests")
+        .select("id, code, status, phone, email, created_at, first_name, last_name")
+        .is("deleted_at", null)
+        .gte("created_at", requestAlertWindowStart.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(300),
     ]);
 
     if (reservationsRes.error) throw new Error(reservationsRes.error.message);
     if (maintenanceRes.error) throw new Error(maintenanceRes.error.message);
     if (webRequestsRes.error) throw new Error(webRequestsRes.error.message);
+    if (recentRequestsRes.error) throw new Error(recentRequestsRes.error.message);
+
+    const recentPool = (recentRequestsRes.data ?? []) as RecentWebRequestRef[];
 
     for (const row of reservationsRes.data ?? []) {
       const reservation = row as {
@@ -254,20 +276,41 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         created_at: string;
       };
 
+      const createdAt = new Date(request.created_at);
+      if (Number.isNaN(createdAt.getTime()) || createdAt < requestAlertWindowStart) {
+        continue;
+      }
+
       const name = `${request.first_name} ${request.last_name}`.trim();
       const category = request.vehicle_category?.trim() || "Sin categoría";
+      const related = findRelatedRequestsInWindow(
+        { id: request.id, phone: request.phone },
+        recentPool,
+      );
+      const relatedNote = formatRelatedRequestsNote(related);
+      const baseMessage = `${name} · ${request.phone} · ${category} · ${request.pickup_date} → ${request.return_date}`;
+      const message = relatedNote
+        ? `${baseMessage}. ${relatedNote}`
+        : `${baseMessage}. Vigente ${WEB_REQUEST_ALERT_TTL_HOURS}h.`;
+
       const dedupeKey = `web_request:pending:${request.id}`;
       activeDedupeKeys.add(dedupeKey);
 
+      const dueAt = new Date(
+        createdAt.getTime() + WEB_REQUEST_ALERT_TTL_HOURS * 60 * 60 * 1000,
+      ).toISOString();
+
       const inserted = await upsertAlert(supabase, {
         alert_type: "web_request_pending",
-        title: `Solicitud pendiente — ${request.code}`,
-        message: `${name} · ${request.phone} · ${category} · ${request.pickup_date} → ${request.return_date}`,
+        title: relatedNote
+          ? `Solicitud repetida — ${request.code}`
+          : `Solicitud pendiente — ${request.code}`,
+        message,
         entity_type: "web_request",
         entity_id: request.id,
-        severity: "warning",
+        severity: relatedNote ? "danger" : "warning",
         dedupe_key: dedupeKey,
-        due_at: request.created_at,
+        due_at: dueAt,
       });
       if (inserted) created += 1;
     }

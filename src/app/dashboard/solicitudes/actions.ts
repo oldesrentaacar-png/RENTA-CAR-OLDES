@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
+import {
+  WEB_REQUEST_ALERT_TTL_HOURS,
+  findRelatedRequestsInWindow,
+  webRequestAlertWindowStart,
+  type RecentWebRequestRef,
+} from "@/lib/alerts/web-request-window";
 import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
 import {
@@ -95,6 +101,89 @@ export async function getWebRequest(
     if (!data) return actionError("Solicitud no encontrada.");
 
     return actionSuccess(mapWebRequestRow(data as WebRequestRow));
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export type WebRequestRecentRelated = {
+  id: string;
+  code: string;
+  status: WebRequest["status"];
+  created_at: string;
+  pickup_date: string;
+  return_date: string;
+  vehicle_category: string | null;
+};
+
+export async function getWebRequestWithRecentHistory(
+  id: string,
+): Promise<
+  ActionResult<{
+    request: WebRequest;
+    relatedInWindow: WebRequestRecentRelated[];
+    windowHours: number;
+  }>
+> {
+  try {
+    await assertPermission("requests.view");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("web_requests")
+      .select("*")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) throw mapPostgresError(error);
+    if (!data) return actionError("Solicitud no encontrada.");
+
+    const request = mapWebRequestRow(data as WebRequestRow);
+    const windowStart = webRequestAlertWindowStart().toISOString();
+
+    const { data: recentRows, error: recentError } = await supabase
+      .from("web_requests")
+      .select(
+        "id, code, status, phone, created_at, pickup_date, return_date, vehicle_category, first_name, last_name",
+      )
+      .is("deleted_at", null)
+      .gte("created_at", windowStart)
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    if (recentError) throw mapPostgresError(recentError);
+
+    type RecentRow = RecentWebRequestRef & {
+      pickup_date: string;
+      return_date: string;
+      vehicle_category: string | null;
+    };
+
+    const related = findRelatedRequestsInWindow(
+      { id: request.id, phone: request.phone },
+      (recentRows ?? []) as RecentRow[],
+    ).map((row) => {
+      const full = row as RecentRow;
+      return {
+        id: full.id,
+        code: full.code,
+        status: full.status as WebRequest["status"],
+        created_at: full.created_at,
+        pickup_date: full.pickup_date,
+        return_date: full.return_date,
+        vehicle_category: full.vehicle_category,
+      };
+    });
+
+    return actionSuccess({
+      request,
+      relatedInWindow: related,
+      windowHours: WEB_REQUEST_ALERT_TTL_HOURS,
+    });
   } catch (error) {
     return actionError(toUserMessage(error));
   }

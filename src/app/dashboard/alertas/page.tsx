@@ -45,7 +45,7 @@ export default async function AlertasPage() {
   return (
     <ModuleListShell
       title="Alertas"
-      description="Entregas, devoluciones, mantenimientos y solicitudes web pendientes."
+      description="Entregas, devoluciones, mantenimientos y solicitudes web (alertas de solicitud vigentes 72 h; se marca si el mismo teléfono vuelve a pedir)."
       permission="dashboard.view"
       configured={configured}
       error={error}
