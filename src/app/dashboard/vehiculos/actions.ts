@@ -902,23 +902,10 @@ async function syncPublicVehicleTypeFromUnit(
       .is("deleted_at", null);
 
     if (typeUpdateError) throw mapPostgresError(typeUpdateError);
-  } else if (typeId) {
-    const { count } = await supabase
-      .from("vehicles")
-      .select("id", { count: "exact", head: true })
-      .eq("published_on_web", true)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .eq("vehicle_type_id", typeId);
-
-    if (!count) {
-      await supabase
-        .from("vehicle_types")
-        .update({ published_on_web: false })
-        .eq("id", typeId)
-        .is("deleted_at", null);
-    }
   }
+  // Unpublishing / archiving a unit must NEVER hide the catalog type.
+  // "Publicar en web" on Tipos de vehículo is the only source of truth for
+  // landing visibility (types + rates, not individual plates).
 
   return { typeName: typeName ?? category };
 }
