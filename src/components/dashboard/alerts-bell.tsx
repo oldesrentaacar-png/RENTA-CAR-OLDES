@@ -13,6 +13,16 @@ import { ALERT_TYPE_LABELS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { Alert } from "@/types/database";
 
+declare global {
+  interface Window {
+    AndroidBridge?: {
+      notifyAlerts?: (count: number, title: string, body: string) => void;
+      requestNotificationPermission?: () => void;
+    };
+    __oldesLastAlert?: number;
+  }
+}
+
 export function AlertsBell() {
   const [open, setOpen] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -32,6 +42,25 @@ export function AlertsBell() {
   useEffect(() => {
     loadAlerts();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const bridge = window.AndroidBridge;
+    if (!bridge || typeof bridge.notifyAlerts !== "function") return;
+    if (window.__oldesLastAlert === total) return;
+    window.__oldesLastAlert = total;
+    try {
+      bridge.notifyAlerts(
+        total,
+        "OLDES Sistema",
+        total > 0
+          ? `Tienes ${total} alerta(s) nueva(s)`
+          : "No tienes alertas pendientes",
+      );
+    } catch {
+      // El puente no está disponible (web normal): ignorar.
+    }
+  }, [total]);
 
   const handleMarkRead = (id: string) => {
     startTransition(async () => {
@@ -61,11 +90,16 @@ export function AlertsBell() {
       >
         <Bell className="h-5 w-5" />
         {total > 0 ? (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
+          <span
+            data-alerts-count={total}
+            className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white"
+          >
             {total > 99 ? "99+" : total}
           </span>
         ) : null}
       </button>
+
+      <span data-alerts-count={total} className="hidden" aria-hidden="true" />
 
       {open ? (
         <>
@@ -109,7 +143,35 @@ export function AlertsBell() {
                     <p className="text-xs text-muted">
                       {ALERT_TYPE_LABELS[alert.alert_type] ?? alert.alert_type}
                     </p>
-                    <p className="text-sm font-medium">{alert.title}</p>
+                    {alert.entity_type === "web_request" && alert.entity_id ? (
+                      <Link
+                        href={`/dashboard/solicitudes/${alert.entity_id}`}
+                        className="text-sm font-medium text-brand hover:underline"
+                        onClick={() => setOpen(false)}
+                      >
+                        {alert.title}
+                      </Link>
+                    ) : alert.entity_type === "reservation" &&
+                      alert.entity_id ? (
+                      <Link
+                        href={`/dashboard/reservas/${alert.entity_id}`}
+                        className="text-sm font-medium text-brand hover:underline"
+                        onClick={() => setOpen(false)}
+                      >
+                        {alert.title}
+                      </Link>
+                    ) : alert.entity_type === "maintenance" &&
+                      alert.entity_id ? (
+                      <Link
+                        href={`/dashboard/mantenimiento/${alert.entity_id}`}
+                        className="text-sm font-medium text-brand hover:underline"
+                        onClick={() => setOpen(false)}
+                      >
+                        {alert.title}
+                      </Link>
+                    ) : (
+                      <p className="text-sm font-medium">{alert.title}</p>
+                    )}
                     {alert.message ? (
                       <p className="mt-1 text-xs text-muted">{alert.message}</p>
                     ) : null}

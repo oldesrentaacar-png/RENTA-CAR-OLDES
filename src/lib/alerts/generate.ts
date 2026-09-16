@@ -72,7 +72,7 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
     let created = 0;
     const activeDedupeKeys = new Set<string>();
 
-    const [reservationsRes, maintenanceRes] = await Promise.all([
+    const [reservationsRes, maintenanceRes, webRequestsRes] = await Promise.all([
       supabase
         .from("reservations")
         .select(
@@ -86,11 +86,22 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
           "id, vehicle_id, type, next_date, next_mileage, status, vehicles(brand, model, plate, current_mileage)",
         )
         .neq("status", "CANCELLED")
+        .is("deleted_at", null)
         .not("next_date", "is", null),
+      supabase
+        .from("web_requests")
+        .select(
+          "id, code, first_name, last_name, phone, email, pickup_date, return_date, vehicle_category, created_at",
+        )
+        .eq("status", "PENDING")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(100),
     ]);
 
     if (reservationsRes.error) throw new Error(reservationsRes.error.message);
     if (maintenanceRes.error) throw new Error(maintenanceRes.error.message);
+    if (webRequestsRes.error) throw new Error(webRequestsRes.error.message);
 
     for (const row of reservationsRes.data ?? []) {
       const reservation = row as {
@@ -227,6 +238,38 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         });
         if (inserted) created += 1;
       }
+    }
+
+    for (const row of webRequestsRes.data ?? []) {
+      const request = row as {
+        id: string;
+        code: string;
+        first_name: string;
+        last_name: string;
+        phone: string;
+        email: string | null;
+        pickup_date: string;
+        return_date: string;
+        vehicle_category: string | null;
+        created_at: string;
+      };
+
+      const name = `${request.first_name} ${request.last_name}`.trim();
+      const category = request.vehicle_category?.trim() || "Sin categoría";
+      const dedupeKey = `web_request:pending:${request.id}`;
+      activeDedupeKeys.add(dedupeKey);
+
+      const inserted = await upsertAlert(supabase, {
+        alert_type: "web_request_pending",
+        title: `Solicitud pendiente — ${request.code}`,
+        message: `${name} · ${request.phone} · ${category} · ${request.pickup_date} → ${request.return_date}`,
+        entity_type: "web_request",
+        entity_id: request.id,
+        severity: "warning",
+        dedupe_key: dedupeKey,
+        due_at: request.created_at,
+      });
+      if (inserted) created += 1;
     }
 
     const { data: staleAlerts } = await supabase

@@ -30,6 +30,9 @@ function alertLink(alert: Alert): string | null {
   if (alert.entity_type === "maintenance" && alert.entity_id) {
     return `/dashboard/mantenimiento/${alert.entity_id}`;
   }
+  if (alert.entity_type === "web_request" && alert.entity_id) {
+    return `/dashboard/solicitudes/${alert.entity_id}`;
+  }
   return null;
 }
 
@@ -42,7 +45,7 @@ export default async function AlertasPage() {
   return (
     <ModuleListShell
       title="Alertas"
-      description="Entregas, devoluciones y mantenimientos próximos."
+      description="Entregas, devoluciones, mantenimientos y solicitudes web pendientes."
       permission="dashboard.view"
       configured={configured}
       error={error}

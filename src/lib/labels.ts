@@ -123,6 +123,7 @@ export const ALERT_TYPE_LABELS: Record<string, string> = {
   return_due: "Devolución próxima",
   maintenance_due_date: "Mantenimiento por fecha",
   maintenance_due_mileage: "Mantenimiento por kilometraje",
+  web_request_pending: "Solicitud web",
 };
 
 export function webRequestStatusVariant(
