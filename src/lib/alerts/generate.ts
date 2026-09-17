@@ -315,17 +315,16 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
       if (inserted) created += 1;
     }
 
-    // Aviso operativo de WebBoost: se mantiene activo mientras exista en código.
-    const webboostDedupeKey = "webboost:support:errors-priority-v1";
+    // Aviso operativo de WebBoost: problemas del piloto ya resueltos.
+    const webboostDedupeKey = "webboost:support:problems-resolved-v1";
     activeDedupeKeys.add(webboostDedupeKey);
     const webboostInserted = await upsertAlert(supabase, {
       alert_type: "webboost_notice",
-      title: "WebBoost — Errores en atención prioritaria",
-      message:
-        "Todos los errores reportados están siendo trabajados con prioridad absoluta. Pronto se le notificará cuando estén resueltos.",
+      title: "WebBoost — Problemas solucionados",
+      message: "Los problemas reportados ya fueron solucionados.",
       entity_type: "webboost",
       entity_id: null,
-      severity: "warning",
+      severity: "info",
       dedupe_key: webboostDedupeKey,
       due_at: now.toISOString(),
     });
