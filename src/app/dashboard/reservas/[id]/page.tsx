@@ -65,6 +65,19 @@ export default async function ReservaDetailPage({
                 <p><span className="text-muted">Tarifa:</span> {formatMoney(reservation.agreed_rate)}</p>
                 <p><span className="text-muted">Seguro:</span> {formatMoney(reservation.insurance)}</p>
                 <p><span className="text-muted">Costos adicionales:</span> {formatMoney(reservation.additional_costs)}</p>
+                {Number(reservation.courtesy_amount ?? 0) > 0 ? (
+                  <>
+                    <p>
+                      <span className="text-muted">Cortesía:</span>{" "}
+                      −{formatMoney(reservation.courtesy_amount ?? 0)}
+                    </p>
+                    {reservation.courtesy_detail ? (
+                      <p className="sm:col-span-2 text-xs text-muted">
+                        Detalle cortesía: {reservation.courtesy_detail}
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
                 {reservation.apply_iva ? (
                   <>
                     <p>

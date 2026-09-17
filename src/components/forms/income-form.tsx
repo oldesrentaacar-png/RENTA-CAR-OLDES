@@ -21,7 +21,13 @@ import {
 import type { IncomeTransaction, IncomeType } from "@/types/database";
 
 type FinanceOptions = {
-  vehicles: Array<{ id: string; label: string }>;
+  vehicles: Array<{
+    id: string;
+    label: string;
+    primary?: string;
+    secondary?: string;
+    searchText?: string;
+  }>;
   customers: Array<{ id: string; label: string }>;
   reservations: Array<{ id: string; label: string }>;
 };
@@ -120,7 +126,13 @@ export function IncomeForm({ income, options, redirectTo }: IncomeFormProps) {
           searchPlaceholder="Buscar vehículo…"
           options={[
             { value: "", label: "Ninguno" },
-            ...options.vehicles.map((v) => ({ value: v.id, label: v.label })),
+            ...options.vehicles.map((v) => ({
+              value: v.id,
+              label: v.label,
+              primary: v.primary,
+              secondary: v.secondary,
+              searchText: v.searchText,
+            })),
           ]}
         />
         <SearchableSelect

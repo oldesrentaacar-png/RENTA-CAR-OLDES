@@ -21,7 +21,13 @@ import type { MaintenanceRecord } from "@/types/database";
 
 type MaintenanceFormProps = {
   record?: MaintenanceRecord;
-  vehicles: Array<{ id: string; label: string }>;
+  vehicles: Array<{
+    id: string;
+    label: string;
+    primary?: string;
+    secondary?: string;
+    searchText?: string;
+  }>;
   redirectTo?: string;
 };
 
@@ -80,7 +86,13 @@ export function MaintenanceForm({
           defaultValue={record?.vehicle_id ?? ""}
           placeholder="Seleccione…"
           searchPlaceholder="Buscar vehículo…"
-          options={vehicles.map((v) => ({ value: v.id, label: v.label }))}
+          options={vehicles.map((v) => ({
+            value: v.id,
+            label: v.label,
+            primary: v.primary,
+            secondary: v.secondary,
+            searchText: v.searchText,
+          }))}
         />
         <Select
           name="type"

@@ -10,6 +10,9 @@ export type PricingBreakdownProps = {
   extrasLabel?: string;
   deliveryFee?: number;
   discount?: number;
+  /** Admin courtesy discount (shown as negative). */
+  courtesy?: number;
+  courtesyDetail?: string | null;
   tax?: number;
   deposit?: number;
   total: number;
@@ -55,6 +58,8 @@ export function PricingBreakdown({
   extrasLabel = "Extras",
   deliveryFee = 0,
   discount = 0,
+  courtesy = 0,
+  courtesyDetail,
   tax = 0,
   deposit = 0,
   total,
@@ -101,6 +106,17 @@ export function PricingBreakdown({
       ) : null}
       {discount > 0 ? (
         <Row label="Descuento" value={`− ${formatMoney(discount)}`} />
+      ) : null}
+      {courtesy > 0 ? (
+        <div className="space-y-0.5">
+          <Row
+            label="Cortesía (descuento)"
+            value={`− ${formatMoney(courtesy)}`}
+          />
+          {courtesyDetail ? (
+            <p className="text-[11px] text-muted">{courtesyDetail}</p>
+          ) : null}
+        </div>
       ) : null}
       {tax > 0 ? <Row label="IVA" value={formatMoney(tax)} /> : null}
       <div className="border-t border-border pt-2">

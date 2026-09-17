@@ -18,7 +18,13 @@ import type { ExpenseTransaction } from "@/types/database";
 
 type ExpenseFormProps = {
   expense?: ExpenseTransaction;
-  vehicles: Array<{ id: string; label: string }>;
+  vehicles: Array<{
+    id: string;
+    label: string;
+    primary?: string;
+    secondary?: string;
+    searchText?: string;
+  }>;
   redirectTo?: string;
 };
 
@@ -91,7 +97,13 @@ export function ExpenseForm({ expense, vehicles, redirectTo }: ExpenseFormProps)
           searchPlaceholder="Buscar vehículo…"
           options={[
             { value: "", label: "Ninguno" },
-            ...vehicles.map((v) => ({ value: v.id, label: v.label })),
+            ...vehicles.map((v) => ({
+              value: v.id,
+              label: v.label,
+              primary: v.primary,
+              secondary: v.secondary,
+              searchText: v.searchText,
+            })),
           ]}
         />
         <Input

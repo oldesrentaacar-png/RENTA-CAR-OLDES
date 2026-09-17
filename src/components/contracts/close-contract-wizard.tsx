@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 type CloseContractWizardProps = {
   context: ContractCloseContext;
   canSign: boolean;
+  canManageCourtesy?: boolean;
 };
 
 type StepId =
@@ -44,6 +45,7 @@ const CLOSE_CONFORMITY_TEXT =
 export function CloseContractWizard({
   context,
   canSign: _canSign,
+  canManageCourtesy = false,
 }: CloseContractWizardProps) {
   const router = useRouter();
   const { contract, checkOut, checkIn, accessoryComparison, extraDayGraceHours } =
@@ -61,6 +63,13 @@ export function CloseContractWizard({
   );
   const [courtesyHours, setCourtesyHours] = useState("0");
   const [courtesyDays, setCourtesyDays] = useState("0");
+  const [courtesyAmount, setCourtesyAmount] = useState(
+    String(contract.courtesy_amount ?? 0),
+  );
+  const [courtesyDetail, setCourtesyDetail] = useState(
+    contract.courtesy_detail ?? "",
+  );
+  const priorCourtesy = Number(contract.courtesy_amount ?? 0);
   const [graceExtraDaysWaived, setGraceExtraDaysWaived] = useState("0");
   const [extraCharges, setExtraCharges] = useState(
     String(contract.extra_charges ?? 0),
@@ -126,19 +135,33 @@ export function CloseContractWizard({
     const fuel = parseMoneyInput(fuelCharges);
     const complementary = parseMoneyInput(complementaryAmount);
     const payment = parseMoneyInput(finalPayment);
-    const owed =
-      Number(contract.total) + extra + damage + fuel + complementary;
+    const courtesy = canManageCourtesy
+      ? parseMoneyInput(courtesyAmount || 0)
+      : priorCourtesy;
+    const additionalCourtesy = Math.max(0, courtesy - priorCourtesy);
+    const owed = Math.max(
+      0,
+      Number(contract.total) +
+        extra +
+        damage +
+        fuel +
+        complementary -
+        additionalCourtesy,
+    );
     const paid = amountPaidBase + payment;
     const balance = Math.max(0, owed - paid);
-    return { owed, paid, balance, payment };
+    return { owed, paid, balance, payment, courtesy, additionalCourtesy };
   }, [
     amountPaidBase,
+    canManageCourtesy,
     complementaryAmount,
     contract.total,
+    courtesyAmount,
     damageCharges,
     extraCharges,
     finalPayment,
     fuelCharges,
+    priorCourtesy,
   ]);
 
   const closeConformitySigned = contract.signatures.some(
@@ -265,6 +288,10 @@ export function CloseContractWizard({
     formData.set("finalPayment", finalPayment);
     formData.set("courtesyHours", courtesyHours);
     formData.set("courtesyDays", courtesyDays);
+    if (canManageCourtesy) {
+      formData.set("courtesyAmount", courtesyAmount);
+      formData.set("courtesyDetail", courtesyDetail.trim());
+    }
     formData.set("graceExtraDaysWaived", graceExtraDaysWaived);
     formData.set("actualReturnAt", actualReturnAt);
     formData.set("deliveredByName", deliveredByName);
@@ -640,6 +667,44 @@ export function CloseContractWizard({
                     onChange={(e) => setGraceExtraDaysWaived(e.target.value)}
                   />
                 </div>
+                {canManageCourtesy ? (
+                  <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                    <p className="font-medium text-amber-950">
+                      Cortesía manual (solo administrador)
+                    </p>
+                    <p className="text-xs text-amber-900/80">
+                      Monto de descuento cuando horas o días no cuadran. Si ya
+                      había cortesía en el total del contrato ($
+                      {priorCourtesy.toFixed(2)}), solo el incremento adicional
+                      reduce el saldo al cerrar.
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Input
+                        label="Monto de cortesía / descuento (USD)"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={courtesyAmount}
+                        onChange={(e) => setCourtesyAmount(e.target.value)}
+                      />
+                      <Textarea
+                        label="Detalle de la cortesía"
+                        rows={3}
+                        value={courtesyDetail}
+                        onChange={(e) => setCourtesyDetail(e.target.value)}
+                        placeholder="Ej. 3 h de retraso no cobradas · día extra"
+                      />
+                    </div>
+                  </div>
+                ) : priorCourtesy > 0 ? (
+                  <p className="text-sm text-muted">
+                    Cortesía ya aplicada en el contrato:{" "}
+                    {formatMoney(priorCourtesy)}
+                    {contract.courtesy_detail
+                      ? ` · ${contract.courtesy_detail}`
+                      : ""}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"

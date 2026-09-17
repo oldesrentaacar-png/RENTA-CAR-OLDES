@@ -5,8 +5,11 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ReservationForm } from "@/components/forms/reservation-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
+import { getCurrentUser } from "@/lib/auth/session";
+import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { vehicleSelectParts } from "@/lib/vehicles/label";
 import {
   mapCustomerRow,
   mapVehicleRow,
@@ -31,25 +34,43 @@ export default async function EditarReservaPage({
   let vehicles: Array<{
     id: string;
     label: string;
+    primary?: string;
+    secondary?: string;
+    searchText?: string;
     dailyRate: number;
     deposit: number;
     category?: string | null;
   }> = [];
+  let canManageCourtesy = false;
 
   if (configured) {
+    const user = await getCurrentUser();
+    if (user) {
+      canManageCourtesy = await canManageCourtesyDiscount(user.id);
+    }
     const supabase = await createClient();
     const [{ data: customerRows }, { data: vehicleRows }] = await Promise.all([
       supabase.from("customers").select("*").is("deleted_at", null).order("last_name"),
-      supabase.from("vehicles").select("*").is("deleted_at", null).order("brand"),
+      supabase.from("vehicles").select("*").is("deleted_at", null).order("plate"),
     ]);
     customers = ((customerRows ?? []) as CustomerRow[]).map((row) =>
       toCustomerSelectOption(mapCustomerRow(row)),
     );
     vehicles = ((vehicleRows ?? []) as VehicleRow[]).map((row) => {
       const v = mapVehicleRow(row);
+      const parts = vehicleSelectParts({
+        plate: v.plate,
+        brand: v.brand,
+        model: v.model,
+        year: v.year,
+        daily_rate: v.daily_rate,
+      });
       return {
         id: v.id,
-        label: `${v.brand} ${v.model} ${v.year} · $${Number(v.daily_rate).toFixed(2)}/día`,
+        label: parts.label,
+        primary: parts.primary,
+        secondary: parts.secondary,
+        searchText: parts.searchText,
         dailyRate: v.daily_rate,
         deposit: v.deposit ?? 0,
         category: v.category,
@@ -75,6 +96,7 @@ export default async function EditarReservaPage({
             customers={customers}
             vehicles={vehicles}
             reservation={reservation}
+            canManageCourtesy={canManageCourtesy}
           />
         ) : null}
       </div>

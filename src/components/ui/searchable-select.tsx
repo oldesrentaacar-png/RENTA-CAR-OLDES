@@ -17,6 +17,10 @@ export type SearchableSelectOption = {
   label: string;
   /** Extra text used only for filtering (phone, plate, code, etc.). */
   searchText?: string;
+  /** Bold first line (e.g. plate). Falls back to label. */
+  primary?: string;
+  /** Second line for tablet readability (e.g. brand model year). */
+  secondary?: string;
 };
 
 type SearchableSelectProps = {
@@ -82,7 +86,7 @@ export function SearchableSelect({
     if (!needle) return options;
     return options.filter((option) => {
       const haystack = normalize(
-        `${option.label} ${option.searchText ?? ""} ${option.value}`,
+        `${option.label} ${option.primary ?? ""} ${option.secondary ?? ""} ${option.searchText ?? ""} ${option.value}`,
       );
       return haystack.includes(needle);
     });
@@ -200,7 +204,7 @@ export function SearchableSelect({
         onClick={() => setOpen((current) => !current)}
         onKeyDown={onTriggerKeyDown}
         className={cn(
-          "flex h-10 w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-left text-sm text-zinc-900 outline-none transition-colors",
+          "flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-left text-sm text-zinc-900 outline-none transition-colors",
           "focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1",
           "disabled:cursor-not-allowed disabled:opacity-50",
           error
@@ -208,13 +212,27 @@ export function SearchableSelect({
             : "border-zinc-300 hover:border-zinc-400 focus:border-zinc-500",
         )}
       >
-        <span
-          className={cn(
-            "truncate",
-            !selectedOption?.label && "text-zinc-500",
+        <span className="min-w-0 flex-1">
+          {selectedOption ? (
+            selectedOption.primary || selectedOption.secondary ? (
+              <span className="block leading-snug">
+                <span className="block font-semibold text-zinc-900">
+                  {selectedOption.primary || selectedOption.label}
+                </span>
+                {selectedOption.secondary ? (
+                  <span className="mt-0.5 block text-xs text-zinc-600 sm:text-sm">
+                    {selectedOption.secondary}
+                  </span>
+                ) : null}
+              </span>
+            ) : (
+              <span className="block whitespace-normal break-words leading-snug">
+                {selectedOption.label}
+              </span>
+            )
+          ) : (
+            <span className="text-zinc-500">{placeholder}</span>
           )}
-        >
-          {selectedOption?.label || placeholder}
         </span>
         <span className="flex shrink-0 items-center gap-1">
           {selectedValue ? (
@@ -272,7 +290,7 @@ export function SearchableSelect({
                       role="option"
                       aria-selected={selected}
                       className={cn(
-                        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm",
+                        "flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm",
                         highlighted && "bg-zinc-100",
                         selected && "font-medium text-brand",
                         !highlighted && "hover:bg-zinc-50",
@@ -282,11 +300,26 @@ export function SearchableSelect({
                     >
                       <Check
                         className={cn(
-                          "h-4 w-4 shrink-0",
+                          "mt-0.5 h-4 w-4 shrink-0",
                           selected ? "opacity-100" : "opacity-0",
                         )}
                       />
-                      <span className="truncate">{option.label}</span>
+                      {option.primary || option.secondary ? (
+                        <span className="min-w-0 flex-1 leading-snug">
+                          <span className="block font-semibold">
+                            {option.primary || option.label}
+                          </span>
+                          {option.secondary ? (
+                            <span className="mt-0.5 block text-xs text-zinc-600">
+                              {option.secondary}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span className="min-w-0 flex-1 whitespace-normal break-words">
+                          {option.label}
+                        </span>
+                      )}
                     </button>
                   </li>
                 );

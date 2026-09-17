@@ -556,6 +556,10 @@ export interface Reservation {
   card_amount: number;
   /** Costos adicionales / extras (silla, entrega, etc.) — distinto de seguro. */
   additional_costs: number;
+  /** Admin-only courtesy discount (USD). */
+  courtesy_amount?: number;
+  /** Justification for courtesy discount. */
+  courtesy_detail?: string | null;
   /** Optional IVA (same semantics as contracts). */
   apply_iva: boolean;
   tax_rate: number;
@@ -598,6 +602,9 @@ export interface Contract {
   received_by_name?: string | null;
   courtesy_hours?: number;
   courtesy_days?: number;
+  /** Admin-only courtesy discount (USD). */
+  courtesy_amount?: number;
+  courtesy_detail?: string | null;
   actual_return_at?: string | null;
   grace_extra_days_waived?: number;
   /** null/undefined = auto from customer docs; true/false = operator override. */

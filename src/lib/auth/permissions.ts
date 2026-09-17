@@ -190,8 +190,15 @@ export async function hasPermission(
     return data;
   }
 
-  const permissions = await getEffectivePermissions(userId);
-  return permissions.has(permission);
+  const effective = await getEffectivePermissions(userId);
+  return effective.has(permission);
+}
+
+/** Cortesía / descuento manual: solo Administrador (roles.manage). */
+export async function canManageCourtesyDiscount(
+  userId: string,
+): Promise<boolean> {
+  return hasPermission(userId, "roles.manage");
 }
 
 export async function requirePermission(

@@ -3,6 +3,7 @@ import { ReservationCalendar } from "@/app/dashboard/calendario/calendar-view";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { vehicleSelectParts } from "@/lib/vehicles/label";
 import { mapVehicleRow, type VehicleRow } from "@/lib/db/mappers";
 
 export default async function CalendarioPage({
@@ -16,17 +17,35 @@ export default async function CalendarioPage({
   const reservations = result?.success ? result.data : [];
   const error = result && !result.success ? result.error : null;
 
-  let vehicles: Array<{ id: string; label: string }> = [];
+  let vehicles: Array<{
+    id: string;
+    label: string;
+    primary?: string;
+    secondary?: string;
+    searchText?: string;
+  }> = [];
   if (configured) {
     const supabase = await createClient();
     const { data } = await supabase
       .from("vehicles")
       .select("*")
       .is("deleted_at", null)
-      .order("brand");
+      .order("plate");
     vehicles = ((data ?? []) as VehicleRow[]).map((row) => {
       const v = mapVehicleRow(row);
-      return { id: v.id, label: `${v.brand} ${v.model}` };
+      const parts = vehicleSelectParts({
+        plate: v.plate,
+        brand: v.brand,
+        model: v.model,
+        year: v.year,
+      });
+      return {
+        id: v.id,
+        label: parts.label,
+        primary: parts.primary,
+        secondary: parts.secondary,
+        searchText: parts.searchText,
+      };
     });
   }
 

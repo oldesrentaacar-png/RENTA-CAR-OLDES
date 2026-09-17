@@ -8,6 +8,7 @@ import { assertPermission } from "@/lib/auth/guards";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { vehicleSelectParts } from "@/lib/vehicles/label";
 import {
   maintenanceSchema,
   maintenanceSearchSchema,
@@ -455,17 +456,30 @@ export async function listMaintenanceVehicles(): Promise<
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("vehicles")
-      .select("id, brand, model, plate")
+      .select("id, brand, model, year, plate")
       .is("deleted_at", null)
       .eq("is_active", true)
-      .order("brand");
+      .order("plate");
 
     if (error) throw mapPostgresError(error);
 
     return actionSuccess(
       (data ?? []).map((row) => {
-        const v = row as { id: string; brand: string; model: string; plate: string };
-        return { id: v.id, label: `${v.brand} ${v.model} (${v.plate})` };
+        const v = row as {
+          id: string;
+          brand: string;
+          model: string;
+          year: number;
+          plate: string;
+        };
+        const parts = vehicleSelectParts(v);
+        return {
+          id: v.id,
+          label: parts.label,
+          primary: parts.primary,
+          secondary: parts.secondary,
+          searchText: parts.searchText,
+        };
       }),
     );
   } catch (error) {

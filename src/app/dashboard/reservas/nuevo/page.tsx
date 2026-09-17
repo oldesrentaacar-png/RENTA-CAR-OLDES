@@ -3,11 +3,14 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ReservationForm } from "@/components/forms/reservation-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
+import { getCurrentUser } from "@/lib/auth/session";
+import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { deriveReservationPricingFromQuote } from "@/lib/calculations/quote";
 import { toCustomerSelectOption } from "@/lib/customers";
 import { isSupabaseConfigured } from "@/lib/env";
 import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
+import { vehicleSelectParts } from "@/lib/vehicles/label";
 import {
   mapCustomerRow,
   mapVehicleRow,
@@ -26,6 +29,9 @@ export default async function NuevaReservaPage({
   let vehicles: Array<{
     id: string;
     label: string;
+    primary?: string;
+    secondary?: string;
+    searchText?: string;
     dailyRate: number;
     deposit: number;
     category?: string | null;
@@ -51,8 +57,13 @@ export default async function NuevaReservaPage({
       amount: number;
     }>;
   } = {};
+  let canManageCourtesy = false;
 
   if (configured) {
+    const user = await getCurrentUser();
+    if (user) {
+      canManageCourtesy = await canManageCourtesyDiscount(user.id);
+    }
     const supabase = await createClient();
     const [{ data: customerRows }, { data: vehicleRows }] = await Promise.all([
       supabase
@@ -65,7 +76,7 @@ export default async function NuevaReservaPage({
         .select("*")
         .is("deleted_at", null)
         .eq("is_active", true)
-        .order("brand"),
+        .order("plate"),
     ]);
 
     customers = ((customerRows ?? []) as CustomerRow[]).map((row) =>
@@ -74,9 +85,19 @@ export default async function NuevaReservaPage({
 
     vehicles = ((vehicleRows ?? []) as VehicleRow[]).map((row) => {
       const v = mapVehicleRow(row);
+      const parts = vehicleSelectParts({
+        plate: v.plate,
+        brand: v.brand,
+        model: v.model,
+        year: v.year,
+        daily_rate: v.daily_rate,
+      });
       return {
         id: v.id,
-        label: `${v.brand} ${v.model} ${v.year} · $${Number(v.daily_rate).toFixed(2)}/día`,
+        label: parts.label,
+        primary: parts.primary,
+        secondary: parts.secondary,
+        searchText: parts.searchText,
         dailyRate: v.daily_rate,
         deposit: v.deposit ?? 0,
         category: v.category,
@@ -168,6 +189,7 @@ export default async function NuevaReservaPage({
             customers={customers}
             vehicles={vehicles}
             defaults={defaults}
+            canManageCourtesy={canManageCourtesy}
           />
         )}
       </div>

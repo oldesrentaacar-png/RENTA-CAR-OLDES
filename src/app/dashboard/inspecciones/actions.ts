@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
+import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getDefaultChecklistFromCatalog } from "@/lib/inspections/accessory-catalog";
 import {
@@ -164,7 +165,7 @@ async function loadInspectionDetail(
   const { data, error } = await supabase
     .from("inspections")
     .select(
-      "*, customers(first_name, last_name), vehicles(brand, model, year, category, vehicle_type_id, vehicle_types(slug, name)), reservations(code)",
+      "*, customers(first_name, last_name), vehicles(brand, model, year, plate, category, vehicle_type_id, vehicle_types(slug, name)), reservations(code)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -258,7 +259,7 @@ async function loadInspectionDetail(
     photos: photosWithUrl,
     reservationCode: row.reservations.code,
     customerName: `${row.customers.first_name} ${row.customers.last_name}`,
-    vehicleLabel: `${row.vehicles.brand} ${row.vehicles.model} ${row.vehicles.year}`,
+    vehicleLabel: formatVehicleLabel(row.vehicles),
     vehicleModel: row.vehicles.model,
     vehicleCategory: row.vehicles.category,
     vehicleTypeSlug: vehicleType?.slug ?? null,
@@ -307,7 +308,7 @@ export async function getReservationOptionsForInspection(): Promise<
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("reservations")
-      .select("id, code, customer_id, vehicle_id, customers(first_name, last_name), vehicles(brand, model, plate)")
+      .select("id, code, customer_id, vehicle_id, customers(first_name, last_name), vehicles(brand, model, year, plate)")
       .is("deleted_at", null)
       .in("status", ["CONFIRMED", "ACTIVE", "COMPLETED"])
       .order("start_at", { ascending: false })
@@ -325,8 +326,8 @@ export async function getReservationOptionsForInspection(): Promise<
           | { first_name: string; last_name: string }
           | Array<{ first_name: string; last_name: string }>;
         vehicles:
-          | { brand: string; model: string; plate: string }
-          | Array<{ brand: string; model: string; plate: string }>;
+          | { brand: string; model: string; year: number; plate: string }
+          | Array<{ brand: string; model: string; year: number; plate: string }>;
       };
       const customer = Array.isArray(r.customers) ? r.customers[0] : r.customers;
       const vehicle = Array.isArray(r.vehicles) ? r.vehicles[0] : r.vehicles;
@@ -335,7 +336,7 @@ export async function getReservationOptionsForInspection(): Promise<
         code: r.code,
         customerId: r.customer_id,
         vehicleId: r.vehicle_id,
-        label: `${r.code} — ${customer.first_name} ${customer.last_name} · ${vehicle.brand} ${vehicle.model} (${vehicle.plate})`,
+        label: `${r.code} — ${customer.first_name} ${customer.last_name} · ${formatVehicleLabel(vehicle)}`,
       };
     });
 
@@ -438,6 +439,15 @@ export async function createInspection(
       // Compensa inspección huérfana si falla el checklist (permiso/RLS).
       await supabase.from("inspections").delete().eq("id", id);
       throw mapPostgresError(checklistError);
+    }
+
+    if (parsed.data.type === "CHECK_OUT") {
+      await supabase
+        .from("reservations")
+        .update({ status: "ACTIVE" })
+        .eq("id", parsed.data.reservationId)
+        .eq("status", "CONFIRMED")
+        .is("deleted_at", null);
     }
 
     await writeAuditLog({

@@ -8,6 +8,7 @@ import { assertPermission } from "@/lib/auth/guards";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { vehicleSelectParts } from "@/lib/vehicles/label";
 import {
   financeSearchSchema,
   incomeSchema,
@@ -303,9 +304,9 @@ export async function listFinanceOptions(): Promise<
     const supabase = await createClient();
     const [vehiclesRes, customersRes, reservationsRes] = await Promise.all([
       supabase
-        .from("vehicles")
-        .select("id, brand, model, plate")
-        .is("deleted_at", null)
+      .from("vehicles")
+      .select("id, brand, model, year, plate")
+      .is("deleted_at", null)
         .eq("is_active", true)
         .order("brand"),
       supabase
@@ -328,8 +329,21 @@ export async function listFinanceOptions(): Promise<
 
     return actionSuccess({
       vehicles: (vehiclesRes.data ?? []).map((row) => {
-        const v = row as { id: string; brand: string; model: string; plate: string };
-        return { id: v.id, label: `${v.brand} ${v.model} (${v.plate})` };
+        const v = row as {
+          id: string;
+          brand: string;
+          model: string;
+          year: number;
+          plate: string;
+        };
+        const parts = vehicleSelectParts(v);
+        return {
+          id: v.id,
+          label: parts.label,
+          primary: parts.primary,
+          secondary: parts.secondary,
+          searchText: parts.searchText,
+        };
       }),
       customers: (customersRes.data ?? []).map((row) => {
         const c = row as { id: string; first_name: string; last_name: string };

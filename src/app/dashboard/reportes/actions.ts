@@ -18,6 +18,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
+import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { reportFiltersSchema } from "@/lib/validation/finance";
 import type {
   ExpenseTransaction,
@@ -161,7 +162,7 @@ export async function fetchReportData(
       };
       return {
         id: v.id,
-        label: `${v.brand} ${v.model} (${v.plate})`,
+        label: formatVehicleLabel(v),
         ownership_type: v.ownership_type,
         sublease_daily_cost: v.sublease_daily_cost,
         sublease_payee_name: v.sublease_payee_name,
@@ -355,7 +356,7 @@ export async function fetchFinanceSummary(
       const v = row as { id: string; brand: string; model: string; plate: string };
       return {
         id: v.id,
-        label: `${v.brand} ${v.model} (${v.plate})`,
+        label: formatVehicleLabel(v),
       };
     });
 

@@ -37,6 +37,8 @@ const reservationFields = z.object({
   cashAmount: moneyField.default(0),
   cardAmount: moneyField.default(0),
   additionalCosts: moneyField.default(0),
+  courtesyAmount: moneyField.default(0),
+  courtesyDetail: optionalNote(1000),
   applyIva: z
     .union([z.literal("true"), z.literal("false"), z.literal("on"), z.literal("1"), z.boolean()])
     .optional()

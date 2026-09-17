@@ -23,6 +23,7 @@ import {
   buildQuoteEmailText,
 } from "@/lib/email/quote-email-template";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
+import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { resolvePdfBusinessContact } from "@/lib/contracts/oldes-terms";
 import { formatMoney, multiply, toNumber } from "@/lib/money";
@@ -67,8 +68,7 @@ function vehicleLabelFromJoin(
     | undefined,
 ): string {
   if (!vehicles) return "Sin unidad asignada";
-  const plate = vehicles.plate ? ` · ${vehicles.plate}` : "";
-  return `${vehicles.brand} ${vehicles.model} ${vehicles.year}${plate}`;
+  return formatVehicleLabel(vehicles);
 }
 
 function vehicleTypeLabelFromJoin(

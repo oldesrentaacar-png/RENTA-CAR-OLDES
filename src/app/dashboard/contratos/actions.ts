@@ -28,6 +28,8 @@ import {
 import { getCustomerDisplayName } from "@/lib/customers";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
+import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
+import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import {
   OLDES_ACCESSORIES,
@@ -275,7 +277,7 @@ export async function getDeliveryFlowForReservation(
     if (!progress.success) return actionError(progress.error);
 
     const customerName = `${customers.first_name} ${customers.last_name}`;
-    const vehicleLabel = `${vehicles.brand} ${vehicles.model} ${vehicles.year} (${vehicles.plate})`;
+    const vehicleLabel = formatVehicleLabel(vehicles);
 
     const steps = buildDeliverySteps({
       contractId: raw.id,
@@ -414,15 +416,8 @@ export async function listContracts(
           })
         : "—";
 
-      const vehicleParts = [vehicle?.brand, vehicle?.model]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
+      const vehicleLabel = formatVehicleLabel(vehicle);
       const plate = vehicle?.plate?.trim() || "";
-      const vehicleLabel =
-        vehicleParts && plate
-          ? `${vehicleParts} · ${plate}`
-          : vehicleParts || plate || "—";
 
       return {
         ...contract,
@@ -541,7 +536,7 @@ export async function getContract(
         mapContractSignatureRow,
       ),
       customerName: `${customers.first_name} ${customers.last_name}`,
-      vehicleLabel: `${vehicles.brand} ${vehicles.model} ${vehicles.year}`,
+      vehicleLabel: formatVehicleLabel(vehicles),
       plate: vehicles.plate,
       reservationCode: reservations.code,
       includePagare,
@@ -689,13 +684,7 @@ export async function listReservationsEligibleForContract(
             company_name: customer.company_name,
           })
         : "Cliente";
-      const vehicleLabel =
-        [vehicle?.brand, vehicle?.model, vehicle?.year]
-          .filter(Boolean)
-          .join(" ")
-          .trim() ||
-        vehicle?.plate?.trim() ||
-        "Vehículo";
+      const vehicleLabel = formatVehicleLabel(vehicle);
 
       items.push({
         id: row.id,
@@ -839,12 +828,25 @@ export async function createContract(
       formData.get("additionalCosts"),
       r.additional_costs,
     );
+    const canCourtesy = await canManageCourtesyDiscount(user.id);
+    const courtesyAmount = canCourtesy
+      ? parseMoneyInput(
+          formData.get("courtesyAmount"),
+          r.courtesy_amount ?? 0,
+        )
+      : Number(r.courtesy_amount ?? 0);
+    const courtesyDetail = canCourtesy
+      ? String(formData.get("courtesyDetail") ?? "").trim() ||
+        r.courtesy_detail ||
+        null
+      : r.courtesy_detail ?? null;
     const computed = calculateReservationTotal({
       startAt,
       endAt,
       agreedRate,
       insurance,
       additionalCosts,
+      courtesyAmount,
     });
 
     const { data: customerRow } = await supabase
@@ -895,6 +897,8 @@ export async function createContract(
         apply_iva: applyIva,
         tax_rate: ivaTotals.taxRate,
         tax_amount: ivaTotals.taxAmount,
+        courtesy_amount: courtesyAmount,
+        courtesy_detail: courtesyDetail,
         extra_line_items: manualExtras,
         terms: parsed.data.terms ?? null,
         clauses: parsed.data.clauses ?? null,
@@ -1744,6 +1748,18 @@ export async function closeContract(
       0,
       Number(formData.get("courtesyDays") ?? 0) || 0,
     );
+    const canCourtesy = await canManageCourtesyDiscount(user.id);
+    const priorCourtesy = Number(contract.courtesy_amount ?? 0);
+    const courtesyAmount = canCourtesy
+      ? parseMoneyInput(formData.get("courtesyAmount"), priorCourtesy)
+      : priorCourtesy;
+    const courtesyDetail = canCourtesy
+      ? String(formData.get("courtesyDetail") ?? "").trim() ||
+        contract.courtesy_detail ||
+        null
+      : contract.courtesy_detail ?? null;
+    /** Only newly added courtesy at close reduces owed (create-time courtesy already in total). */
+    const additionalCloseCourtesy = Math.max(0, courtesyAmount - priorCourtesy);
     const graceExtraDaysWaived = Math.max(
       0,
       Number(formData.get("graceExtraDaysWaived") ?? 0) || 0,
@@ -1864,12 +1880,15 @@ export async function closeContract(
         ? normalizeFormDateTimeToIso(actualReturnRaw)
         : checkInDate ?? null;
 
-    const owed =
+    const owed = Math.max(
+      0,
       Number(contract.total) +
-      extraCharges +
-      damageCharges +
-      fuelCharges +
-      complementaryAmount;
+        extraCharges +
+        damageCharges +
+        fuelCharges +
+        complementaryAmount -
+        additionalCloseCourtesy,
+    );
     const amountPaid = Number(contract.amount_paid ?? 0) + finalPayment;
     const balanceDue = Math.max(0, owed - amountPaid);
     const paymentStatus =
@@ -1907,6 +1926,8 @@ export async function closeContract(
       received_by_name: receivedByName ?? contract.received_by_name ?? null,
       courtesy_hours: courtesyHours,
       courtesy_days: courtesyDays,
+      courtesy_amount: courtesyAmount,
+      courtesy_detail: courtesyDetail,
       grace_extra_days_waived: graceExtraDaysWaived,
       actual_return_at: actualReturnAt,
     };
@@ -1957,6 +1978,13 @@ export async function closeContract(
     if (vehicleError && !isMissingRelationOrColumn(vehicleError)) {
       console.error("[closeContract] vehicle update", vehicleError.message);
     }
+
+    await supabase
+      .from("reservations")
+      .update({ status: "COMPLETED" })
+      .eq("id", contract.reservation_id)
+      .in("status", ["CONFIRMED", "ACTIVE"])
+      .is("deleted_at", null);
 
     if (mileage != null && mileage >= 0) {
       try {

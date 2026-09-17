@@ -163,7 +163,7 @@ export function normalizeQuoteVehicleLines<
   });
 }
 
-/** Reservation pretax = (tarifa × días) + seguro + costos adicionales.
+/** Reservation pretax = (tarifa × días) + seguro + costos adicionales − cortesía.
  * Depósito no se suma. IVA opcional se aplica aparte (apply_iva). */
 export function calculateReservationTotal(input: {
   startAt: Date | string;
@@ -171,11 +171,14 @@ export function calculateReservationTotal(input: {
   agreedRate: MoneyInput;
   insurance?: MoneyInput;
   additionalCosts?: MoneyInput;
+  /** Admin courtesy discount (USD). Never exceeds pretax before courtesy. */
+  courtesyAmount?: MoneyInput;
 }): {
   rentalDays: number;
   rentalSubtotal: number;
   insurance: number;
   additionalCosts: number;
+  courtesyAmount: number;
   total: number;
 } {
   const rentalDays = rentalDaysBetween(input.startAt, input.endAt);
@@ -183,8 +186,26 @@ export function calculateReservationTotal(input: {
   const insurance = parseMoneyInput(input.insurance);
   const additionalCosts = parseMoneyInput(input.additionalCosts);
   const rentalSubtotal = toNumber(multiply(agreedRate, rentalDays));
-  const total = toNumber(add(rentalSubtotal, add(insurance, additionalCosts)));
-  return { rentalDays, rentalSubtotal, insurance, additionalCosts, total };
+  const beforeCourtesy = toNumber(
+    add(rentalSubtotal, add(insurance, additionalCosts)),
+  );
+  const courtesyRaw = parseMoneyInput(input.courtesyAmount);
+  const courtesyAmount = Math.min(
+    Math.max(0, courtesyRaw),
+    Math.max(0, beforeCourtesy),
+  );
+  const total = Math.max(
+    0,
+    toNumber(subtract(beforeCourtesy, courtesyAmount)),
+  );
+  return {
+    rentalDays,
+    rentalSubtotal,
+    insurance,
+    additionalCosts,
+    courtesyAmount,
+    total,
+  };
 }
 
 /** Build reservation pricing from an accepted quote so totals match. */

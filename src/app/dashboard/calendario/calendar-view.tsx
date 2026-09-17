@@ -19,6 +19,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import {
+  CALENDAR_PHASE_LABELS,
+  calendarPhaseBarClass,
+  type CalendarPhase,
+} from "@/lib/calendar/phase";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
@@ -31,11 +36,21 @@ export type CalendarReservation = {
   vehicle_id: string;
   vehicleLabel: string;
   customerName: string;
+  phase: CalendarPhase;
+  contractId?: string | null;
+  contractCode?: string | null;
+  hasCheckOut?: boolean;
 };
 
 type CalendarViewProps = {
   reservations: CalendarReservation[];
-  vehicles: Array<{ id: string; label: string }>;
+  vehicles: Array<{
+    id: string;
+    label: string;
+    primary?: string;
+    secondary?: string;
+    searchText?: string;
+  }>;
 };
 
 type ViewMode = "month" | "week" | "day";
@@ -48,27 +63,25 @@ const DAY_NUMBER_HEIGHT = 22;
 
 const WEEKDAY_LABELS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 
+const PHASE_FILTER_OPTIONS: Array<{ value: CalendarPhase | ""; label: string }> =
+  [
+    { value: "", label: "Todos los estados" },
+    { value: "SIN_CONTRATO", label: CALENDAR_PHASE_LABELS.SIN_CONTRATO },
+    {
+      value: "PENDIENTE_ENTREGA",
+      label: CALENDAR_PHASE_LABELS.PENDIENTE_ENTREGA,
+    },
+    { value: "EN_CURSO", label: CALENDAR_PHASE_LABELS.EN_CURSO },
+    { value: "FINALIZADA", label: CALENDAR_PHASE_LABELS.FINALIZADA },
+    { value: "ANULADA", label: CALENDAR_PHASE_LABELS.ANULADA },
+  ];
+
 type PlacedBar = {
   reservation: CalendarReservation;
   lane: number;
   startCol: number;
   span: number;
 };
-
-function statusBarClass(status: string) {
-  switch (status) {
-    case "CONFIRMED":
-      return "bg-blue-100 text-blue-800 hover:bg-blue-200";
-    case "ACTIVE":
-      return "bg-green-100 text-green-800 hover:bg-green-200";
-    case "COMPLETED":
-      return "bg-slate-100 text-slate-600 hover:bg-slate-200";
-    case "CANCELLED":
-      return "bg-red-50 text-red-700/70 hover:bg-red-100";
-    default:
-      return "bg-brand-light text-brand hover:bg-brand-light/80";
-  }
-}
 
 function formatEventTime(iso: string): string | null {
   const d = parseISO(iso);
@@ -157,21 +170,22 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
   const [view, setView] = useState<ViewMode>("month");
   const [cursor, setCursor] = useState(new Date());
   const [vehicleFilter, setVehicleFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [phaseFilter, setPhaseFilter] = useState("");
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return reservations.filter((r) => {
       if (vehicleFilter && r.vehicle_id !== vehicleFilter) return false;
-      if (statusFilter && r.status !== statusFilter) return false;
+      if (phaseFilter && r.phase !== phaseFilter) return false;
       if (q) {
-        const haystack = `${r.customerName} ${r.vehicleLabel} ${r.code}`.toLowerCase();
+        const haystack =
+          `${r.customerName} ${r.vehicleLabel} ${r.code} ${r.contractCode ?? ""}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [reservations, vehicleFilter, statusFilter, search]);
+  }, [reservations, vehicleFilter, phaseFilter, search]);
 
   const monthStart = startOfMonth(cursor);
   const monthEnd = endOfMonth(cursor);
@@ -197,6 +211,11 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
     return filtered.filter((r) => reservationTouchesDay(r, day));
   }
 
+  function openDay(day: Date) {
+    setCursor(startOfDay(day));
+    setView("day");
+  }
+
   const today = startOfDay(new Date());
 
   return (
@@ -220,7 +239,10 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
         <button
           type="button"
           className="rounded-lg border border-border px-3 py-1.5 text-sm"
-          onClick={() => setCursor(new Date())}
+          onClick={() => {
+            setCursor(new Date());
+            setView("day");
+          }}
         >
           Hoy
         </button>
@@ -268,19 +290,25 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
           className="min-w-[12rem]"
           options={[
             { value: "", label: "Todos los vehículos" },
-            ...vehicles.map((v) => ({ value: v.id, label: v.label })),
+            ...vehicles.map((v) => ({
+              value: v.id,
+              label: v.label,
+              primary: v.primary,
+              secondary: v.secondary,
+              searchText: v.searchText,
+            })),
           ]}
         />
         <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          value={phaseFilter}
+          onChange={(e) => setPhaseFilter(e.target.value)}
           className="rounded-lg border border-border px-3 py-1.5 text-sm"
         >
-          <option value="">Todos los estados</option>
-          <option value="CONFIRMED">Confirmada</option>
-          <option value="ACTIVE">Activa</option>
-          <option value="COMPLETED">Completada</option>
-          <option value="CANCELLED">Cancelada</option>
+          {PHASE_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value || "all"} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
         </select>
         <button
           type="button"
@@ -289,6 +317,32 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
         >
           Actualizar
         </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-[11px] text-muted">
+        {(
+          [
+            "SIN_CONTRATO",
+            "PENDIENTE_ENTREGA",
+            "EN_CURSO",
+            "FINALIZADA",
+            "ANULADA",
+          ] as CalendarPhase[]
+        ).map((phase) => (
+          <span
+            key={phase}
+            className={cn(
+              "rounded px-2 py-0.5 font-medium",
+              calendarPhaseBarClass(phase),
+            )}
+          >
+            {CALENDAR_PHASE_LABELS[phase]}
+          </span>
+        ))}
+        <span className="self-center">
+          En vista mes: clic en el día o en “+N más” para ver todas las reservas
+          de ese día.
+        </span>
       </div>
 
       {view === "month" ? (
@@ -314,37 +368,49 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                   className="relative grid grid-cols-7 border-b border-border last:border-b-0"
                   style={{ minHeight: contentHeight }}
                 >
-                  {days.map((day, dayIndex) => (
-                    <div
-                      key={day.toISOString()}
-                      className={cn(
-                        "border-r border-border p-1 last:border-r-0",
-                        !isSameMonth(day, cursor) && "bg-surface-muted/40 text-muted",
-                        isSameDay(day, today) && "bg-brand-light/30",
-                      )}
-                    >
-                      <div
+                  {days.map((day, dayIndex) => {
+                    const dayCount = reservationsForDay(day).length;
+                    return (
+                      <button
+                        key={day.toISOString()}
+                        type="button"
+                        onClick={() => openDay(day)}
+                        title={
+                          dayCount > 0
+                            ? `Ver ${dayCount} reserva(s) del ${format(day, "d MMM", { locale: es })}`
+                            : `Abrir ${format(day, "d MMM", { locale: es })}`
+                        }
                         className={cn(
-                          "text-xs font-medium",
-                          isSameDay(day, today) && "text-brand",
+                          "border-r border-border p-1 text-left last:border-r-0 hover:bg-brand-light/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand",
+                          !isSameMonth(day, cursor) &&
+                            "bg-surface-muted/40 text-muted",
+                          isSameDay(day, today) && "bg-brand-light/30",
                         )}
-                        style={{ height: DAY_NUMBER_HEIGHT }}
                       >
-                        {format(day, "d")}
-                      </div>
-                      <div
-                        aria-hidden
-                        style={{
-                          height: MAX_VISIBLE_LANES * (LANE_HEIGHT + LANE_GAP),
-                        }}
-                      />
-                      {overflowByDay[dayIndex] > 0 ? (
-                        <span className="block px-0.5 text-[10px] text-muted">
-                          +{overflowByDay[dayIndex]} más
-                        </span>
-                      ) : null}
-                    </div>
-                  ))}
+                        <div
+                          className={cn(
+                            "text-xs font-medium underline-offset-2",
+                            isSameDay(day, today) && "text-brand",
+                            dayCount > 0 && "underline decoration-dotted",
+                          )}
+                          style={{ height: DAY_NUMBER_HEIGHT }}
+                        >
+                          {format(day, "d")}
+                        </div>
+                        <div
+                          aria-hidden
+                          style={{
+                            height: MAX_VISIBLE_LANES * (LANE_HEIGHT + LANE_GAP),
+                          }}
+                        />
+                        {overflowByDay[dayIndex] > 0 ? (
+                          <span className="block px-0.5 text-[10px] font-medium text-brand">
+                            +{overflowByDay[dayIndex]} más · ver día
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
 
                   <div
                     className="pointer-events-none absolute inset-x-0"
@@ -354,10 +420,10 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                       <Link
                         key={`${bar.reservation.id}-${bar.startCol}`}
                         href={`/dashboard/reservas/${bar.reservation.id}`}
-                        title={`${bar.reservation.code} — ${eventLabel(bar.reservation)}`}
+                        title={`${bar.reservation.code} — ${CALENDAR_PHASE_LABELS[bar.reservation.phase]} — ${eventLabel(bar.reservation)}`}
                         className={cn(
                           "pointer-events-auto absolute truncate rounded px-1 text-[10px] font-medium leading-[18px]",
-                          statusBarClass(bar.reservation.status),
+                          calendarPhaseBarClass(bar.reservation.phase),
                         )}
                         style={{
                           left: `calc(${(bar.startCol / 7) * 100}% + 2px)`,
@@ -365,6 +431,7 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                           top: bar.lane * (LANE_HEIGHT + LANE_GAP),
                           height: LANE_HEIGHT,
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {eventLabel(bar.reservation)}
                       </Link>
@@ -381,9 +448,14 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
         <div className="grid gap-3 md:grid-cols-7">
           {weekDays.map((day) => (
             <div key={day.toISOString()} className="rounded-xl border border-border p-3">
-              <p className="text-sm font-medium capitalize">
+              <button
+                type="button"
+                onClick={() => openDay(day)}
+                className="w-full text-left text-sm font-medium capitalize hover:text-brand"
+                title="Ver día completo"
+              >
                 {format(day, "EEE d", { locale: es })}
-              </p>
+              </button>
               <div className="mt-2 space-y-1">
                 {reservationsForDay(day).map((r) => (
                   <Link
@@ -391,10 +463,13 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                     href={`/dashboard/reservas/${r.id}`}
                     className={cn(
                       "block truncate rounded px-2 py-1 text-xs font-medium",
-                      statusBarClass(r.status),
+                      calendarPhaseBarClass(r.phase),
                     )}
-                    title={`${r.code} — ${eventLabel(r)}`}
+                    title={`${r.code} — ${CALENDAR_PHASE_LABELS[r.phase]} — ${eventLabel(r)}`}
                   >
+                    <span className="mr-1 opacity-80">
+                      {CALENDAR_PHASE_LABELS[r.phase]}
+                    </span>
                     {eventLabel(r)}
                   </Link>
                 ))}
@@ -406,9 +481,18 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
 
       {view === "day" ? (
         <div className="rounded-xl border border-border p-4">
-          <h3 className="font-medium capitalize">
-            {format(cursor, "PPPP", { locale: es })}
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-medium capitalize">
+              {format(cursor, "PPPP", { locale: es })}
+            </h3>
+            <button
+              type="button"
+              className="rounded-lg border border-border px-3 py-1.5 text-sm"
+              onClick={() => setView("month")}
+            >
+              Volver al mes
+            </button>
+          </div>
           <div className="mt-4 space-y-2">
             {reservationsForDay(cursor).length === 0 ? (
               <p className="text-sm text-muted">Sin reservas este día.</p>
@@ -422,12 +506,19 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                   <span
                     className={cn(
                       "rounded px-2 py-0.5 text-xs font-medium",
-                      statusBarClass(r.status),
+                      calendarPhaseBarClass(r.phase),
                     )}
                   >
-                    {r.status}
+                    {CALENDAR_PHASE_LABELS[r.phase]}
                   </span>
                   <span className="font-medium">{r.code}</span>
+                  {r.contractCode ? (
+                    <span className="text-xs text-muted">
+                      Contrato {r.contractCode}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted">Sin contrato</span>
+                  )}
                   <span className="text-sm text-muted">{eventLabel(r)}</span>
                 </Link>
               ))

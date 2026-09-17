@@ -145,6 +145,8 @@ type ReservationRow = {
   cash_amount?: number | null;
   card_amount?: number | null;
   additional_costs?: number | null;
+  courtesy_amount?: number | null;
+  courtesy_detail?: string | null;
   apply_iva?: boolean | null;
   tax_rate?: number | null;
   tax_amount?: number | null;
@@ -433,6 +435,8 @@ export function mapReservationRow(row: ReservationRow): Reservation {
     cash_amount: asNumber(row.cash_amount, 0),
     card_amount: asNumber(row.card_amount, 0),
     additional_costs: asNumber(row.additional_costs, 0),
+    courtesy_amount: asNumber(row.courtesy_amount, 0),
+    courtesy_detail: row.courtesy_detail ?? null,
     apply_iva: Boolean(row.apply_iva),
     tax_rate: asNumber(row.tax_rate, 0.13),
     tax_amount: asNumber(row.tax_amount, 0),
@@ -519,6 +523,12 @@ type ContractRow = {
   closed_at?: string | null;
   delivered_by_name?: string | null;
   received_by_name?: string | null;
+  courtesy_hours?: number | null;
+  courtesy_days?: number | null;
+  courtesy_amount?: number | null;
+  courtesy_detail?: string | null;
+  actual_return_at?: string | null;
+  grace_extra_days_waived?: number | null;
   include_pagare?: boolean | null;
   apply_iva?: boolean | null;
   tax_rate?: number | null;
@@ -590,6 +600,12 @@ export function mapContractRow(row: ContractRow): Contract {
     closed_at: row.closed_at ?? null,
     delivered_by_name: row.delivered_by_name ?? null,
     received_by_name: row.received_by_name ?? null,
+    courtesy_hours: asNumber(row.courtesy_hours, 0),
+    courtesy_days: asNumber(row.courtesy_days, 0),
+    courtesy_amount: asNumber(row.courtesy_amount, 0),
+    courtesy_detail: row.courtesy_detail ?? null,
+    actual_return_at: row.actual_return_at ?? null,
+    grace_extra_days_waived: asNumber(row.grace_extra_days_waived, 0),
     include_pagare:
       row.include_pagare === true || row.include_pagare === false
         ? row.include_pagare

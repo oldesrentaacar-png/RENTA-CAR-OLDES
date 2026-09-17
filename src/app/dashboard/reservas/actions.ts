@@ -18,7 +18,13 @@ import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { parseMoneyInput } from "@/lib/money";
 import { computeOptionalIvaTotals } from "@/lib/pdf/contract-billing";
+import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
+import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { createClient } from "@/lib/supabase/server";
+import {
+  deriveCalendarPhase,
+  type CalendarPhase,
+} from "@/lib/calendar/phase";
 import {
   reservationCancelSchema,
   reservationSchema,
@@ -68,7 +74,7 @@ export async function listReservations(
     let query = supabase
       .from("reservations")
       .select(
-        "*, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, plate)",
+        "*, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate)",
         { count: "exact" },
       )
       .is("deleted_at", null)
@@ -112,8 +118,8 @@ export async function listReservations(
           }>
         | null;
       vehicles:
-        | { brand: string | null; model: string | null; plate: string | null }
-        | Array<{ brand: string | null; model: string | null; plate: string | null }>
+        | { brand: string | null; model: string | null; year: number | null; plate: string | null }
+        | Array<{ brand: string | null; model: string | null; year: number | null; plate: string | null }>
         | null;
     };
 
@@ -135,10 +141,7 @@ export async function listReservations(
             company_name: customer.company_name,
           })
         : "—";
-      const vehicleLabel =
-        [vehicle?.brand, vehicle?.model].filter(Boolean).join(" ").trim() ||
-        vehicle?.plate?.trim() ||
-        "—";
+      const vehicleLabel = formatVehicleLabel(vehicle);
 
       return {
         ...reservation,
@@ -209,6 +212,13 @@ export async function createReservation(
     const additionalCosts = parseMoneyInput(
       formData.get("additionalCosts") || 0,
     );
+    const canCourtesy = await canManageCourtesyDiscount(user.id);
+    const courtesyAmount = canCourtesy
+      ? parseMoneyInput(formData.get("courtesyAmount") || 0)
+      : 0;
+    const courtesyDetail = canCourtesy
+      ? String(formData.get("courtesyDetail") ?? "").trim() || null
+      : null;
     const applyIva =
       formData.get("applyIva") === "true" ||
       formData.get("applyIva") === "on" ||
@@ -222,6 +232,7 @@ export async function createReservation(
       agreedRate,
       insurance,
       additionalCosts,
+      courtesyAmount,
     });
     const ivaTotals = computeOptionalIvaTotals({
       pretaxTotal: pretax.total,
@@ -245,6 +256,8 @@ export async function createReservation(
       cashAmount,
       cardAmount,
       additionalCosts,
+      courtesyAmount,
+      courtesyDetail: courtesyDetail ?? "",
       applyIva,
       taxRate: ivaTotals.taxRate,
       taxAmount: ivaTotals.taxAmount,
@@ -290,6 +303,8 @@ export async function createReservation(
         cash_amount: parsed.data.cashAmount,
         card_amount: parsed.data.cardAmount,
         additional_costs: parsed.data.additionalCosts,
+        courtesy_amount: parsed.data.courtesyAmount ?? 0,
+        courtesy_detail: parsed.data.courtesyDetail ?? null,
         apply_iva: parsed.data.applyIva,
         tax_rate: parsed.data.taxRate,
         tax_amount: parsed.data.taxAmount,
@@ -491,8 +506,11 @@ export async function updateReservation(
     const cashAmountRaw = formData.get("cashAmount");
     const cardAmountRaw = formData.get("cardAmount");
     const additionalCostsRaw = formData.get("additionalCosts");
+    const courtesyAmountRaw = formData.get("courtesyAmount");
+    const courtesyDetailRaw = formData.get("courtesyDetail");
     const applyIvaRaw = formData.get("applyIva");
     const taxRateRawForm = formData.get("taxRate");
+    const canCourtesy = await canManageCourtesyDiscount(user.id);
 
     const parsed = reservationUpdateSchema.safeParse({
       customerId: formData.get("customerId") || undefined,
@@ -526,6 +544,15 @@ export async function updateReservation(
         additionalCostsRaw !== null && additionalCostsRaw !== ""
           ? parseMoneyInput(additionalCostsRaw)
           : undefined,
+      courtesyAmount:
+        canCourtesy &&
+        courtesyAmountRaw !== null &&
+        courtesyAmountRaw !== ""
+          ? parseMoneyInput(courtesyAmountRaw)
+          : undefined,
+      courtesyDetail: canCourtesy
+        ? String(courtesyDetailRaw ?? "")
+        : undefined,
       applyIva:
         applyIvaRaw === null || applyIvaRaw === ""
           ? undefined
@@ -569,6 +596,10 @@ export async function updateReservation(
       row.card_amount = parsed.data.cardAmount;
     if (parsed.data.additionalCosts !== undefined)
       row.additional_costs = parsed.data.additionalCosts;
+    if (canCourtesy && parsed.data.courtesyAmount !== undefined)
+      row.courtesy_amount = parsed.data.courtesyAmount;
+    if (canCourtesy && parsed.data.courtesyDetail !== undefined)
+      row.courtesy_detail = parsed.data.courtesyDetail ?? null;
     if (parsed.data.applyIva !== undefined) row.apply_iva = parsed.data.applyIva;
     if (parsed.data.taxRate !== undefined) row.tax_rate = parsed.data.taxRate;
     if (parsed.data.notes !== undefined) row.notes = parsed.data.notes ?? null;
@@ -581,6 +612,7 @@ export async function updateReservation(
       parsed.data.agreedRate !== undefined ||
       parsed.data.additionalCosts !== undefined ||
       parsed.data.insurance !== undefined ||
+      (canCourtesy && parsed.data.courtesyAmount !== undefined) ||
       parsed.data.applyIva !== undefined ||
       parsed.data.taxRate !== undefined
     ) {
@@ -588,7 +620,7 @@ export async function updateReservation(
       const { data: current, error: currentError } = await supabaseForRead
         .from("reservations")
         .select(
-          "start_at, end_at, agreed_rate, insurance, additional_costs, apply_iva, tax_rate",
+          "start_at, end_at, agreed_rate, insurance, additional_costs, courtesy_amount, apply_iva, tax_rate",
         )
         .eq("id", id)
         .is("deleted_at", null)
@@ -603,6 +635,7 @@ export async function updateReservation(
         agreed_rate: number;
         insurance: number;
         additional_costs: number;
+        courtesy_amount?: number;
         apply_iva: boolean;
         tax_rate: number;
       };
@@ -622,24 +655,28 @@ export async function updateReservation(
           parsed.data.additionalCosts !== undefined
             ? parsed.data.additionalCosts
             : currentRow.additional_costs,
+        courtesyAmount:
+          canCourtesy && parsed.data.courtesyAmount !== undefined
+            ? parsed.data.courtesyAmount
+            : Number(currentRow.courtesy_amount ?? 0),
       });
+      const applyIva =
+        parsed.data.applyIva !== undefined
+          ? Boolean(parsed.data.applyIva)
+          : Boolean(currentRow.apply_iva);
+      const taxRate =
+        parsed.data.taxRate !== undefined
+          ? parsed.data.taxRate
+          : currentRow.tax_rate || 0.13;
       const ivaTotals = computeOptionalIvaTotals({
         pretaxTotal: pretax.total,
-        applyIva:
-          parsed.data.applyIva !== undefined
-            ? parsed.data.applyIva
-            : Boolean(currentRow.apply_iva),
-        taxRate:
-          parsed.data.taxRate !== undefined
-            ? parsed.data.taxRate
-            : Number(currentRow.tax_rate ?? 0.13),
+        applyIva,
+        taxRate,
       });
       row.total = ivaTotals.total;
       row.tax_amount = ivaTotals.taxAmount;
+      row.apply_iva = applyIva;
       row.tax_rate = ivaTotals.taxRate;
-      if (parsed.data.applyIva !== undefined) {
-        row.apply_iva = parsed.data.applyIva;
-      }
     }
 
     const supabase = await createClient();
@@ -732,6 +769,12 @@ export type CalendarReservationRow = {
   vehicle_id: string;
   vehicleLabel: string;
   customerName: string;
+  /** Operational phase for calendar coloring/labels. */
+  phase: CalendarPhase;
+  contractId: string | null;
+  contractCode: string | null;
+  contractStatus: string | null;
+  hasCheckOut: boolean;
 };
 
 export async function listReservationsForCalendar(
@@ -747,7 +790,7 @@ export async function listReservationsForCalendar(
     let query = supabase
       .from("reservations")
       .select(
-        "id, code, status, start_at, end_at, vehicle_id, customers(first_name, last_name), vehicles(brand, model, plate)",
+        "id, code, status, start_at, end_at, vehicle_id, customers(first_name, last_name), vehicles(brand, model, year, plate)",
       )
       .is("deleted_at", null)
       .order("start_at", { ascending: true });
@@ -759,9 +802,73 @@ export async function listReservationsForCalendar(
       query = query.eq("status", String(params.status));
     }
 
-    const { data, error } = await query.limit(200);
+    const { data, error } = await query.limit(500);
     if (error) throw mapPostgresError(error);
 
+    const reservationIds = (data ?? []).map(
+      (row) => (row as { id: string }).id,
+    );
+
+    const contractByReservation = new Map<
+      string,
+      { id: string; code: string; status: string; closed_at: string | null }
+    >();
+    const checkOutReservations = new Set<string>();
+
+    if (reservationIds.length > 0) {
+      const [{ data: contracts }, { data: checkOuts }] = await Promise.all([
+        supabase
+          .from("contracts")
+          .select("id, code, status, closed_at, reservation_id")
+          .in("reservation_id", reservationIds)
+          .is("deleted_at", null)
+          .neq("status", "CANCELLED"),
+        supabase
+          .from("inspections")
+          .select("reservation_id")
+          .in("reservation_id", reservationIds)
+          .eq("type", "CHECK_OUT"),
+      ]);
+
+      for (const row of contracts ?? []) {
+        const c = row as {
+          id: string;
+          code: string;
+          status: string;
+          closed_at: string | null;
+          reservation_id: string;
+        };
+        const next = {
+          id: c.id,
+          code: c.code,
+          status: c.status,
+          closed_at: c.closed_at,
+        };
+        const prev = contractByReservation.get(c.reservation_id);
+        if (!prev) {
+          contractByReservation.set(c.reservation_id, next);
+          continue;
+        }
+        const prevDone =
+          Boolean(prev.closed_at) || prev.status === "COMPLETED";
+        const nextDone =
+          Boolean(next.closed_at) || next.status === "COMPLETED";
+        // Prefer open/in-progress contract over an already closed one.
+        if (prevDone && !nextDone) {
+          contractByReservation.set(c.reservation_id, next);
+        } else if (!prevDone && nextDone) {
+          // keep open
+        } else {
+          contractByReservation.set(c.reservation_id, next);
+        }
+      }
+      for (const row of checkOuts ?? []) {
+        const r = row as { reservation_id: string };
+        checkOutReservations.add(r.reservation_id);
+      }
+    }
+
+    const now = new Date();
     const items = (data ?? []).map((row) => {
       const r = row as {
         id: string;
@@ -775,20 +882,37 @@ export async function listReservationsForCalendar(
           | Array<{ first_name: string | null; last_name: string | null }>
           | null;
         vehicles:
-          | { brand: string | null; model: string | null; plate: string | null }
-          | Array<{ brand: string | null; model: string | null; plate: string | null }>
+          | {
+              brand: string | null;
+              model: string | null;
+              year: number | null;
+              plate: string | null;
+            }
+          | Array<{
+              brand: string | null;
+              model: string | null;
+              year: number | null;
+              plate: string | null;
+            }>
           | null;
       };
       const customer = Array.isArray(r.customers) ? r.customers[0] : r.customers;
       const vehicle = Array.isArray(r.vehicles) ? r.vehicles[0] : r.vehicles;
-      const vehicleLabel =
-        vehicle?.model?.trim() ||
-        [vehicle?.brand, vehicle?.model].filter(Boolean).join(" ").trim() ||
-        vehicle?.plate?.trim() ||
-        "Vehículo";
+      const vehicleLabel = formatVehicleLabel(vehicle);
       const customerName =
         `${customer?.first_name ?? ""} ${customer?.last_name ?? ""}`.trim() ||
         "Cliente";
+      const contract = contractByReservation.get(r.id) ?? null;
+      const hasCheckOut = checkOutReservations.has(r.id);
+      const phase = deriveCalendarPhase({
+        reservationStatus: r.status,
+        startAt: r.start_at,
+        endAt: r.end_at,
+        contractStatus: contract?.status ?? null,
+        contractClosedAt: contract?.closed_at ?? null,
+        hasCheckOut,
+        now,
+      });
 
       return {
         id: r.id,
@@ -799,6 +923,11 @@ export async function listReservationsForCalendar(
         vehicle_id: r.vehicle_id,
         vehicleLabel,
         customerName,
+        phase,
+        contractId: contract?.id ?? null,
+        contractCode: contract?.code ?? null,
+        contractStatus: contract?.status ?? null,
+        hasCheckOut,
       };
     });
 

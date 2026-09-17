@@ -7,7 +7,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { getCurrentUser } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions";
+import { canManageCourtesyDiscount, hasPermission } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
 
 export default async function CerrarContratoPage({
@@ -31,6 +31,9 @@ export default async function CerrarContratoPage({
   const user = configured ? await getCurrentUser() : null;
   const canSign = user
     ? await hasPermission(user.id, "contracts.sign")
+    : false;
+  const canManageCourtesy = user
+    ? await canManageCourtesyDiscount(user.id)
     : false;
 
   return (
@@ -79,7 +82,11 @@ export default async function CerrarContratoPage({
             </Link>
           </div>
         ) : context ? (
-          <CloseContractWizard context={context} canSign={canSign} />
+          <CloseContractWizard
+            context={context}
+            canSign={canSign}
+            canManageCourtesy={canManageCourtesy}
+          />
         ) : null}
       </div>
     </PermissionGuard>

@@ -21,6 +21,9 @@ import type { Reservation } from "@/types/database";
 type VehicleOption = {
   id: string;
   label: string;
+  primary?: string;
+  secondary?: string;
+  searchText?: string;
   dailyRate: number;
   deposit: number;
   category?: string | null;
@@ -37,6 +40,7 @@ type ReservationFormProps = {
   customers: Array<{ id: string; label: string; searchText?: string }>;
   vehicles: VehicleOption[];
   reservation?: Reservation;
+  canManageCourtesy?: boolean;
   defaults?: {
     customerId?: string;
     vehicleId?: string;
@@ -62,6 +66,7 @@ export function ReservationForm({
   customers,
   vehicles,
   reservation,
+  canManageCourtesy = false,
   defaults,
 }: ReservationFormProps) {
   const router = useRouter();
@@ -126,6 +131,12 @@ export function ReservationForm({
   const [insurance, setInsurance] = useState(
     String(reservation?.insurance ?? 0),
   );
+  const [courtesyAmount, setCourtesyAmount] = useState(
+    String(reservation?.courtesy_amount ?? 0),
+  );
+  const [courtesyDetail, setCourtesyDetail] = useState(
+    reservation?.courtesy_detail ?? "",
+  );
   const [applyIva, setApplyIva] = useState(
     Boolean(reservation?.apply_iva),
   );
@@ -142,6 +153,9 @@ export function ReservationForm({
         agreedRate: parseMoneyInput(agreedRate),
         insurance: parseMoneyInput(insurance || 0),
         additionalCosts: parseMoneyInput(additionalCosts || 0),
+        courtesyAmount: canManageCourtesy
+          ? parseMoneyInput(courtesyAmount || 0)
+          : 0,
       });
       const taxAmount = applyIva
         ? Math.round(base.total * taxRate * 100) / 100
@@ -155,7 +169,16 @@ export function ReservationForm({
     } catch {
       return null;
     }
-  }, [startAt, endAt, agreedRate, insurance, additionalCosts, applyIva]);
+  }, [
+    startAt,
+    endAt,
+    agreedRate,
+    insurance,
+    additionalCosts,
+    courtesyAmount,
+    canManageCourtesy,
+    applyIva,
+  ]);
 
   const extrasAmount = parseMoneyInput(additionalCosts || 0);
   const linesSum = quoteExtraLines.reduce((sum, line) => sum + line.amount, 0);
@@ -172,6 +195,9 @@ export function ReservationForm({
             agreedRate: parseMoneyInput(agreedRate),
             insurance: parseMoneyInput(insurance || 0),
             additionalCosts: parseMoneyInput(additionalCosts || 0),
+            courtesyAmount: canManageCourtesy
+              ? parseMoneyInput(courtesyAmount || 0)
+              : 0,
           });
           const taxAmount = applyIva
             ? Math.round(base.total * taxRate * 100) / 100
@@ -194,6 +220,13 @@ export function ReservationForm({
       "additionalCosts",
       String(parseMoneyInput(additionalCosts || 0)),
     );
+    if (canManageCourtesy) {
+      formData.set(
+        "courtesyAmount",
+        String(parseMoneyInput(courtesyAmount || 0)),
+      );
+      formData.set("courtesyDetail", courtesyDetail.trim());
+    }
     formData.set("applyIva", applyIva ? "true" : "false");
     formData.set("taxRate", "13");
     formData.set("taxAmount", String(computed.taxAmount));
@@ -260,7 +293,7 @@ export function ReservationForm({
           required
           defaultValue={initialVehicleId}
           placeholder="Seleccionar…"
-          searchPlaceholder="Buscar vehículo o placa…"
+          searchPlaceholder="Buscar por placa, marca o modelo…"
           onChange={(next) => {
             const v = vehicles.find((item) => item.id === next);
             if (v) {
@@ -275,6 +308,9 @@ export function ReservationForm({
           options={vehicles.map((v) => ({
             value: v.id,
             label: v.label,
+            primary: v.primary,
+            secondary: v.secondary,
+            searchText: v.searchText,
           }))}
         />
         <Input
@@ -369,6 +405,40 @@ export function ReservationForm({
           value={deposit}
           onChange={(e) => setDeposit(e.target.value)}
         />
+        {canManageCourtesy ? (
+          <div className="sm:col-span-2 space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+            <p className="text-sm font-medium text-amber-950">
+              Cortesía manual (solo administrador)
+            </p>
+            <p className="text-xs text-amber-900/80">
+              Descuento en USD cuando horas o días extras no cuadran con el
+              cobro automático. Indique el monto y el detalle (ej. “2 h de
+              retraso”, “1 día extra por cortesía”).
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                name="courtesyAmount"
+                label="Monto de cortesía / descuento (USD)"
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                value={courtesyAmount}
+                onChange={(e) => setCourtesyAmount(e.target.value)}
+              />
+              <div className="sm:col-span-1">
+                <Textarea
+                  name="courtesyDetail"
+                  label="Detalle de la cortesía"
+                  rows={3}
+                  value={courtesyDetail}
+                  onChange={(e) => setCourtesyDetail(e.target.value)}
+                  placeholder="Ej. 3 h de retraso no cobradas · día extra por lluvia"
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
         <div className="sm:col-span-2 space-y-2 rounded-xl border border-border bg-surface p-4">
           <label className="flex items-start gap-3 text-sm">
             <input
@@ -426,6 +496,10 @@ export function ReservationForm({
               quoteExtraLines.length > 0 && adjustment < 0
                 ? Math.abs(adjustment)
                 : 0
+            }
+            courtesy={preview.courtesyAmount}
+            courtesyDetail={
+              canManageCourtesy ? courtesyDetail.trim() || null : null
             }
             tax={preview.taxAmount}
             deposit={parseMoneyInput(deposit)}

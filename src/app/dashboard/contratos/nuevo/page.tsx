@@ -13,6 +13,8 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { formatAppDateTime } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
+import { getCurrentUser } from "@/lib/auth/session";
+import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 
 export default async function NuevoContratoPage({
   searchParams,
@@ -136,6 +138,10 @@ export default async function NuevoContratoPage({
   if (configured && result && !result.success) notFound();
 
   const prefill = result?.success ? result.data : null;
+  const user = configured ? await getCurrentUser() : null;
+  const canManageCourtesy = user
+    ? await canManageCourtesyDiscount(user.id)
+    : false;
 
   return (
     <PermissionGuard permission="contracts.create">
@@ -156,6 +162,7 @@ export default async function NuevoContratoPage({
             customer={prefill.customer}
             vehicle={prefill.vehicle}
             defaultTerms={prefill.defaultTerms}
+            canManageCourtesy={canManageCourtesy}
           />
         ) : null}
       </div>

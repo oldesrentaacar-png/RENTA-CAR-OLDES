@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { toDatetimeLocalValue } from "@/lib/dates";
 import { parseMoneyInput } from "@/lib/money";
+import { formatVehicleLabel } from "@/lib/vehicles/label";
 import type { Customer, Reservation, Vehicle } from "@/types/database";
 
 type ContractFormProps = {
@@ -19,6 +20,7 @@ type ContractFormProps = {
   customer: Customer;
   vehicle: Vehicle;
   defaultTerms?: string | null;
+  canManageCourtesy?: boolean;
 };
 
 export function ContractForm({
@@ -26,6 +28,7 @@ export function ContractForm({
   customer,
   vehicle,
   defaultTerms,
+  canManageCourtesy = false,
 }: ContractFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +39,12 @@ export function ContractForm({
   const [insurance, setInsurance] = useState(String(reservation.insurance ?? 0));
   const [additionalCosts, setAdditionalCosts] = useState(
     String(reservation.additional_costs ?? 0),
+  );
+  const [courtesyAmount, setCourtesyAmount] = useState(
+    String(reservation.courtesy_amount ?? 0),
+  );
+  const [courtesyDetail, setCourtesyDetail] = useState(
+    reservation.courtesy_detail ?? "",
   );
   const [applyIva, setApplyIva] = useState(
     Boolean(reservation.apply_iva) || customer.customer_type === "COMPANY",
@@ -51,6 +60,9 @@ export function ContractForm({
         agreedRate: parseMoneyInput(agreedRate),
         insurance: parseMoneyInput(insurance),
         additionalCosts: parseMoneyInput(additionalCosts || 0),
+        courtesyAmount: canManageCourtesy
+          ? parseMoneyInput(courtesyAmount || 0)
+          : Number(reservation.courtesy_amount ?? 0),
       });
       const taxAmount = applyIva
         ? Math.round(base.total * taxRate * 100) / 100
@@ -64,7 +76,17 @@ export function ContractForm({
     } catch {
       return null;
     }
-  }, [startAt, endAt, agreedRate, insurance, additionalCosts, applyIva]);
+  }, [
+    startAt,
+    endAt,
+    agreedRate,
+    insurance,
+    additionalCosts,
+    courtesyAmount,
+    canManageCourtesy,
+    reservation.courtesy_amount,
+    applyIva,
+  ]);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -76,6 +98,13 @@ export function ContractForm({
       "additionalCosts",
       String(parseMoneyInput(additionalCosts || 0)),
     );
+    if (canManageCourtesy) {
+      formData.set(
+        "courtesyAmount",
+        String(parseMoneyInput(courtesyAmount || 0)),
+      );
+      formData.set("courtesyDetail", courtesyDetail.trim());
+    }
     formData.set("applyIva", applyIva ? "true" : "false");
     formData.set("taxRate", "13");
     if (preview) {
@@ -102,7 +131,10 @@ export function ContractForm({
       <div className="rounded-xl border border-border bg-surface p-4 text-sm">
         <p><span className="text-muted">Reserva:</span> {reservation.code}</p>
         <p><span className="text-muted">Cliente:</span> {customer.first_name} {customer.last_name}</p>
-        <p><span className="text-muted">Vehículo:</span> {vehicle.brand} {vehicle.model} {vehicle.year} · {vehicle.plate}</p>
+        <p>
+          <span className="text-muted">Vehículo:</span>{" "}
+          {formatVehicleLabel(vehicle)}
+        </p>
       </div>
 
       <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">
@@ -187,6 +219,50 @@ export function ContractForm({
         />
       </div>
 
+      {canManageCourtesy ? (
+        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+          <p className="text-sm font-medium text-amber-950">
+            Cortesía manual (solo administrador)
+          </p>
+          <p className="text-xs text-amber-900/80">
+            Descuento en USD por horas o días extras que no cuadran con el
+            cobro automático. Incluya el detalle.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              name="courtesyAmount"
+              label="Monto de cortesía / descuento (USD)"
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              value={courtesyAmount}
+              onChange={(e) => setCourtesyAmount(e.target.value)}
+            />
+            <Textarea
+              name="courtesyDetail"
+              label="Detalle de la cortesía"
+              rows={3}
+              value={courtesyDetail}
+              onChange={(e) => setCourtesyDetail(e.target.value)}
+              placeholder="Ej. 2 h de retraso · 1 día extra por cortesía"
+            />
+          </div>
+        </div>
+      ) : Number(reservation.courtesy_amount ?? 0) > 0 ? (
+        <div className="rounded-xl border border-border bg-surface p-4 text-sm">
+          <p>
+            <span className="text-muted">Cortesía aplicada:</span>{" "}
+            ${Number(reservation.courtesy_amount ?? 0).toFixed(2)}
+          </p>
+          {reservation.courtesy_detail ? (
+            <p className="mt-1 text-xs text-muted">
+              {reservation.courtesy_detail}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {preview ? (
         <>
           <input type="hidden" name="total" value={preview.totalWithIva} />
@@ -197,6 +273,12 @@ export function ContractForm({
             insurance={preview.insurance}
             extras={preview.additionalCosts}
             extrasLabel="Costos adicionales"
+            courtesy={preview.courtesyAmount}
+            courtesyDetail={
+              canManageCourtesy
+                ? courtesyDetail.trim() || null
+                : reservation.courtesy_detail
+            }
             tax={preview.taxAmount}
             deposit={parseMoneyInput(deposit)}
             total={preview.totalWithIva}

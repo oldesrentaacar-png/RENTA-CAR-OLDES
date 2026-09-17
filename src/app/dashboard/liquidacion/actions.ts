@@ -11,6 +11,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { toNumber } from "@/lib/money";
 import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
+import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { firstRelation } from "@/lib/validation/form-helpers";
 import { monthFilterSchema, settlementSchema } from "@/lib/validation/settlement";
 import type { Contract, MonthlySettlement, Vendor } from "@/types/database";
@@ -255,13 +256,7 @@ export async function lookupContractByCode(
       customer?.customer_type === "COMPANY" && customer.company_name
         ? customer.company_name
         : `${customer?.first_name ?? ""} ${customer?.last_name ?? ""}`.trim();
-    const vehicleLabel = [
-      vehicle?.brand,
-      vehicle?.model,
-      vehicle?.year,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const vehicleLabel = formatVehicleLabel(vehicle);
 
     return actionSuccess({
       contractId: raw.id,
