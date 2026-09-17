@@ -22,6 +22,8 @@ type SettlementFormProps = {
   defaultMonth?: string;
   redirectTo?: string;
   settlement?: MonthlySettlement;
+  /** Prefill from closed sublease contract. */
+  initialContract?: ContractLookupResult;
 };
 
 function currentMonth(): string {
@@ -43,11 +45,18 @@ export function SettlementForm({
   defaultMonth,
   redirectTo,
   settlement,
+  initialContract,
 }: SettlementFormProps) {
   const router = useRouter();
   const isEdit = Boolean(settlement);
   const [error, setError] = useState<string | null>(null);
-  const [lookupMessage, setLookupMessage] = useState<string | null>(null);
+  const [lookupMessage, setLookupMessage] = useState<string | null>(
+    initialContract
+      ? initialContract.isSubleased
+        ? "Contrato subarrendado cargado. Indique cuánto es suyo y cuánto del proveedor."
+        : "Contrato cargado. Complete el reparto de costos."
+      : null,
+  );
   const [isLookingUp, startLookup] = useTransition();
   const [contract, setContract] = useState<ContractLookupResult | null>(
     settlement
@@ -65,26 +74,32 @@ export function SettlementForm({
           total: Number(settlement.billed_amount ?? 0),
           amountPaid: Number(settlement.payments_received ?? 0),
         }
-      : null,
+      : initialContract ?? null,
   );
   const [contractCode, setContractCode] = useState(
-    settlement?.contract_code ?? "",
+    settlement?.contract_code ?? initialContract?.contractCode ?? "",
   );
   const [customerName, setCustomerName] = useState(
-    settlement?.customer_name ?? "",
+    settlement?.customer_name ?? initialContract?.customerName ?? "",
   );
   const [vehicleLabel, setVehicleLabel] = useState(
-    settlement?.vehicle_label ?? "",
+    settlement?.vehicle_label ?? initialContract?.vehicleLabel ?? "",
   );
-  const [plate, setPlate] = useState(settlement?.plate ?? "");
+  const [plate, setPlate] = useState(
+    settlement?.plate ?? initialContract?.plate ?? "",
+  );
   const [periodMonth, setPeriodMonth] = useState(
-    monthFromPeriod(settlement?.period_month) || defaultMonth || currentMonth(),
+    monthFromPeriod(settlement?.period_month) ||
+      (initialContract?.endAt
+        ? String(initialContract.endAt).slice(0, 7)
+        : defaultMonth) ||
+      currentMonth(),
   );
   const [billedAmount, setBilledAmount] = useState(
-    String(settlement?.billed_amount ?? 0),
+    String(settlement?.billed_amount ?? initialContract?.total ?? 0),
   );
   const [paymentsReceived, setPaymentsReceived] = useState(
-    String(settlement?.payments_received ?? 0),
+    String(settlement?.payments_received ?? initialContract?.amountPaid ?? 0),
   );
   const [oldesCost, setOldesCost] = useState(String(settlement?.oldes_cost ?? 0));
   const [providerCost, setProviderCost] = useState(
@@ -131,7 +146,11 @@ export function SettlementForm({
       setPlate(result.data.plate ?? "");
       setBilledAmount(String(result.data.total));
       setPaymentsReceived(String(result.data.amountPaid));
-      setLookupMessage("Contrato cargado para la liquidación.");
+      setLookupMessage(
+        result.data.isSubleased
+          ? "Contrato subarrendado cargado. Indique cuánto es suyo y cuánto del proveedor."
+          : "Contrato cargado para la liquidación.",
+      );
     });
   }
 
@@ -261,9 +280,21 @@ export function SettlementForm({
       </div>
 
       <div className="grid gap-4 rounded-xl border border-border bg-surface p-4 sm:grid-cols-3">
+        {(contract?.isSubleased || initialContract?.isSubleased) &&
+        (contract?.subleasePayeeName || initialContract?.subleasePayeeName) ? (
+          <p className="sm:col-span-3 text-sm text-amber-950">
+            Proveedor del vehículo:{" "}
+            <strong>
+              {contract?.subleasePayeeName ||
+                initialContract?.subleasePayeeName}
+            </strong>
+            . Del total cobrado, indique cuánto le corresponde a usted y cuánto
+            al proveedor.
+          </p>
+        ) : null}
         <Input
           name="billedAmount"
-          label="Facturado *"
+          label="Total cobrado al cliente (USD) *"
           type="number"
           min="0"
           step="0.01"
@@ -273,7 +304,7 @@ export function SettlementForm({
         />
         <Input
           name="oldesCost"
-          label="Costo OLDES"
+          label="Parte OLDES / mía (USD)"
           type="number"
           min="0"
           step="0.01"
@@ -282,7 +313,7 @@ export function SettlementForm({
         />
         <Input
           name="providerCost"
-          label="Costo proveedor"
+          label="Parte del proveedor (USD)"
           type="number"
           min="0"
           step="0.01"
@@ -322,6 +353,10 @@ export function SettlementForm({
           </p>
           <p className="mt-1 text-2xl font-bold text-foreground">
             {formatMoney(ownProfit)}
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Facturado − parte OLDES − parte proveedor − comisión − impuestos −
+            extras.
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 /**
  * Canonical vehicle display for lists, selects, calendar, contracts.
- * Plate first so identical year/model units stay distinguishable.
+ * Ops focus: modelo (+ año) + placa — brand is secondary for staff.
  */
 export type VehicleLabelParts = {
   plate?: string | null;
@@ -9,44 +9,61 @@ export type VehicleLabelParts = {
   year?: number | string | null;
 };
 
-export function formatVehicleLabel(
-  vehicle: VehicleLabelParts | null | undefined,
-  options?: { includeRate?: number | null },
-): string {
-  if (!vehicle) return "Vehículo";
-  const plate = String(vehicle.plate ?? "").trim() || "SIN-PLACA";
-  const brand = String(vehicle.brand ?? "").trim();
+function plateOf(vehicle: VehicleLabelParts): string {
+  return String(vehicle.plate ?? "").trim() || "SIN-PLACA";
+}
+
+function modelYearOf(vehicle: VehicleLabelParts): string {
   const model = String(vehicle.model ?? "").trim();
   const yearRaw = vehicle.year;
   const year =
     yearRaw === null || yearRaw === undefined || yearRaw === ""
       ? ""
       : String(yearRaw).trim();
-  const name = [brand, model, year].filter(Boolean).join(" ").trim() || "Vehículo";
-  const base = `${plate} · ${name}`;
+  return [model, year].filter(Boolean).join(" ").trim();
+}
+
+/**
+ * Staff label: "Rogue 2019 · P123-456" (modelo + placa).
+ * Brand omitted by default — client prefers model+plate to tell units apart.
+ */
+export function formatVehicleLabel(
+  vehicle: VehicleLabelParts | null | undefined,
+  options?: { includeRate?: number | null; includeBrand?: boolean },
+): string {
+  if (!vehicle) return "Vehículo";
+  const plate = plateOf(vehicle);
+  const brand = String(vehicle.brand ?? "").trim();
+  const modelYear = modelYearOf(vehicle);
+  const name = options?.includeBrand
+    ? [brand, modelYear].filter(Boolean).join(" ").trim()
+    : modelYear || brand || "Vehículo";
+  const base = `${name || "Vehículo"} · ${plate}`;
   if (options?.includeRate != null && Number.isFinite(options.includeRate)) {
     return `${base} · $${Number(options.includeRate).toFixed(2)}/día`;
   }
   return base;
 }
 
-/** Two-line select display: plate on top, brand/model/year below. */
+/** Two-line select: placa arriba, modelo (+año) abajo — legible en tablet. */
 export function vehicleSelectParts(
   vehicle: VehicleLabelParts & { daily_rate?: number | null },
 ): { label: string; primary: string; secondary: string; searchText: string } {
-  const plate = String(vehicle.plate ?? "").trim() || "SIN-PLACA";
+  const plate = plateOf(vehicle);
   const brand = String(vehicle.brand ?? "").trim();
   const model = String(vehicle.model ?? "").trim();
   const year =
     vehicle.year === null || vehicle.year === undefined || vehicle.year === ""
       ? ""
       : String(vehicle.year).trim();
-  const name = [brand, model, year].filter(Boolean).join(" ");
+  const modelYear = [model, year].filter(Boolean).join(" ");
   const rate =
     vehicle.daily_rate != null && Number.isFinite(Number(vehicle.daily_rate))
       ? `$${Number(vehicle.daily_rate).toFixed(2)}/día`
       : "";
-  const secondary = [name, rate].filter(Boolean).join(" · ");
+  const secondary = [modelYear || brand || "Vehículo", rate]
+    .filter(Boolean)
+    .join(" · ");
   const label = formatVehicleLabel(vehicle, {
     includeRate: vehicle.daily_rate,
   });

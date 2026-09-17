@@ -40,6 +40,9 @@ export type ContractLookupResult = {
   rentalDays: number | null;
   total: number;
   amountPaid: number;
+  isSubleased?: boolean;
+  subleasePayeeName?: string | null;
+  suggestedProviderCost?: number;
 };
 
 function currentMonth(): string {
@@ -211,7 +214,7 @@ export async function lookupContractByCode(
     const { data, error } = await supabase
       .from("contracts")
       .select(
-        "id, code, customer_id, vehicle_id, start_at, end_at, total, amount_paid, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate)",
+        "id, code, customer_id, vehicle_id, start_at, end_at, total, amount_paid, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate, ownership_type, sublease_payee_name)",
       )
       .ilike("code", normalizedCode)
       .is("deleted_at", null)
@@ -220,64 +223,108 @@ export async function lookupContractByCode(
     if (error) throw mapPostgresError(error);
     if (!data) return actionSuccess(null);
 
-    const raw = data as Contract & {
-      customers:
-        | {
-            first_name: string | null;
-            last_name: string | null;
-            company_name: string | null;
-            customer_type: string | null;
-          }
-        | Array<{
-            first_name: string | null;
-            last_name: string | null;
-            company_name: string | null;
-            customer_type: string | null;
-          }>
-        | null;
-      vehicles:
-        | {
-            brand: string | null;
-            model: string | null;
-            year: number | null;
-            plate: string | null;
-          }
-        | Array<{
-            brand: string | null;
-            model: string | null;
-            year: number | null;
-            plate: string | null;
-          }>
-        | null;
-    };
-    const customer = firstRelation(raw.customers);
-    const vehicle = firstRelation(raw.vehicles);
-    const customerName =
-      customer?.customer_type === "COMPANY" && customer.company_name
-        ? customer.company_name
-        : `${customer?.first_name ?? ""} ${customer?.last_name ?? ""}`.trim();
-    const vehicleLabel = formatVehicleLabel(vehicle);
-
-    return actionSuccess({
-      contractId: raw.id,
-      contractCode: raw.code,
-      customerId: raw.customer_id,
-      customerName,
-      vehicleId: raw.vehicle_id,
-      vehicleLabel,
-      plate: vehicle?.plate ?? null,
-      startAt: raw.start_at,
-      endAt: raw.end_at,
-      rentalDays:
-        raw.start_at && raw.end_at
-          ? rentalDaysBetween(raw.start_at, raw.end_at)
-          : null,
-      total: asNumber(raw.total, 0),
-      amountPaid: asNumber(raw.amount_paid, 0),
-    });
+    return actionSuccess(mapContractLookup(data as ContractLookupRow));
   } catch (error) {
     return actionError(toUserMessage(error));
   }
+}
+
+export async function lookupContractById(
+  contractId: string,
+): Promise<ActionResult<ContractLookupResult | null>> {
+  try {
+    await assertPermission("finance.view");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const id = String(contractId ?? "").trim();
+    if (!id) return actionSuccess(null);
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("contracts")
+      .select(
+        "id, code, customer_id, vehicle_id, start_at, end_at, total, amount_paid, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate, ownership_type, sublease_payee_name)",
+      )
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) throw mapPostgresError(error);
+    if (!data) return actionSuccess(null);
+
+    return actionSuccess(mapContractLookup(data as ContractLookupRow));
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+type ContractLookupRow = Contract & {
+  customers:
+    | {
+        first_name: string | null;
+        last_name: string | null;
+        company_name: string | null;
+        customer_type: string | null;
+      }
+    | Array<{
+        first_name: string | null;
+        last_name: string | null;
+        company_name: string | null;
+        customer_type: string | null;
+      }>
+    | null;
+  vehicles:
+    | {
+        brand: string | null;
+        model: string | null;
+        year: number | null;
+        plate: string | null;
+        ownership_type?: string | null;
+        sublease_payee_name?: string | null;
+      }
+    | Array<{
+        brand: string | null;
+        model: string | null;
+        year: number | null;
+        plate: string | null;
+        ownership_type?: string | null;
+        sublease_payee_name?: string | null;
+      }>
+    | null;
+};
+
+function mapContractLookup(raw: ContractLookupRow): ContractLookupResult {
+  const customer = firstRelation(raw.customers);
+  const vehicle = firstRelation(raw.vehicles);
+  const customerName =
+    customer?.customer_type === "COMPANY" && customer.company_name
+      ? customer.company_name
+      : `${customer?.first_name ?? ""} ${customer?.last_name ?? ""}`.trim();
+  const vehicleLabel = formatVehicleLabel(vehicle);
+  const isSubleased =
+    String(vehicle?.ownership_type ?? "").toUpperCase() === "SUBLEASED";
+
+  return {
+    contractId: raw.id,
+    contractCode: raw.code,
+    customerId: raw.customer_id,
+    customerName,
+    vehicleId: raw.vehicle_id,
+    vehicleLabel,
+    plate: vehicle?.plate ?? null,
+    startAt: raw.start_at,
+    endAt: raw.end_at,
+    rentalDays:
+      raw.start_at && raw.end_at
+        ? rentalDaysBetween(raw.start_at, raw.end_at)
+        : null,
+    total: asNumber(raw.total, 0),
+    amountPaid: asNumber(raw.amount_paid, 0),
+    isSubleased,
+    subleasePayeeName: vehicle?.sublease_payee_name?.trim() || null,
+  };
 }
 
 export async function createMonthlySettlement(

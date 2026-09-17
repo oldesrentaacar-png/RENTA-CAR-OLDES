@@ -127,6 +127,11 @@ export type ContractDetail = Contract & {
   taxRate: number;
   taxAmount: number;
   pagareAmount: number;
+  /** Vehicle is third-party sublease — show cost-split CTA when closed. */
+  isSubleased: boolean;
+  subleasePayeeName: string | null;
+  /** Existing monthly settlement for this contract, if any. */
+  settlementId: string | null;
 };
 
 export type ContractListItem = Contract & {
@@ -452,7 +457,7 @@ export async function getContract(
     const { data, error } = await supabase
       .from("contracts")
       .select(
-        "*, customers(first_name, last_name, country, dui, passport), vehicles(brand, model, year, plate, category, vehicle_types(slug, name)), reservations(code)",
+        "*, customers(first_name, last_name, country, dui, passport), vehicles(brand, model, year, plate, category, ownership_type, sublease_payee_name, vehicle_types(slug, name)), reservations(code)",
       )
       .eq("id", id)
       .is("deleted_at", null)
@@ -484,6 +489,8 @@ export async function getContract(
             year: number;
             plate: string;
             category: string | null;
+            ownership_type?: string | null;
+            sublease_payee_name?: string | null;
             vehicle_types: { slug: string; name: string } | null;
           }
         | Array<{
@@ -492,6 +499,8 @@ export async function getContract(
             year: number;
             plate: string;
             category: string | null;
+            ownership_type?: string | null;
+            sublease_payee_name?: string | null;
             vehicle_types: { slug: string; name: string } | null;
           }>;
       reservations: { code: string } | Array<{ code: string }>;
@@ -517,6 +526,14 @@ export async function getContract(
       .eq("contract_id", id);
 
     if (sigError) throw mapPostgresError(sigError);
+
+    const { data: settlementRow } = await supabase
+      .from("monthly_settlements")
+      .select("id")
+      .eq("contract_id", id)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
 
     const contract = mapContractRow(row);
     const includePagare = resolveIncludePagare(contract.include_pagare, {
@@ -544,6 +561,9 @@ export async function getContract(
       taxRate: Number(contract.tax_rate ?? 0.13),
       taxAmount: Number(contract.tax_amount ?? 0),
       pagareAmount,
+      isSubleased: String(vehicles.ownership_type ?? "").toUpperCase() === "SUBLEASED",
+      subleasePayeeName: vehicles.sublease_payee_name?.trim() || null,
+      settlementId: (settlementRow as { id: string } | null)?.id ?? null,
     });
   } catch (error) {
     return actionError(toUserMessage(error));

@@ -268,27 +268,22 @@ export function VehicleForm({ vehicle, vehicleTypes = [] }: VehicleFormProps) {
         <Input name="ownerPhone" label="Tel. propietario" defaultValue={vehicle?.owner_phone ?? ""} />
       </div>
       {ownershipType === "SUBLEASED" ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-          <p className="mb-3 text-sm font-medium text-amber-950">
-            Subarrendado — costo diario a tercero (ganancia no real)
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+          <p className="text-sm font-medium text-amber-950">
+            Vehículo subarrendado
           </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              name="subleaseDailyCost"
-              label="Costo por día de renta (USD)"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={vehicle?.sublease_daily_cost ?? ""}
-              placeholder="Ej. 30"
-            />
-            <Input
-              name="subleasePayeeName"
-              label="Destinatario del pago"
-              defaultValue={vehicle?.sublease_payee_name ?? ""}
-              placeholder="Ej. Josue"
-            />
-          </div>
+          <p className="text-xs text-amber-900/80">
+            Solo marca que no es propio. El reparto de costos (cuánto es suyo y
+            cuánto del proveedor) se hace al <strong>cerrar el contrato</strong>
+            , no aquí, para no calcular dos veces.
+          </p>
+          <Input
+            name="subleasePayeeName"
+            label="Proveedor / destinatario (opcional)"
+            defaultValue={vehicle?.sublease_payee_name ?? ""}
+            placeholder="Ej. Josue"
+          />
+          <input type="hidden" name="subleaseDailyCost" value="" />
         </div>
       ) : null}
       <Textarea

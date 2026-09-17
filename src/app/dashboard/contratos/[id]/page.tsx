@@ -159,6 +159,24 @@ export default async function ContratoDetailPage({
                     Acta de cierre PDF
                   </a>
                 ) : null}
+                {(contract.closed_at || contract.status === "COMPLETED") &&
+                contract.isSubleased ? (
+                  contract.settlementId ? (
+                    <Link
+                      href={`/dashboard/liquidacion/${contract.settlementId}/edit`}
+                      className="inline-flex h-10 items-center rounded-lg bg-amber-600 px-4 text-sm font-medium text-white hover:bg-amber-700"
+                    >
+                      Ver reparto de costos
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/dashboard/liquidacion/nuevo?contractId=${id}`}
+                      className="inline-flex h-10 items-center rounded-lg bg-amber-600 px-4 text-sm font-medium text-white hover:bg-amber-700"
+                    >
+                      Repartir costos (subrenta)
+                    </Link>
+                  )
+                ) : null}
                 {canSign &&
                 contract.status !== "COMPLETED" &&
                 contract.status !== "CANCELLED" ? (
@@ -217,6 +235,18 @@ export default async function ContratoDetailPage({
                 <p>
                   <span className="text-muted">Placa:</span> {contract.plate}
                 </p>
+                {contract.isSubleased ? (
+                  <p className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950">
+                    Vehículo <strong>subarrendado</strong>
+                    {contract.subleasePayeeName
+                      ? ` · proveedor: ${contract.subleasePayeeName}`
+                      : ""}
+                    {(contract.closed_at || contract.status === "COMPLETED") &&
+                    !contract.settlementId
+                      ? " · use “Repartir costos” para indicar cuánto es suyo y cuánto del proveedor."
+                      : ""}
+                  </p>
+                ) : null}
                 <p>
                   <span className="text-muted">Inicio:</span>{" "}
                   {formatAppDateTime(contract.start_at)}

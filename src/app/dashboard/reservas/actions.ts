@@ -169,7 +169,18 @@ export type ReservationListItem = Reservation & {
 
 export async function getReservation(
   id: string,
-): Promise<ActionResult<Reservation>> {
+): Promise<
+  ActionResult<
+    Reservation & {
+      customerName: string;
+      vehicleLabel: string;
+      plate: string;
+      vehicleBrand: string | null;
+      vehicleModel: string | null;
+      vehicleYear: number | null;
+    }
+  >
+> {
   try {
     await assertPermission("reservations.view");
     if (!isSupabaseConfigured()) {
@@ -179,7 +190,9 @@ export async function getReservation(
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("reservations")
-      .select("*")
+      .select(
+        "*, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate)",
+      )
       .eq("id", id)
       .is("deleted_at", null)
       .maybeSingle();
@@ -187,7 +200,59 @@ export async function getReservation(
     if (error) throw mapPostgresError(error);
     if (!data) return actionError("Reserva no encontrada.");
 
-    return actionSuccess(mapReservationRow(data as ReservationRow));
+    const row = data as ReservationRow & {
+      customers:
+        | {
+            first_name: string | null;
+            last_name: string | null;
+            company_name: string | null;
+            customer_type: string | null;
+          }
+        | Array<{
+            first_name: string | null;
+            last_name: string | null;
+            company_name: string | null;
+            customer_type: string | null;
+          }>
+        | null;
+      vehicles:
+        | {
+            brand: string | null;
+            model: string | null;
+            year: number | null;
+            plate: string | null;
+          }
+        | Array<{
+            brand: string | null;
+            model: string | null;
+            year: number | null;
+            plate: string | null;
+          }>
+        | null;
+    };
+    const customer = Array.isArray(row.customers)
+      ? row.customers[0]
+      : row.customers;
+    const vehicle = Array.isArray(row.vehicles) ? row.vehicles[0] : row.vehicles;
+    const customerName = customer
+      ? getCustomerDisplayName({
+          customer_type:
+            (customer.customer_type as "PERSON" | "COMPANY" | null) ?? "PERSON",
+          first_name: customer.first_name ?? "",
+          last_name: customer.last_name ?? "",
+          company_name: customer.company_name,
+        })
+      : "—";
+
+    return actionSuccess({
+      ...mapReservationRow(row),
+      customerName,
+      vehicleLabel: formatVehicleLabel(vehicle),
+      plate: String(vehicle?.plate ?? "").trim() || "—",
+      vehicleBrand: vehicle?.brand ?? null,
+      vehicleModel: vehicle?.model ?? null,
+      vehicleYear: vehicle?.year ?? null,
+    });
   } catch (error) {
     return actionError(toUserMessage(error));
   }

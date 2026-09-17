@@ -59,9 +59,20 @@ export default async function ReservaDetailPage({
                 </div>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+                <p>
+                  <span className="text-muted">Cliente:</span>{" "}
+                  {reservation.customerName}
+                </p>
+                <p>
+                  <span className="text-muted">Vehículo:</span>{" "}
+                  {reservation.vehicleLabel}
+                </p>
+                <p>
+                  <span className="text-muted">Placa:</span> {reservation.plate}
+                </p>
+                <p><span className="text-muted">Tipo:</span> {reservation.vehicle_type ?? "—"}</p>
                 <p><span className="text-muted">Inicio:</span> {formatAppDateTime(reservation.start_at)}</p>
                 <p><span className="text-muted">Fin:</span> {formatAppDateTime(reservation.end_at)}</p>
-                <p><span className="text-muted">Tipo:</span> {reservation.vehicle_type ?? "—"}</p>
                 <p><span className="text-muted">Tarifa:</span> {formatMoney(reservation.agreed_rate)}</p>
                 <p><span className="text-muted">Seguro:</span> {formatMoney(reservation.insurance)}</p>
                 <p><span className="text-muted">Costos adicionales:</span> {formatMoney(reservation.additional_costs)}</p>
