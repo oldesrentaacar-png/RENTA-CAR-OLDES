@@ -95,12 +95,14 @@ export function ContractExtraLinesEditor({
     <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
       <div>
         <h3 className="text-sm font-semibold text-foreground">
-          Extras / cargos sueltos del contrato
+          Cobros extras (sección 1)
         </h3>
         <p className="mt-1 text-xs text-muted">
-          Agregue líneas libres (silla bebé, entrega especial, etc.). Se
-          incluyen en el PDF y en el total
-          {canEdit ? "" : " (solo lectura)"}.
+          Especifique cada cobro con nombre (ej. Silla bebé, Entrega
+          aeropuerto). Quedan en el PDF y en el total
+          {canEdit
+            ? ". Editable solo mientras el contrato está pendiente de firma."
+            : " (solo lectura: ya no está pendiente de firma)."}
         </p>
       </div>
 

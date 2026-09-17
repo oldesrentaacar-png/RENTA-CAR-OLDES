@@ -556,6 +556,8 @@ export interface Reservation {
   card_amount: number;
   /** Costos adicionales / extras (silla, entrega, etc.) — distinto de seguro. */
   additional_costs: number;
+  /** Named billable extras (same shape as contracts.extra_line_items). */
+  extra_line_items?: Array<{ label: string; amount: number }>;
   /** Admin-only courtesy discount (USD). */
   courtesy_amount?: number;
   /** Justification for courtesy discount. */

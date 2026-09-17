@@ -290,9 +290,10 @@ export function ContractDetailActions({
         contract.status !== "COMPLETED" &&
         contract.status !== "CANCELLED" ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Este contrato ya no está en estado pendiente de firma. Las fechas y
-          tarifas ya no se editan. Use <strong>Anular</strong> o{" "}
-          <strong>Cerrar renta</strong> según corresponda.
+          Este contrato ya no está en estado pendiente de firma. Las fechas,
+          tarifas y cobros extras de la sección 1 ya no se editan. Use{" "}
+          <strong>Anular</strong> o <strong>Cerrar renta</strong> (cargos de
+          cierre) según corresponda.
         </div>
       ) : null}
 

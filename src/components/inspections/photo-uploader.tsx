@@ -3,7 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { uploadInspectionPhotoAction } from "@/app/dashboard/inspecciones/actions";
+import {
+  deleteInspectionPhotoAction,
+  uploadInspectionPhotoAction,
+} from "@/app/dashboard/inspecciones/actions";
 import { Button } from "@/components/ui/button";
 import type { InspectionPhoto } from "@/types/database";
 
@@ -79,6 +82,7 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
 
   async function handleUploadBatch(fileList: FileList | null) {
@@ -139,6 +143,25 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
     if (ok > 0) router.refresh();
   }
 
+  async function handleDelete(photo: InspectionPhoto, index: number) {
+    if (
+      !confirm(
+        `¿Eliminar la foto ${index + 1}? Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingId(photo.id);
+    setError(null);
+    const result = await deleteInspectionPhotoAction(inspectionId, photo.id);
+    setDeletingId(null);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
   return (
     <div className="space-y-4">
       {error ? (
@@ -156,7 +179,8 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
         <div className="space-y-3 rounded-xl border border-border p-4">
           <p className="text-sm text-muted">
             Adjunte varias fotos desde la galería o tome fotos con la cámara.
-            Se comprimen y suben de inmediato.
+            Se comprimen y suben de inmediato. Si subió una por error, elimínela
+            con el botón en cada miniatura.
           </p>
           <input
             ref={galleryRef}
@@ -183,6 +207,7 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
               type="button"
               onClick={() => galleryRef.current?.click()}
               loading={uploading}
+              disabled={Boolean(deletingId)}
             >
               {uploading ? "Subiendo…" : "Adjuntar de galería"}
             </Button>
@@ -190,7 +215,7 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
               type="button"
               variant="secondary"
               onClick={() => cameraRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || Boolean(deletingId)}
             >
               Tomar foto
             </Button>
@@ -231,10 +256,22 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
                     No se pudo previsualizar
                   </div>
                 )}
-                <figcaption className="p-3 text-sm">
+                <figcaption className="space-y-2 p-3 text-sm">
                   <p className="font-medium">Foto {index + 1}</p>
                   {photo.file_name ? (
                     <p className="truncate text-muted">{photo.file_name}</p>
+                  ) : null}
+                  {!readOnly ? (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      className="w-full"
+                      loading={deletingId === photo.id}
+                      disabled={uploading || Boolean(deletingId)}
+                      onClick={() => void handleDelete(photo, index)}
+                    >
+                      Eliminar foto
+                    </Button>
                   ) : null}
                 </figcaption>
               </figure>

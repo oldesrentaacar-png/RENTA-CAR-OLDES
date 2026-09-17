@@ -10,6 +10,7 @@ import {
 } from "@/app/dashboard/reservas/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { PricingBreakdown } from "@/components/shared/pricing-breakdown";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
@@ -125,11 +126,40 @@ export function ReservationForm({
   const [cardAmount, setCardAmount] = useState(
     String(reservation?.card_amount ?? defaults?.cardAmount ?? 0),
   );
-  const [additionalCosts, setAdditionalCosts] = useState(
-    String(reservation?.additional_costs ?? defaults?.additionalCosts ?? 0),
-  );
   const [insurance, setInsurance] = useState(
     String(reservation?.insurance ?? 0),
+  );
+  const initialExtraLines = (() => {
+    const fromReservation = (reservation?.extra_line_items ?? []).filter(
+      (line) => line.label && line.amount > 0,
+    );
+    if (fromReservation.length > 0) {
+      return fromReservation.map((line) => ({
+        label: line.label,
+        amount: String(line.amount),
+      }));
+    }
+    const fromQuote = defaults?.quoteExtraLines ?? [];
+    if (fromQuote.length > 0) {
+      return fromQuote.map((line) => ({
+        label: line.description,
+        amount: String(line.amount),
+      }));
+    }
+    const lump = Number(
+      reservation?.additional_costs ?? defaults?.additionalCosts ?? 0,
+    );
+    if (lump > 0) {
+      return [{ label: "Costos adicionales", amount: String(lump) }];
+    }
+    return [{ label: "", amount: "" }];
+  })();
+  const [extraLines, setExtraLines] = useState(initialExtraLines);
+  const additionalCosts = String(
+    extraLines.reduce((sum, line) => {
+      const amount = Number(parseMoneyInput(line.amount || "0"));
+      return sum + (line.label.trim() && amount > 0 ? amount : 0);
+    }, 0),
   );
   const [courtesyAmount, setCourtesyAmount] = useState(
     String(reservation?.courtesy_amount ?? 0),
@@ -142,7 +172,19 @@ export function ReservationForm({
   );
   const taxRate = 0.13;
 
-  const quoteExtraLines = defaults?.quoteExtraLines ?? [];
+  const quoteExtraLines = extraLines
+    .map((line) => {
+      const amount = parseMoneyInput(line.amount || "0");
+      const label = line.label.trim();
+      if (!label || amount <= 0) return null;
+      return {
+        description: label,
+        quantity: 1,
+        unitPrice: amount,
+        amount,
+      };
+    })
+    .filter(Boolean) as ReservationQuoteLine[];
 
   const preview = useMemo(() => {
     if (!startAt || !endAt || agreedRate === "") return null;
@@ -184,6 +226,15 @@ export function ReservationForm({
   const linesSum = quoteExtraLines.reduce((sum, line) => sum + line.amount, 0);
   const adjustment = Math.round((extrasAmount - linesSum) * 100) / 100;
 
+  function updateExtraLine(
+    index: number,
+    patch: Partial<{ label: string; amount: string }>,
+  ) {
+    setExtraLines((prev) =>
+      prev.map((line, i) => (i === index ? { ...line, ...patch } : line)),
+    );
+  }
+
   async function handleSubmit(formData: FormData) {
     setError(null);
     const computed = preview
@@ -219,6 +270,17 @@ export function ReservationForm({
     formData.set(
       "additionalCosts",
       String(parseMoneyInput(additionalCosts || 0)),
+    );
+    formData.set(
+      "extraLineItems",
+      JSON.stringify(
+        extraLines
+          .map((line) => ({
+            label: line.label.trim(),
+            amount: parseMoneyInput(line.amount || "0"),
+          }))
+          .filter((line) => line.label && line.amount > 0),
+      ),
     );
     if (canManageCourtesy) {
       formData.set(
@@ -379,21 +441,71 @@ export function ReservationForm({
             Monto de seguro cobrado en esta reserva (aparte de la tarifa).
           </p>
         </div>
-        <div className="space-y-1">
-          <Input
-            name="additionalCosts"
-            label="Costos adicionales (USD)"
-            type="number"
-            step="0.01"
-            min="0"
-            inputMode="decimal"
-            value={additionalCosts}
-            onChange={(e) => setAdditionalCosts(e.target.value)}
-          />
-          <p className="text-xs text-muted">
-            Extras operativos: silla, entrega fuera de horario, motorista, etc.
-            No reemplaza el campo Seguro.
-          </p>
+        <div className="sm:col-span-2 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">
+              Cobros extras (con nombre)
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Especifique cada cobro (silla bebé, entrega, GPS…). Estos mismos
+              conceptos pasan al contrato (sección 1) y al PDF.
+            </p>
+          </div>
+          <input type="hidden" name="additionalCosts" value={additionalCosts} />
+          {extraLines.map((line, index) => (
+            <div
+              key={`res-extra-${index}`}
+              className="grid gap-2 sm:grid-cols-[1fr_140px_auto]"
+            >
+              <Input
+                label={index === 0 ? "Concepto" : undefined}
+                value={line.label}
+                placeholder="Ej. Silla bebé"
+                onChange={(e) =>
+                  updateExtraLine(index, { label: e.target.value })
+                }
+              />
+              <Input
+                label={index === 0 ? "Monto USD" : undefined}
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                value={line.amount}
+                placeholder="0.00"
+                onChange={(e) =>
+                  updateExtraLine(index, { amount: e.target.value })
+                }
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="sm:mt-6"
+                onClick={() =>
+                  setExtraLines((prev) => {
+                    const next = prev.filter((_, i) => i !== index);
+                    return next.length > 0 ? next : [{ label: "", amount: "" }];
+                  })
+                }
+              >
+                Quitar
+              </Button>
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setExtraLines((prev) => [...prev, { label: "", amount: "" }])
+              }
+            >
+              Agregar cobro
+            </Button>
+            <span className="text-sm text-muted">
+              Suma extras: <strong>{formatMoney(parseMoneyInput(additionalCosts || 0))}</strong>
+            </span>
+          </div>
         </div>
         <Input
           name="deposit"

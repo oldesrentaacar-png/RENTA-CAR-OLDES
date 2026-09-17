@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   R2_PREFIX,
   buildR2Key,
+  deleteFromR2,
   getR2SignedUrl,
   uploadToR2,
 } from "@/lib/storage/r2";
@@ -235,4 +236,27 @@ export async function resolvePrivateFileUrl(
   }
 
   return null;
+}
+
+/** Best-effort delete of a private object (R2 / Supabase / inline no-op). */
+export async function deletePrivateObject(
+  storagePath: string,
+  options?: { bucket?: string },
+): Promise<void> {
+  if (!storagePath || storagePath.startsWith("data:")) return;
+
+  if (storagePath.startsWith("r2://")) {
+    if (!isR2Configured()) return;
+    await deleteFromR2(storagePath.slice("r2://".length));
+    return;
+  }
+
+  if (!isSupabaseAdminConfigured()) return;
+  const admin = createAdminClient();
+  const bucket = options?.bucket ?? INSPECTION_PHOTOS_BUCKET;
+  const { error } = await admin.storage.from(bucket).remove([storagePath]);
+  if (!error) return;
+  if (bucket === INSPECTION_PHOTOS_BUCKET) {
+    await admin.storage.from("inspections").remove([storagePath]);
+  }
 }

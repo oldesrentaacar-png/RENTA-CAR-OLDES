@@ -115,7 +115,41 @@ export default async function ReservaDetailPage({
                 <p><span className="text-muted">Fin:</span> {formatAppDateTime(reservation.end_at)}</p>
                 <p><span className="text-muted">Tarifa:</span> {formatMoney(reservation.agreed_rate)}</p>
                 <p><span className="text-muted">Seguro:</span> {formatMoney(reservation.insurance)}</p>
-                <p><span className="text-muted">Costos adicionales:</span> {formatMoney(reservation.additional_costs)}</p>
+                <p>
+                  <span className="text-muted">Costos adicionales:</span>{" "}
+                  {formatMoney(reservation.additional_costs)}
+                </p>
+                {reservation.billableExtras.length > 0 ? (
+                  <div className="sm:col-span-2 rounded-lg border border-border bg-surface-muted/40 p-3">
+                    <p className="mb-2 text-sm font-medium">
+                      Qué se está cobrando (extras)
+                    </p>
+                    <ul className="space-y-1 text-sm">
+                      {reservation.billableExtras.map((line, index) => (
+                        <li
+                          key={`${line.label}-${index}`}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <span>{line.label}</span>
+                          <span className="font-medium">
+                            {formatMoney(line.amount)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {reservation.quote_id ? (
+                      <p className="mt-2 text-xs text-muted">
+                        Origen: cotización — revise también el enlace abajo.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="sm:col-span-2 text-xs text-muted">
+                    Sin extras nombrados. Si tocaba silla de bebé u otro
+                    accesorio cobrado, agréguelo al editar la reserva (o en el
+                    contrato sección 1 antes de firmar).
+                  </p>
+                )}
                 {Number(reservation.courtesy_amount ?? 0) > 0 ? (
                   <>
                     <p>

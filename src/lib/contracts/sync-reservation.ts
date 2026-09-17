@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  normalizeExtraLineItems,
+  sumExtraLineItems,
+  type ExtraLineItem,
+} from "@/lib/billing/extra-lines";
+import { isMissingRelationError } from "@/lib/errors";
+
 /**
  * After a contract exists, it is the operational source of truth.
  * Keep the linked reservation aligned so the calendar (reservation-backed)
@@ -19,6 +26,8 @@ export async function syncReservationFromContract(
     courtesyDetail?: string | null;
     vehicleId?: string | null;
     status?: "CONFIRMED" | "ACTIVE" | "COMPLETED" | "CANCELLED" | null;
+    additionalCosts?: number | null;
+    extraLineItems?: ExtraLineItem[] | null;
   },
 ): Promise<void> {
   const patch: Record<string, unknown> = {
@@ -47,11 +56,31 @@ export async function syncReservationFromContract(
   if (input.vehicleId) patch.vehicle_id = input.vehicleId;
   if (input.status) patch.status = input.status;
 
-  const { error } = await supabase
+  if (input.extraLineItems !== undefined && input.extraLineItems !== null) {
+    const lines = normalizeExtraLineItems(input.extraLineItems);
+    patch.extra_line_items = lines;
+    patch.additional_costs = sumExtraLineItems(lines);
+  } else if (
+    input.additionalCosts != null &&
+    Number.isFinite(input.additionalCosts)
+  ) {
+    patch.additional_costs = input.additionalCosts;
+  }
+
+  let { error } = await supabase
     .from("reservations")
     .update(patch)
     .eq("id", input.reservationId)
     .is("deleted_at", null);
+
+  if (error && isMissingRelationError(error) && "extra_line_items" in patch) {
+    delete patch.extra_line_items;
+    ({ error } = await supabase
+      .from("reservations")
+      .update(patch)
+      .eq("id", input.reservationId)
+      .is("deleted_at", null));
+  }
 
   if (error) {
     console.error(

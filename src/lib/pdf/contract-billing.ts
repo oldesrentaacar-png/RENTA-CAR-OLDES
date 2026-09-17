@@ -75,21 +75,25 @@ export function buildContractBillingBreakdown(input: {
   const applyIva = Boolean(input.applyIva);
   const taxRate = Math.max(0, Number(input.taxRate) || 0.13);
 
-  const candidates: ContractBillingLine[] = [];
-  for (const item of input.quoteLines ?? []) {
-    const label = String(item.description ?? "").trim();
-    const amount = money(Number(item.amount ?? 0));
-    if (!label || amount <= 0) continue;
-    if (isExcludedQuoteBillingLine(label, item.item_type)) continue;
-    candidates.push({ label, amount });
-  }
-
   const manual: ContractBillingLine[] = [];
   for (const item of input.manualLines ?? []) {
     const label = String(item.label ?? "").trim();
     const amount = money(Number(item.amount ?? 0));
     if (!label || amount <= 0) continue;
     manual.push({ label, amount });
+  }
+
+  // If the contract already has named extras, those are the source of truth.
+  // Do not also merge live quote lines (avoids double-counting baby seat, etc.).
+  const candidates: ContractBillingLine[] = [];
+  if (manual.length === 0) {
+    for (const item of input.quoteLines ?? []) {
+      const label = String(item.description ?? "").trim();
+      const amount = money(Number(item.amount ?? 0));
+      if (!label || amount <= 0) continue;
+      if (isExcludedQuoteBillingLine(label, item.item_type)) continue;
+      candidates.push({ label, amount });
+    }
   }
 
   const quoteExtrasSum = money(

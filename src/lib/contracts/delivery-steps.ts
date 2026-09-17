@@ -32,9 +32,11 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
   return [
     {
       id: "cliente-vehiculo",
-      title: "Cliente y vehículo",
-      description: `${customerName} · ${vehicleLabel}`,
+      title: "Cliente, vehículo y cobros",
+      description: `${customerName} · ${vehicleLabel}. Revise tarifas y extras (silla, entrega, etc.) aquí.`,
       status: "done",
+      href: `/dashboard/contratos/${contractId}#seccion-1`,
+      linkLabel: "Ver / Editar cobros",
     },
     {
       id: "inspeccion-salida",

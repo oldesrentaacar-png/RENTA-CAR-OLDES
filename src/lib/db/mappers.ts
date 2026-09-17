@@ -145,6 +145,7 @@ type ReservationRow = {
   cash_amount?: number | null;
   card_amount?: number | null;
   additional_costs?: number | null;
+  extra_line_items?: Array<{ label?: string; amount?: number }> | null;
   courtesy_amount?: number | null;
   courtesy_detail?: string | null;
   apply_iva?: boolean | null;
@@ -435,6 +436,14 @@ export function mapReservationRow(row: ReservationRow): Reservation {
     cash_amount: asNumber(row.cash_amount, 0),
     card_amount: asNumber(row.card_amount, 0),
     additional_costs: asNumber(row.additional_costs, 0),
+    extra_line_items: Array.isArray(row.extra_line_items)
+      ? row.extra_line_items
+          .map((item) => ({
+            label: String(item?.label ?? "").trim(),
+            amount: asNumber(item?.amount, 0),
+          }))
+          .filter((item) => item.label && item.amount > 0)
+      : [],
     courtesy_amount: asNumber(row.courtesy_amount, 0),
     courtesy_detail: row.courtesy_detail ?? null,
     apply_iva: Boolean(row.apply_iva),

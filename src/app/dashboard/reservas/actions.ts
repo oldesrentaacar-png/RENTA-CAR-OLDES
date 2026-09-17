@@ -11,13 +11,20 @@ import {
   type QuoteRow,
   type ReservationRow,
 } from "@/lib/db/mappers";
-import { mapPostgresError, toUserMessage } from "@/lib/errors";
+import { mapPostgresError, toUserMessage, isMissingRelationError } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { calculateReservationTotal, deriveReservationPricingFromQuote } from "@/lib/calculations/quote";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { parseMoneyInput } from "@/lib/money";
 import { computeOptionalIvaTotals } from "@/lib/pdf/contract-billing";
+import {
+  extraLinesFromQuoteItems,
+  normalizeExtraLineItems,
+  parseExtraLineItemsFromForm,
+  resolveExtraLineItems,
+  sumExtraLineItems,
+} from "@/lib/billing/extra-lines";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { getLinkedOpenContract } from "@/lib/contracts/sync-reservation";
@@ -186,6 +193,8 @@ export async function getReservation(
         status: string;
         closed_at: string | null;
       } | null;
+      /** Named extras for display (from reservation or quote fallback). */
+      billableExtras: Array<{ label: string; amount: number }>;
     }
   >
 > {
@@ -253,9 +262,25 @@ export async function getReservation(
       : "—";
 
     const linkedContract = await getLinkedOpenContract(supabase, id);
+    const mapped = mapReservationRow(row);
+
+    let billableExtras = normalizeExtraLineItems(mapped.extra_line_items);
+    if (billableExtras.length === 0 && mapped.quote_id) {
+      const { data: quoteItems } = await supabase
+        .from("quote_items")
+        .select("description, amount, item_type")
+        .eq("quote_id", mapped.quote_id);
+      billableExtras = extraLinesFromQuoteItems(quoteItems);
+    }
+    if (billableExtras.length === 0 && mapped.additional_costs > 0) {
+      billableExtras = resolveExtraLineItems({
+        lumpAmount: mapped.additional_costs,
+        lumpLabel: "Costos adicionales",
+      });
+    }
 
     return actionSuccess({
-      ...mapReservationRow(row),
+      ...mapped,
       customerName,
       vehicleLabel: formatVehicleLabel(vehicle),
       plate: String(vehicle?.plate ?? "").trim() || "—",
@@ -263,6 +288,7 @@ export async function getReservation(
       vehicleModel: vehicle?.model ?? null,
       vehicleYear: vehicle?.year ?? null,
       linkedContract,
+      billableExtras,
     });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -285,9 +311,20 @@ export async function createReservation(
     const insurance = parseMoneyInput(formData.get("insurance") || 0);
     const cashAmount = parseMoneyInput(formData.get("cashAmount") || 0);
     const cardAmount = parseMoneyInput(formData.get("cardAmount") || 0);
-    const additionalCosts = parseMoneyInput(
-      formData.get("additionalCosts") || 0,
+    const namedExtras = parseExtraLineItemsFromForm(
+      formData.get("extraLineItems"),
     );
+    const additionalCostsFromLines =
+      namedExtras !== undefined ? sumExtraLineItems(namedExtras) : undefined;
+    const additionalCosts =
+      additionalCostsFromLines !== undefined
+        ? additionalCostsFromLines
+        : parseMoneyInput(formData.get("additionalCosts") || 0);
+    const extraLineItems = resolveExtraLineItems({
+      named: namedExtras,
+      lumpAmount: additionalCosts,
+      lumpLabel: "Costos adicionales",
+    });
     const canCourtesy = await canManageCourtesyDiscount(user.id);
     const courtesyAmount = canCourtesy
       ? parseMoneyInput(formData.get("courtesyAmount") || 0)
@@ -361,35 +398,47 @@ export async function createReservation(
       );
     }
 
-    const { data, error } = await supabase
+    const insertPayload: Record<string, unknown> = {
+      customer_id: parsed.data.customerId,
+      vehicle_id: parsed.data.vehicleId,
+      quote_id: parsed.data.quoteId ?? null,
+      start_at: parsed.data.startAt,
+      end_at: parsed.data.endAt,
+      pickup_location: parsed.data.pickupLocation ?? null,
+      return_location: parsed.data.returnLocation ?? null,
+      vehicle_type: parsed.data.vehicleType ?? null,
+      agreed_rate: parsed.data.agreedRate,
+      deposit: parsed.data.deposit,
+      insurance: parsed.data.insurance,
+      total: parsed.data.total,
+      cash_amount: parsed.data.cashAmount,
+      card_amount: parsed.data.cardAmount,
+      additional_costs: parsed.data.additionalCosts,
+      extra_line_items: extraLineItems,
+      courtesy_amount: parsed.data.courtesyAmount ?? 0,
+      courtesy_detail: parsed.data.courtesyDetail ?? null,
+      apply_iva: parsed.data.applyIva,
+      tax_rate: parsed.data.taxRate,
+      tax_amount: parsed.data.taxAmount,
+      notes: parsed.data.notes ?? null,
+      status: parsed.data.status,
+      created_by: user.id,
+    };
+
+    let { data, error } = await supabase
       .from("reservations")
-      .insert({
-        customer_id: parsed.data.customerId,
-        vehicle_id: parsed.data.vehicleId,
-        quote_id: parsed.data.quoteId ?? null,
-        start_at: parsed.data.startAt,
-        end_at: parsed.data.endAt,
-        pickup_location: parsed.data.pickupLocation ?? null,
-        return_location: parsed.data.returnLocation ?? null,
-        vehicle_type: parsed.data.vehicleType ?? null,
-        agreed_rate: parsed.data.agreedRate,
-        deposit: parsed.data.deposit,
-        insurance: parsed.data.insurance,
-        total: parsed.data.total,
-        cash_amount: parsed.data.cashAmount,
-        card_amount: parsed.data.cardAmount,
-        additional_costs: parsed.data.additionalCosts,
-        courtesy_amount: parsed.data.courtesyAmount ?? 0,
-        courtesy_detail: parsed.data.courtesyDetail ?? null,
-        apply_iva: parsed.data.applyIva,
-        tax_rate: parsed.data.taxRate,
-        tax_amount: parsed.data.taxAmount,
-        notes: parsed.data.notes ?? null,
-        status: parsed.data.status,
-        created_by: user.id,
-      })
+      .insert(insertPayload)
       .select("id")
       .single();
+
+    if (error && isMissingRelationError(error)) {
+      delete insertPayload.extra_line_items;
+      ({ data, error } = await supabase
+        .from("reservations")
+        .insert(insertPayload)
+        .select("id")
+        .single());
+    }
 
     if (error) throw mapPostgresError(error);
 
@@ -502,30 +551,52 @@ export async function createReservationFromQuote(
           ].join("\n")
         : "";
 
-    const { data, error } = await supabase
+    const namedExtras = pricing.extraLines.map((line) => ({
+      label: line.description,
+      amount: line.amount,
+    }));
+    const extraLineItems = resolveExtraLineItems({
+      named: namedExtras,
+      lumpAmount: pricing.additionalCosts,
+      lumpLabel: `Extras desde cotización ${q.code}`,
+    });
+
+    const insertPayload: Record<string, unknown> = {
+      customer_id: q.customer_id,
+      vehicle_id: q.vehicle_id,
+      quote_id: quoteId,
+      start_at: q.start_at,
+      end_at: q.end_at,
+      agreed_rate: pricing.agreedRate,
+      deposit: q.deposit_amount,
+      insurance: 0,
+      total: pricing.total,
+      cash_amount: pricing.total,
+      card_amount: 0,
+      additional_costs: pricing.additionalCosts,
+      extra_line_items: extraLineItems,
+      apply_iva: false,
+      tax_rate: 0.13,
+      tax_amount: 0,
+      notes: [q.notes?.trim() || "", extrasNote].filter(Boolean).join("\n\n") || null,
+      status: "CONFIRMED",
+      created_by: user.id,
+    };
+
+    let { data, error } = await supabase
       .from("reservations")
-      .insert({
-        customer_id: q.customer_id,
-        vehicle_id: q.vehicle_id,
-        quote_id: quoteId,
-        start_at: q.start_at,
-        end_at: q.end_at,
-        agreed_rate: pricing.agreedRate,
-        deposit: q.deposit_amount,
-        insurance: 0,
-        total: pricing.total,
-        cash_amount: pricing.total,
-        card_amount: 0,
-        additional_costs: pricing.additionalCosts,
-        apply_iva: false,
-        tax_rate: 0.13,
-        tax_amount: 0,
-        notes: [q.notes?.trim() || "", extrasNote].filter(Boolean).join("\n\n") || null,
-        status: "CONFIRMED",
-        created_by: user.id,
-      })
+      .insert(insertPayload)
       .select("id")
       .single();
+
+    if (error && isMissingRelationError(error)) {
+      delete insertPayload.extra_line_items;
+      ({ data, error } = await supabase
+        .from("reservations")
+        .insert(insertPayload)
+        .select("id")
+        .single());
+    }
 
     if (error) throw mapPostgresError(error);
 
@@ -582,11 +653,21 @@ export async function updateReservation(
     const cashAmountRaw = formData.get("cashAmount");
     const cardAmountRaw = formData.get("cardAmount");
     const additionalCostsRaw = formData.get("additionalCosts");
+    const namedExtras = parseExtraLineItemsFromForm(
+      formData.get("extraLineItems"),
+    );
     const courtesyAmountRaw = formData.get("courtesyAmount");
     const courtesyDetailRaw = formData.get("courtesyDetail");
     const applyIvaRaw = formData.get("applyIva");
     const taxRateRawForm = formData.get("taxRate");
     const canCourtesy = await canManageCourtesyDiscount(user.id);
+
+    const additionalCostsResolved =
+      namedExtras !== undefined
+        ? sumExtraLineItems(namedExtras)
+        : additionalCostsRaw !== null && additionalCostsRaw !== ""
+          ? parseMoneyInput(additionalCostsRaw)
+          : undefined;
 
     const parsed = reservationUpdateSchema.safeParse({
       customerId: formData.get("customerId") || undefined,
@@ -616,10 +697,7 @@ export async function updateReservation(
         cardAmountRaw !== null && cardAmountRaw !== ""
           ? parseMoneyInput(cardAmountRaw)
           : undefined,
-      additionalCosts:
-        additionalCostsRaw !== null && additionalCostsRaw !== ""
-          ? parseMoneyInput(additionalCostsRaw)
-          : undefined,
+      additionalCosts: additionalCostsResolved,
       courtesyAmount:
         canCourtesy &&
         courtesyAmountRaw !== null &&
@@ -663,6 +741,7 @@ export async function updateReservation(
         parsed.data.deposit !== undefined ||
         parsed.data.insurance !== undefined ||
         parsed.data.additionalCosts !== undefined ||
+        namedExtras !== undefined ||
         parsed.data.courtesyAmount !== undefined ||
         parsed.data.applyIva !== undefined ||
         parsed.data.total !== undefined;
@@ -695,6 +774,14 @@ export async function updateReservation(
       row.card_amount = parsed.data.cardAmount;
     if (parsed.data.additionalCosts !== undefined)
       row.additional_costs = parsed.data.additionalCosts;
+    if (namedExtras !== undefined) {
+      const lines = resolveExtraLineItems({
+        named: namedExtras,
+        lumpAmount: parsed.data.additionalCosts,
+      });
+      row.extra_line_items = lines;
+      row.additional_costs = sumExtraLineItems(lines);
+    }
     if (canCourtesy && parsed.data.courtesyAmount !== undefined)
       row.courtesy_amount = parsed.data.courtesyAmount;
     if (canCourtesy && parsed.data.courtesyDetail !== undefined)
@@ -779,11 +866,20 @@ export async function updateReservation(
     }
 
     const supabase = await createClient();
-    const { error } = await supabase
+    let { error } = await supabase
       .from("reservations")
       .update(row)
       .eq("id", id)
       .is("deleted_at", null);
+
+    if (error && isMissingRelationError(error) && "extra_line_items" in row) {
+      delete row.extra_line_items;
+      ({ error } = await supabase
+        .from("reservations")
+        .update(row)
+        .eq("id", id)
+        .is("deleted_at", null));
+    }
 
     if (error) throw mapPostgresError(error);
 

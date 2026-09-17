@@ -25,6 +25,7 @@ import {
 } from "@/lib/inspections/defaults";
 import {
   INSPECTION_PHOTOS_BUCKET,
+  deletePrivateObject,
   resolvePrivateFileUrl,
   uploadInspectionPhoto,
 } from "@/lib/storage/private-upload";
@@ -821,6 +822,75 @@ export async function uploadInspectionPhotoAction(
       id: (data as { id: string }).id,
       warning: upload.warning,
     });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export async function deleteInspectionPhotoAction(
+  inspectionId: string,
+  photoId: string,
+): Promise<ActionResult<void>> {
+  try {
+    const { user } = await assertAnyPermission([
+      "inspections.edit",
+      "inspections.create",
+    ]);
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+    if (!photoId) return actionError("Foto no válida.");
+
+    const supabase = await createClient();
+    const { data: photo, error: loadError } = await supabase
+      .from("inspection_photos")
+      .select("id, storage_path, inspection_id")
+      .eq("id", photoId)
+      .eq("inspection_id", inspectionId)
+      .maybeSingle();
+
+    if (loadError) throw mapPostgresError(loadError);
+    if (!photo) return actionError("Foto no encontrada.");
+
+    const storagePath = String(
+      (photo as { storage_path?: string }).storage_path ?? "",
+    );
+
+    // Clear optional damage-mark links before deleting the photo row.
+    await supabase
+      .from("inspection_damage_marks")
+      .update({ photo_id: null })
+      .eq("photo_id", photoId);
+
+    const { error: deleteError } = await supabase
+      .from("inspection_photos")
+      .delete()
+      .eq("id", photoId)
+      .eq("inspection_id", inspectionId);
+
+    if (deleteError) throw mapPostgresError(deleteError);
+
+    try {
+      await deletePrivateObject(storagePath, {
+        bucket: INSPECTION_PHOTOS_BUCKET,
+      });
+    } catch (storageErr) {
+      console.error(
+        "[deleteInspectionPhotoAction] storage",
+        storageErr instanceof Error ? storageErr.message : storageErr,
+      );
+    }
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "inspection.photo.delete",
+      entityType: "inspection",
+      entityId: inspectionId,
+      metadata: { photoId },
+    });
+
+    revalidatePath(`/dashboard/inspecciones/${inspectionId}`);
+    return actionSuccess(undefined as void);
   } catch (error) {
     return actionError(toUserMessage(error));
   }

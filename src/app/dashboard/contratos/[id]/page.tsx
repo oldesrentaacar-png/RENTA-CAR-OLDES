@@ -299,15 +299,51 @@ export default async function ContratoDetailPage({
               />
             ) : null}
 
-            <ContractExtraLinesEditor
-              contractId={contract.id}
-              initialLines={contract.extra_line_items ?? []}
-              canEdit={
-                canEdit &&
-                contract.status !== "COMPLETED" &&
-                contract.status !== "CANCELLED"
-              }
-            />
+            <Card id="seccion-1">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  1. Cliente, vehículo y cobros
+                </CardTitle>
+                <p className="text-sm text-muted">
+                  Aquí viven los mismos conceptos de cotización/reserva: tarifa,
+                  seguro y extras con nombre (silla bebé, entrega, GPS…). Se
+                  copian al PDF. Solo se editan en estado pendiente de firma.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2 text-sm sm:grid-cols-2">
+                  <p>
+                    <span className="text-muted">Cliente:</span>{" "}
+                    {contract.customerName}
+                  </p>
+                  <p>
+                    <span className="text-muted">Vehículo:</span>{" "}
+                    {contract.vehicleLabel}
+                  </p>
+                  <p>
+                    <span className="text-muted">Tarifa / día:</span>{" "}
+                    {formatMoney(contract.agreed_rate)}
+                  </p>
+                  <p>
+                    <span className="text-muted">Seguro:</span>{" "}
+                    {formatMoney(contract.insurance)}
+                  </p>
+                  <p>
+                    <span className="text-muted">Depósito:</span>{" "}
+                    {formatMoney(contract.deposit)}
+                  </p>
+                  <p className="font-semibold">
+                    <span className="text-muted">Total:</span>{" "}
+                    {formatMoney(contract.total)}
+                  </p>
+                </div>
+                <ContractExtraLinesEditor
+                  contractId={contract.id}
+                  initialLines={contract.extra_line_items ?? []}
+                  canEdit={canEdit && contract.status === "PENDING"}
+                />
+              </CardContent>
+            </Card>
 
             {contract.signatures.length > 0 ? (
               <Card>

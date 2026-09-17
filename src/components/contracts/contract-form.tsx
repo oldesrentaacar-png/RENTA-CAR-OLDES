@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { toDatetimeLocalValue } from "@/lib/dates";
-import { parseMoneyInput } from "@/lib/money";
+import { formatMoney, parseMoneyInput } from "@/lib/money";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import type { Customer, Reservation, Vehicle } from "@/types/database";
 
@@ -37,8 +37,13 @@ export function ContractForm({
   const [agreedRate, setAgreedRate] = useState(String(reservation.agreed_rate));
   const [deposit, setDeposit] = useState(String(reservation.deposit ?? 0));
   const [insurance, setInsurance] = useState(String(reservation.insurance ?? 0));
-  const [additionalCosts, setAdditionalCosts] = useState(
-    String(reservation.additional_costs ?? 0),
+  const additionalCosts = String(
+    (reservation.extra_line_items ?? []).length > 0
+      ? (reservation.extra_line_items ?? []).reduce(
+          (sum, line) => sum + Number(line.amount || 0),
+          0,
+        )
+      : (reservation.additional_costs ?? 0),
   );
   const [courtesyAmount, setCourtesyAmount] = useState(
     String(reservation.courtesy_amount ?? 0),
@@ -138,16 +143,17 @@ export function ContractForm({
       </div>
 
       <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">
-        Los montos vienen de la reserva. Si cambia fechas o tarifa, el total se
-        recalcula solo.
+        Los montos y extras nombrados vienen de la reserva (misma lógica que la
+        cotización). Tras crear, ajústelos en la sección 1 del contrato antes de
+        firmar.
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-4 text-sm">
         <p className="font-medium">Flujo de entrega (después de crear)</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted">
-          <li>Cliente y vehículo (este paso)</li>
+          <li>Cliente, vehículo y cobros (sección 1)</li>
           <li>Inspección de salida</li>
-          <li>Checklist de accesorios</li>
+          <li>Accesorios y mapa de daños</li>
           <li>Términos y firma digital</li>
           <li>Abonos</li>
           <li>PDF del contrato</li>
@@ -192,20 +198,32 @@ export function ContractForm({
           value={insurance}
           onChange={(e) => setInsurance(e.target.value)}
         />
-        <div className="space-y-1">
-          <Input
-            name="additionalCosts"
-            label="Costos adicionales (USD)"
-            type="number"
-            step="0.01"
-            min="0"
-            inputMode="decimal"
-            value={additionalCosts}
-            onChange={(e) => setAdditionalCosts(e.target.value)}
-          />
-          <p className="text-xs text-muted">
-            Viene de la reserva. Distinto del Seguro.
-          </p>
+        <div className="sm:col-span-2 space-y-2 rounded-xl border border-border bg-surface-muted/30 p-4">
+          <p className="text-sm font-semibold">Cobros extras desde la reserva</p>
+          {(reservation.extra_line_items ?? []).length > 0 ? (
+            <ul className="space-y-1 text-sm">
+              {(reservation.extra_line_items ?? []).map((line, index) => (
+                <li
+                  key={`${line.label}-${index}`}
+                  className="flex justify-between gap-3"
+                >
+                  <span>{line.label}</span>
+                  <span className="font-medium">{formatMoney(line.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : Number(reservation.additional_costs ?? 0) > 0 ? (
+            <p className="text-sm">
+              Costos adicionales:{" "}
+              <strong>{formatMoney(reservation.additional_costs)}</strong>
+            </p>
+          ) : (
+            <p className="text-xs text-muted">
+              Sin extras nombrados en la reserva. Podrá agregarlos en la sección
+              1 del contrato antes de firmar.
+            </p>
+          )}
+          <input type="hidden" name="additionalCosts" value={additionalCosts} />
         </div>
         <Input
           name="deposit"
@@ -272,7 +290,7 @@ export function ContractForm({
             subtotal={preview.rentalSubtotal}
             insurance={preview.insurance}
             extras={preview.additionalCosts}
-            extrasLabel="Costos adicionales"
+            extrasLabel="Cobros extras"
             courtesy={preview.courtesyAmount}
             courtesyDetail={
               canManageCourtesy
@@ -282,6 +300,10 @@ export function ContractForm({
             tax={preview.taxAmount}
             deposit={parseMoneyInput(deposit)}
             total={preview.totalWithIva}
+            lines={(reservation.extra_line_items ?? []).map((line) => ({
+              description: line.label,
+              amount: line.amount,
+            }))}
           />
           {applyIva ? (
             <p className="text-sm text-muted">
