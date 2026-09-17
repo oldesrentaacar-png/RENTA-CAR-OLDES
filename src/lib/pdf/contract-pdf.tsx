@@ -47,6 +47,7 @@ export type ContractDamageMarkPdf = {
   description?: string | null;
   severity?: "LOW" | "MEDIUM" | "HIGH" | string;
   markNumber?: number;
+  pathPoints?: Array<{ x: number; y: number }>;
 };
 
 export type ContractPdfProps = {

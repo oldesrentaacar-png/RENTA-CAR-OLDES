@@ -51,7 +51,15 @@ export const contractSignSchema = z.object({
   signatureDataUrl: z
     .string()
     .min(1, "Firma requerida.")
-    .regex(/^data:image\/(png|jpeg|webp);base64,/, "Formato de firma inválido."),
+    .regex(/^data:image\/(png|jpeg|webp);base64,/, "Formato de firma inválido.")
+    .refine(
+      (value) => value.length >= 500,
+      "La firma está vacía. Dibújela de nuevo y confirme.",
+    )
+    .refine(
+      (value) => value.length <= 1_500_000,
+      "La firma es demasiado pesada. Limpie el pad, dibuje de nuevo y confirme.",
+    ),
   acceptedTerms: z
     .union([z.literal("true"), z.literal("false"), z.boolean()])
     .optional()

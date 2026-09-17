@@ -2211,7 +2211,7 @@ export async function getContractPdfData(contractId: string) {
     supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, handover_person_name, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description, severity, mark_number), inspection_photos(storage_path, category, caption)",
+        "id, type, mileage, fuel_level, handover_person_name, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description, severity, mark_number, path_points), inspection_photos(storage_path, category, caption)",
       )
       .eq("reservation_id", row.reservation_id)
       .order("inspection_date", { ascending: true }),
@@ -2258,6 +2258,7 @@ export async function getContractPdfData(contractId: string) {
           description?: string | null;
           severity?: string | null;
           mark_number?: number | null;
+          path_points?: Array<{ x: number; y: number }> | null;
         }>
       | null;
   };
@@ -2317,6 +2318,24 @@ export async function getContractPdfData(contractId: string) {
   applyChecklist(checkOut?.inspection_checklist_items, "checkOut");
   applyChecklist(checkIn?.inspection_checklist_items, "checkIn");
 
+  const mapDamagePathPoints = (
+    raw: Array<{ x: number; y: number }> | null | undefined,
+  ) => {
+    if (!Array.isArray(raw) || raw.length < 2) return undefined;
+    const points = raw
+      .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+      .filter(
+        (p) =>
+          Number.isFinite(p.x) &&
+          Number.isFinite(p.y) &&
+          p.x >= 0 &&
+          p.x <= 1 &&
+          p.y >= 0 &&
+          p.y <= 1,
+      );
+    return points.length >= 2 ? points : undefined;
+  };
+
   const damageMarks = [
     ...(checkOut?.inspection_damage_marks ?? []).map((mark, index) => ({
       view: mark.view,
@@ -2328,6 +2347,7 @@ export async function getContractPdfData(contractId: string) {
       description: mark.description ?? null,
       severity: mark.severity ?? "LOW",
       markNumber: Number(mark.mark_number ?? index + 1),
+      pathPoints: mapDamagePathPoints(mark.path_points),
     })),
     ...(checkIn?.inspection_damage_marks ?? []).map((mark, index) => ({
       view: mark.view,
@@ -2339,6 +2359,7 @@ export async function getContractPdfData(contractId: string) {
       description: mark.description ?? null,
       severity: mark.severity ?? "LOW",
       markNumber: Number(mark.mark_number ?? index + 1),
+      pathPoints: mapDamagePathPoints(mark.path_points),
     })),
   ];
 

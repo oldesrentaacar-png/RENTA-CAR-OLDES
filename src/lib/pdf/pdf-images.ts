@@ -36,6 +36,8 @@ export type WireframeDamageMark = {
   phase?: "OUT" | "IN";
   severity?: string;
   markNumber?: number;
+  /** Normalized freehand stroke (0–1), same coords as UI. */
+  pathPoints?: Array<{ x: number; y: number }>;
 };
 
 /** Draw mark glyphs as vectors (no system fonts — sharp/librsvg often skips text). */
@@ -89,6 +91,51 @@ function damageMarkSvg(
  * coordinates as the inspection UI (x/y in 0–1 over the full image).
  * Avoids react-pdf absolute-position drift from objectFit/letterboxing.
  */
+function markStrokeColor(mark: WireframeDamageMark): string {
+  const bySeverity =
+    mark.severity === "HIGH"
+      ? "#b91c1c"
+      : mark.severity === "MEDIUM"
+        ? "#c2410c"
+        : mark.severity === "LOW"
+          ? "#15803d"
+          : null;
+  return bySeverity ?? (mark.phase === "IN" ? "#b91c1c" : "#0f2747");
+}
+
+function freehandStrokeSvg(
+  points: Array<{ x: number; y: number }>,
+  width: number,
+  height: number,
+  stroke: string,
+): Buffer | null {
+  const usable = points.filter(
+    (p) =>
+      Number.isFinite(p.x) &&
+      Number.isFinite(p.y) &&
+      p.x >= 0 &&
+      p.x <= 1 &&
+      p.y >= 0 &&
+      p.y <= 1,
+  );
+  if (usable.length < 2) return null;
+
+  const strokeWidth = Math.max(3, Math.round(Math.min(width, height) * 0.0045));
+  const d = usable
+    .map((p, i) => {
+      const x = Math.round(p.x * width);
+      const y = Math.round(p.y * height);
+      return `${i === 0 ? "M" : "L"}${x} ${y}`;
+    })
+    .join(" ");
+
+  return Buffer.from(
+    `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  <path d="${d}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>
+</svg>`,
+  );
+}
+
 export async function compositeDamageMarksOnWireframe(
   wireframeDataUrl: string,
   marks: WireframeDamageMark[],
@@ -116,22 +163,33 @@ export async function compositeDamageMarksOnWireframe(
   const diameter = Math.max(28, Math.round(Math.min(width, height) * 0.028));
   const radius = diameter / 2;
 
-  const overlays = await Promise.all(
+  const strokeOverlays = (
+    await Promise.all(
+      usable.map(async (mark) => {
+        if (!mark.pathPoints || mark.pathPoints.length < 2) return null;
+        const svg = freehandStrokeSvg(
+          mark.pathPoints,
+          width,
+          height,
+          markStrokeColor(mark),
+        );
+        if (!svg) return null;
+        return {
+          input: await sharp(svg).png().toBuffer(),
+          left: 0,
+          top: 0,
+        };
+      }),
+    )
+  ).filter((item): item is { input: Buffer; left: number; top: number } =>
+    Boolean(item),
+  );
+
+  const pinOverlays = await Promise.all(
     usable.map(async (mark) => {
       const cx = Math.round(mark.x * width);
       const cy = Math.round(mark.y * height);
-      // Severidad pinta el pin; fase IN fuerza rojo si no hay severidad alta.
-      const bySeverity =
-        mark.severity === "HIGH"
-          ? "#b91c1c"
-          : mark.severity === "MEDIUM"
-            ? "#c2410c"
-            : mark.severity === "LOW"
-              ? "#15803d"
-              : null;
-      const fill =
-        bySeverity ??
-        (mark.phase === "IN" ? "#b91c1c" : "#0f2747");
+      const fill = markStrokeColor(mark);
       const svg = damageMarkSvg(mark.symbol || "0", diameter, fill);
 
       const left = Math.max(
@@ -151,7 +209,10 @@ export async function compositeDamageMarksOnWireframe(
     }),
   );
 
-  const out = await sharp(input).composite(overlays).png().toBuffer();
+  const out = await sharp(input)
+    .composite([...strokeOverlays, ...pinOverlays])
+    .png()
+    .toBuffer();
   return `data:image/png;base64,${out.toString("base64")}`;
 }
 

@@ -79,8 +79,22 @@ export async function loginAction(
     };
   }
 
+  let destination = redirectTo.startsWith("/") ? redirectTo : "/dashboard";
+  // Visitante / solo calendario: no aterrizar en el panel general.
+  if (destination === "/dashboard" || destination === "/dashboard/") {
+    try {
+      const { getEffectivePermissions } = await import("@/lib/auth/permissions");
+      const perms = await getEffectivePermissions(data.user.id);
+      if (!perms.has("dashboard.view") && perms.has("calendar.view")) {
+        destination = "/dashboard/calendario";
+      }
+    } catch {
+      // Keep default destination if permissions cannot be loaded.
+    }
+  }
+
   revalidatePath("/dashboard", "layout");
-  redirect(redirectTo.startsWith("/") ? redirectTo : "/dashboard");
+  redirect(destination);
 }
 
 export async function logoutAction(): Promise<void> {
