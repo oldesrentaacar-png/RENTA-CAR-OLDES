@@ -60,6 +60,8 @@ export function buildContractBillingBreakdown(input: {
     amount?: number | null;
     item_type?: string | null;
   }>;
+  /** Manual extras added on the contract (always shown). */
+  manualLines?: Array<{ label?: string | null; amount?: number | null }>;
   applyIva?: boolean;
   taxRate?: number;
   taxAmount?: number;
@@ -82,63 +84,79 @@ export function buildContractBillingBreakdown(input: {
     candidates.push({ label, amount });
   }
 
-  const extrasSum = money(
+  const manual: ContractBillingLine[] = [];
+  for (const item of input.manualLines ?? []) {
+    const label = String(item.label ?? "").trim();
+    const amount = money(Number(item.amount ?? 0));
+    if (!label || amount <= 0) continue;
+    manual.push({ label, amount });
+  }
+
+  const quoteExtrasSum = money(
     candidates.reduce((sum, line) => toNumber(add(sum, line.amount)), 0),
   );
+  const manualSum = money(
+    manual.reduce((sum, line) => toNumber(add(sum, line.amount)), 0),
+  );
 
-  let extraLines: ContractBillingLine[] = [];
-  let pretaxTotal = base;
+  // Preferred pretax when we trust line parts: rental + insurance + quote + manual.
+  const partsPretax = money(
+    toNumber(add(add(base, quoteExtrasSum), manualSum)),
+  );
 
-  // Happy path: base + quote extras == contracted total (no IVA) or pretax.
-  if (
-    candidates.length > 0 &&
-    almostEqual(toNumber(add(base, extrasSum)), contractTotal)
-  ) {
-    extraLines = candidates;
-    pretaxTotal = money(toNumber(add(base, extrasSum)));
-  } else if (almostEqual(base, contractTotal)) {
-    extraLines = [];
-    pretaxTotal = base;
-  } else if (contractTotal > base + MONEY_EPS && !applyIva) {
-    const adjustment = money(toNumber(subtract(contractTotal, base)));
-    extraLines = [{ label: "Otros cargos acordados", amount: adjustment }];
-    pretaxTotal = contractTotal;
-  } else if (applyIva) {
-    // Prefer stored tax; else reverse from inclusive total.
+  let extraLines: ContractBillingLine[] = [...candidates, ...manual];
+  let pretaxTotal = partsPretax;
+
+  if (applyIva) {
     const storedTax = money(Math.max(0, Number(input.taxAmount) || 0));
     if (storedTax > 0 && contractTotal > storedTax) {
       pretaxTotal = money(toNumber(subtract(contractTotal, storedTax)));
-      if (candidates.length > 0) extraLines = candidates;
-      else if (!almostEqual(base, pretaxTotal) && pretaxTotal > base + MONEY_EPS) {
-        extraLines = [
-          {
-            label: "Otros cargos acordados",
-            amount: money(toNumber(subtract(pretaxTotal, base))),
-          },
-        ];
-      }
-    } else if (taxRate > 0) {
-      pretaxTotal = money(contractTotal / (1 + taxRate));
-      if (candidates.length > 0) {
-        extraLines = candidates;
-        const fromParts = money(toNumber(add(base, extrasSum)));
-        if (almostEqual(fromParts, pretaxTotal)) {
-          pretaxTotal = fromParts;
-        }
-      } else if (!almostEqual(base, pretaxTotal) && pretaxTotal > base + MONEY_EPS) {
-        extraLines = [
-          {
-            label: "Otros cargos acordados",
-            amount: money(toNumber(subtract(pretaxTotal, base))),
-          },
-        ];
+    } else if (taxRate > 0 && !almostEqual(partsPretax * (1 + taxRate), contractTotal)) {
+      // Prefer explicit parts if they nearly match inclusive total.
+      const implied = money(contractTotal / (1 + taxRate));
+      if (almostEqual(partsPretax, implied) || partsPretax > 0) {
+        pretaxTotal = partsPretax;
+      } else {
+        pretaxTotal = implied;
       }
     } else {
-      pretaxTotal = contractTotal;
+      pretaxTotal = partsPretax;
     }
+  } else if (almostEqual(partsPretax, contractTotal) || manual.length > 0 || candidates.length > 0) {
+    pretaxTotal = partsPretax;
+    // If contract total differs and no manual/quote lines, keep legacy adjustment path.
+    if (
+      candidates.length === 0 &&
+      manual.length === 0 &&
+      !almostEqual(base, contractTotal)
+    ) {
+      if (contractTotal > base + MONEY_EPS) {
+        extraLines = [
+          {
+            label: "Otros cargos acordados",
+            amount: money(toNumber(subtract(contractTotal, base))),
+          },
+        ];
+        pretaxTotal = contractTotal;
+      } else {
+        extraLines = [];
+        pretaxTotal = contractTotal;
+      }
+    }
+  } else if (almostEqual(base, contractTotal)) {
+    extraLines = [...manual];
+    pretaxTotal = money(toNumber(add(base, manualSum)));
+  } else if (contractTotal > base + MONEY_EPS) {
+    extraLines = [
+      ...manual,
+      {
+        label: "Otros cargos acordados",
+        amount: money(toNumber(subtract(contractTotal, base + manualSum))),
+      },
+    ].filter((l) => l.amount > 0);
+    pretaxTotal = contractTotal;
   } else {
-    // Contracted total below base (data anomaly): still show fields, never invent.
-    extraLines = [];
+    extraLines = [...manual];
     pretaxTotal = contractTotal;
   }
 
@@ -146,7 +164,7 @@ export function buildContractBillingBreakdown(input: {
     ? money(
         Number(input.taxAmount) > 0
           ? Number(input.taxAmount)
-          : toNumber(subtract(contractTotal, pretaxTotal)),
+          : Math.max(0, toNumber(subtract(contractTotal, pretaxTotal))),
       )
     : 0;
 

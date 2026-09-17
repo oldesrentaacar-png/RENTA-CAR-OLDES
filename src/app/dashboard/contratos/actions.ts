@@ -46,6 +46,7 @@ import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
 import {
   buildContractBillingBreakdown,
   computeOptionalIvaTotals,
+  isExcludedQuoteBillingLine,
 } from "@/lib/pdf/contract-billing";
 import { parseMoneyInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
@@ -1063,7 +1064,7 @@ export async function setContractApplyIva(
     const { data: existing, error: existingError } = await supabase
       .from("contracts")
       .select(
-        "status, agreed_rate, insurance, start_at, end_at, total, apply_iva, tax_rate, tax_amount, subtotal",
+        "status, agreed_rate, insurance, start_at, end_at, total, apply_iva, tax_rate, tax_amount, subtotal, extra_line_items, reservation_id",
       )
       .eq("id", contractId)
       .is("deleted_at", null)
@@ -1083,6 +1084,8 @@ export async function setContractApplyIva(
       tax_rate?: number;
       tax_amount?: number;
       subtotal?: number | null;
+      extra_line_items?: Array<{ label?: string; amount?: number }> | null;
+      reservation_id: string;
     };
 
     if (row.status === "COMPLETED" || row.status === "CANCELLED") {
@@ -1094,17 +1097,48 @@ export async function setContractApplyIva(
     const taxRate =
       taxRatePercent > 1 ? taxRatePercent / 100 : Math.max(0, taxRatePercent);
 
-    // Recover pretax: if IVA was on, strip it; else use current total / rental base.
-    let pretax = Number(row.subtotal ?? 0);
-    if (!(pretax > 0)) {
-      if (row.apply_iva && Number(row.tax_amount) > 0) {
-        pretax = Math.max(0, Number(row.total) - Number(row.tax_amount));
-      } else if (row.apply_iva && Number(row.tax_rate) > 0) {
-        pretax = Number(row.total) / (1 + Number(row.tax_rate));
-      } else {
-        pretax = Number(row.total);
+    const { data: reservationRow } = await supabase
+      .from("reservations")
+      .select("quote_id")
+      .eq("id", row.reservation_id)
+      .maybeSingle();
+    const quoteId = (reservationRow as { quote_id?: string | null } | null)
+      ?.quote_id;
+
+    let quoteExtras = 0;
+    if (quoteId) {
+      const { data: quoteItems } = await supabase
+        .from("quote_items")
+        .select("description, amount, item_type")
+        .eq("quote_id", quoteId);
+      for (const item of (quoteItems ?? []) as Array<{
+        description?: string | null;
+        amount?: number | null;
+        item_type?: string | null;
+      }>) {
+        const label = String(item.description ?? "").trim();
+        const amount = Number(item.amount ?? 0);
+        if (!label || amount <= 0) continue;
+        if (isExcludedQuoteBillingLine(label, item.item_type)) continue;
+        quoteExtras += amount;
       }
     }
+
+    const manualSum = (row.extra_line_items ?? []).reduce((sum, item) => {
+      const amount = Number(item?.amount ?? 0);
+      const label = String(item?.label ?? "").trim();
+      return sum + (label && amount > 0 ? amount : 0);
+    }, 0);
+
+    const days = rentalDaysBetween(row.start_at, row.end_at);
+    const pretax =
+      Math.round(
+        (Number(row.agreed_rate) * days +
+          Number(row.insurance ?? 0) +
+          quoteExtras +
+          manualSum) *
+          100,
+      ) / 100;
 
     const ivaTotals = computeOptionalIvaTotals({
       pretaxTotal: pretax,
@@ -1148,6 +1182,141 @@ export async function setContractApplyIva(
       taxRate: ivaTotals.taxRate,
       taxAmount: ivaTotals.taxAmount,
       total: ivaTotals.total,
+    });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+export type ContractExtraLineInput = { label: string; amount: number };
+
+/** Replace manual extras on a contract and recalculate total (+ optional IVA). */
+export async function setContractExtraLineItems(
+  contractId: string,
+  lines: ContractExtraLineInput[],
+): Promise<
+  ActionResult<{
+    extraLineItems: ContractExtraLineInput[];
+    total: number;
+    taxAmount: number;
+  }>
+> {
+  try {
+    const { user } = await assertPermission("contracts.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const cleaned = lines
+      .map((line) => ({
+        label: String(line.label ?? "").trim().slice(0, 200),
+        amount: Math.round(Number(line.amount) * 100) / 100,
+      }))
+      .filter((line) => line.label.length > 0 && line.amount > 0)
+      .slice(0, 40);
+
+    const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("contracts")
+      .select(
+        "status, agreed_rate, insurance, start_at, end_at, apply_iva, tax_rate, reservation_id",
+      )
+      .eq("id", contractId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Contrato no encontrado.");
+
+    const row = existing as {
+      status: ContractStatus;
+      agreed_rate: number;
+      insurance: number;
+      start_at: string;
+      end_at: string;
+      apply_iva?: boolean;
+      tax_rate?: number;
+      reservation_id: string;
+    };
+
+    if (row.status === "COMPLETED" || row.status === "CANCELLED") {
+      return actionError(
+        "No se pueden editar extras de un contrato completado o cancelado.",
+      );
+    }
+
+    const { data: reservationRow } = await supabase
+      .from("reservations")
+      .select("quote_id")
+      .eq("id", row.reservation_id)
+      .maybeSingle();
+    const quoteId = (reservationRow as { quote_id?: string | null } | null)
+      ?.quote_id;
+
+    let quoteExtras = 0;
+    if (quoteId) {
+      const { data: quoteItems } = await supabase
+        .from("quote_items")
+        .select("description, amount, item_type")
+        .eq("quote_id", quoteId);
+      for (const item of (quoteItems ?? []) as Array<{
+        description?: string | null;
+        amount?: number | null;
+        item_type?: string | null;
+      }>) {
+        const label = String(item.description ?? "").trim();
+        const amount = Number(item.amount ?? 0);
+        if (!label || amount <= 0) continue;
+        if (isExcludedQuoteBillingLine(label, item.item_type)) continue;
+        quoteExtras += amount;
+      }
+    }
+
+    const days = rentalDaysBetween(row.start_at, row.end_at);
+    const rental = Number(row.agreed_rate) * days;
+    const insurance = Number(row.insurance ?? 0);
+    const manualSum = cleaned.reduce((sum, line) => sum + line.amount, 0);
+    const pretax =
+      Math.round((rental + insurance + quoteExtras + manualSum) * 100) / 100;
+
+    const ivaTotals = computeOptionalIvaTotals({
+      pretaxTotal: pretax,
+      applyIva: Boolean(row.apply_iva),
+      taxRate: Number(row.tax_rate ?? 0.13),
+    });
+
+    const { error } = await supabase
+      .from("contracts")
+      .update({
+        extra_line_items: cleaned,
+        subtotal: ivaTotals.pretaxTotal,
+        tax_amount: ivaTotals.taxAmount,
+        total: ivaTotals.total,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", contractId)
+      .is("deleted_at", null);
+
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "contract.extra_line_items",
+      entityType: "contract",
+      entityId: contractId,
+      metadata: {
+        count: cleaned.length,
+        total: ivaTotals.total,
+      },
+    });
+
+    revalidatePath("/dashboard/contratos");
+    revalidatePath(`/dashboard/contratos/${contractId}`);
+    revalidatePath(`/dashboard/contratos/${contractId}/pdf`);
+    return actionSuccess({
+      extraLineItems: cleaned,
+      total: ivaTotals.total,
+      taxAmount: ivaTotals.taxAmount,
     });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -2340,6 +2509,7 @@ export async function getContractPdfData(contractId: string) {
     insurance: mapped.insurance,
     contractTotal: mapped.total,
     quoteLines,
+    manualLines: mapped.extra_line_items ?? [],
     applyIva,
     taxRate,
     taxAmount: Number(mapped.tax_amount ?? 0),

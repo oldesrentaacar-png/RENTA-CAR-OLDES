@@ -7,6 +7,7 @@ import {
 } from "@/app/dashboard/contratos/actions";
 import { listPaymentReceipts } from "@/app/dashboard/recibos/actions";
 import { ContractDetailActions } from "@/components/contracts/contract-actions";
+import { ContractExtraLinesEditor } from "@/components/contracts/contract-extra-lines-editor";
 import { ContractPdfLink } from "@/components/contracts/contract-pdf-link";
 import { ContractReceiptsSection } from "@/components/contracts/contract-receipts";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
@@ -267,6 +268,16 @@ export default async function ContratoDetailPage({
                 steps={deliverySteps}
               />
             ) : null}
+
+            <ContractExtraLinesEditor
+              contractId={contract.id}
+              initialLines={contract.extra_line_items ?? []}
+              canEdit={
+                canEdit &&
+                contract.status !== "COMPLETED" &&
+                contract.status !== "CANCELLED"
+              }
+            />
 
             {contract.signatures.length > 0 ? (
               <Card>

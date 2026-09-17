@@ -7,16 +7,18 @@ export const dynamic = "force-dynamic";
 
 /**
  * Daily retention job: delete inspection photos older than 90 days.
- * Secure with CRON_SECRET (Authorization: Bearer …) or Vercel Cron header.
+ * Prefer CRON_SECRET (Authorization: Bearer …). Vercel Cron header also accepted.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
   const auth = request.headers.get("authorization") ?? "";
   const vercelCron = request.headers.get("x-vercel-cron");
 
-  const authorized =
-    Boolean(vercelCron) ||
-    (secret ? auth === `Bearer ${secret}` : false);
+  const bearerOk = Boolean(secret) && auth === `Bearer ${secret}`;
+  const vercelOk = Boolean(vercelCron);
+  // If CRON_SECRET is configured, require Bearer OR official Vercel cron header.
+  // If not configured, allow only Vercel cron header (never open publicly).
+  const authorized = secret ? bearerOk || vercelOk : vercelOk;
 
   if (!authorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

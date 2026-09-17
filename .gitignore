@@ -56,3 +56,7 @@ apk-android/*.apk
 apk-android/*.aab
 apk-android/local.properties
 apk-android/.idea/
+
+.cron-secret.tmp
+.smoke-*.tmp
+

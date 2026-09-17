@@ -517,6 +517,7 @@ type ContractRow = {
   apply_iva?: boolean | null;
   tax_rate?: number | null;
   tax_amount?: number | null;
+  extra_line_items?: Array<{ label?: string; amount?: number }> | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -590,6 +591,14 @@ export function mapContractRow(row: ContractRow): Contract {
     apply_iva: Boolean(row.apply_iva),
     tax_rate: asNumber(row.tax_rate, 0.13),
     tax_amount: asNumber(row.tax_amount, 0),
+    extra_line_items: Array.isArray(row.extra_line_items)
+      ? row.extra_line_items
+          .map((item) => ({
+            label: String(item?.label ?? "").trim(),
+            amount: asNumber(item?.amount, 0),
+          }))
+          .filter((item) => item.label && item.amount > 0)
+      : [],
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,

@@ -604,6 +604,8 @@ export interface Contract {
   tax_rate?: number;
   /** IVA amount included in total when apply_iva. */
   tax_amount?: number;
+  /** Manual extras: [{ label, amount }]. */
+  extra_line_items?: Array<{ label: string; amount: number }>;
   created_by: string | null;
   created_at: string;
   updated_at: string;
