@@ -37,6 +37,12 @@ const reservationFields = z.object({
   cashAmount: moneyField.default(0),
   cardAmount: moneyField.default(0),
   additionalCosts: moneyField.default(0),
+  applyIva: z
+    .union([z.literal("true"), z.literal("false"), z.literal("on"), z.literal("1"), z.boolean()])
+    .optional()
+    .transform((value) => value === true || value === "true" || value === "on" || value === "1"),
+  taxRate: z.coerce.number().min(0).max(1).default(0.13),
+  taxAmount: moneyField.default(0),
   notes: optionalNote(2000),
   status: z
     .enum(["CONFIRMED", "ACTIVE", "COMPLETED", "CANCELLED"])

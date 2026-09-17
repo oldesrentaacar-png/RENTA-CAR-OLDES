@@ -17,6 +17,7 @@ import { calculateReservationTotal, deriveReservationPricingFromQuote } from "@/
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { parseMoneyInput } from "@/lib/money";
+import { computeOptionalIvaTotals } from "@/lib/pdf/contract-billing";
 import { createClient } from "@/lib/supabase/server";
 import {
   reservationCancelSchema,
@@ -202,19 +203,30 @@ export async function createReservation(
     const endAt = normalizeFormDateTimeToIso(formData.get("endAt"));
     const agreedRate = parseMoneyInput(formData.get("agreedRate"));
     const deposit = parseMoneyInput(formData.get("deposit"));
-    // Seguro diario omitido (incluido en tarifa). Extras: silla, entrega, etc.
-    const insurance = 0;
+    const insurance = parseMoneyInput(formData.get("insurance") || 0);
     const cashAmount = parseMoneyInput(formData.get("cashAmount") || 0);
     const cardAmount = parseMoneyInput(formData.get("cardAmount") || 0);
     const additionalCosts = parseMoneyInput(
       formData.get("additionalCosts") || 0,
     );
-    const computed = calculateReservationTotal({
+    const applyIva =
+      formData.get("applyIva") === "true" ||
+      formData.get("applyIva") === "on" ||
+      formData.get("applyIva") === "1";
+    const taxRateRaw = Number(formData.get("taxRate") || 13);
+    const taxRate =
+      taxRateRaw > 1 ? taxRateRaw / 100 : Math.max(0, taxRateRaw || 0.13);
+    const pretax = calculateReservationTotal({
       startAt,
       endAt,
       agreedRate,
       insurance,
       additionalCosts,
+    });
+    const ivaTotals = computeOptionalIvaTotals({
+      pretaxTotal: pretax.total,
+      applyIva,
+      taxRate,
     });
 
     const parsed = reservationSchema.safeParse({
@@ -229,10 +241,13 @@ export async function createReservation(
       agreedRate,
       deposit,
       insurance,
-      total: computed.total,
+      total: ivaTotals.total,
       cashAmount,
       cardAmount,
       additionalCosts,
+      applyIva,
+      taxRate: ivaTotals.taxRate,
+      taxAmount: ivaTotals.taxAmount,
       notes: formData.get("notes"),
       status: formData.get("status") || "CONFIRMED",
     });
@@ -275,6 +290,9 @@ export async function createReservation(
         cash_amount: parsed.data.cashAmount,
         card_amount: parsed.data.cardAmount,
         additional_costs: parsed.data.additionalCosts,
+        apply_iva: parsed.data.applyIva,
+        tax_rate: parsed.data.taxRate,
+        tax_amount: parsed.data.taxAmount,
         notes: parsed.data.notes ?? null,
         status: parsed.data.status,
         created_by: user.id,
@@ -408,6 +426,9 @@ export async function createReservationFromQuote(
         cash_amount: pricing.total,
         card_amount: 0,
         additional_costs: pricing.additionalCosts,
+        apply_iva: false,
+        tax_rate: 0.13,
+        tax_amount: 0,
         notes: [q.notes?.trim() || "", extrasNote].filter(Boolean).join("\n\n") || null,
         status: "CONFIRMED",
         created_by: user.id,
@@ -470,6 +491,8 @@ export async function updateReservation(
     const cashAmountRaw = formData.get("cashAmount");
     const cardAmountRaw = formData.get("cardAmount");
     const additionalCostsRaw = formData.get("additionalCosts");
+    const applyIvaRaw = formData.get("applyIva");
+    const taxRateRawForm = formData.get("taxRate");
 
     const parsed = reservationUpdateSchema.safeParse({
       customerId: formData.get("customerId") || undefined,
@@ -487,8 +510,10 @@ export async function updateReservation(
         depositRaw !== null && depositRaw !== ""
           ? parseMoneyInput(depositRaw)
           : undefined,
-      // Seguro diario omitido (incluido en tarifa).
-      insurance: 0,
+      insurance:
+        insuranceRaw !== null && insuranceRaw !== ""
+          ? parseMoneyInput(insuranceRaw)
+          : undefined,
       cashAmount:
         cashAmountRaw !== null && cashAmountRaw !== ""
           ? parseMoneyInput(cashAmountRaw)
@@ -500,6 +525,19 @@ export async function updateReservation(
       additionalCosts:
         additionalCostsRaw !== null && additionalCostsRaw !== ""
           ? parseMoneyInput(additionalCostsRaw)
+          : undefined,
+      applyIva:
+        applyIvaRaw === null || applyIvaRaw === ""
+          ? undefined
+          : applyIvaRaw === "true" ||
+            applyIvaRaw === "on" ||
+            applyIvaRaw === "1",
+      taxRate:
+        taxRateRawForm !== null && taxRateRawForm !== ""
+          ? (() => {
+              const n = Number(taxRateRawForm);
+              return n > 1 ? n / 100 : Math.max(0, n || 0.13);
+            })()
           : undefined,
       notes: formData.get("notes"),
       status: formData.get("status") || undefined,
@@ -523,13 +561,16 @@ export async function updateReservation(
     if (parsed.data.agreedRate !== undefined)
       row.agreed_rate = parsed.data.agreedRate;
     if (parsed.data.deposit !== undefined) row.deposit = parsed.data.deposit;
-    row.insurance = 0;
+    if (parsed.data.insurance !== undefined)
+      row.insurance = parsed.data.insurance;
     if (parsed.data.cashAmount !== undefined)
       row.cash_amount = parsed.data.cashAmount;
     if (parsed.data.cardAmount !== undefined)
       row.card_amount = parsed.data.cardAmount;
     if (parsed.data.additionalCosts !== undefined)
       row.additional_costs = parsed.data.additionalCosts;
+    if (parsed.data.applyIva !== undefined) row.apply_iva = parsed.data.applyIva;
+    if (parsed.data.taxRate !== undefined) row.tax_rate = parsed.data.taxRate;
     if (parsed.data.notes !== undefined) row.notes = parsed.data.notes ?? null;
     if (parsed.data.status) row.status = parsed.data.status;
 
@@ -539,12 +580,16 @@ export async function updateReservation(
       parsed.data.endAt ||
       parsed.data.agreedRate !== undefined ||
       parsed.data.additionalCosts !== undefined ||
-      insuranceRaw !== null
+      parsed.data.insurance !== undefined ||
+      parsed.data.applyIva !== undefined ||
+      parsed.data.taxRate !== undefined
     ) {
       const supabaseForRead = await createClient();
       const { data: current, error: currentError } = await supabaseForRead
         .from("reservations")
-        .select("start_at, end_at, agreed_rate, additional_costs")
+        .select(
+          "start_at, end_at, agreed_rate, insurance, additional_costs, apply_iva, tax_rate",
+        )
         .eq("id", id)
         .is("deleted_at", null)
         .maybeSingle();
@@ -556,23 +601,45 @@ export async function updateReservation(
         start_at: string;
         end_at: string;
         agreed_rate: number;
+        insurance: number;
         additional_costs: number;
+        apply_iva: boolean;
+        tax_rate: number;
       };
 
-      const computed = calculateReservationTotal({
+      const pretax = calculateReservationTotal({
         startAt: parsed.data.startAt ?? currentRow.start_at,
         endAt: parsed.data.endAt ?? currentRow.end_at,
         agreedRate:
           parsed.data.agreedRate !== undefined
             ? parsed.data.agreedRate
             : currentRow.agreed_rate,
-        insurance: 0,
+        insurance:
+          parsed.data.insurance !== undefined
+            ? parsed.data.insurance
+            : currentRow.insurance,
         additionalCosts:
           parsed.data.additionalCosts !== undefined
             ? parsed.data.additionalCosts
             : currentRow.additional_costs,
       });
-      row.total = computed.total;
+      const ivaTotals = computeOptionalIvaTotals({
+        pretaxTotal: pretax.total,
+        applyIva:
+          parsed.data.applyIva !== undefined
+            ? parsed.data.applyIva
+            : Boolean(currentRow.apply_iva),
+        taxRate:
+          parsed.data.taxRate !== undefined
+            ? parsed.data.taxRate
+            : Number(currentRow.tax_rate ?? 0.13),
+      });
+      row.total = ivaTotals.total;
+      row.tax_amount = ivaTotals.taxAmount;
+      row.tax_rate = ivaTotals.taxRate;
+      if (parsed.data.applyIva !== undefined) {
+        row.apply_iva = parsed.data.applyIva;
+      }
     }
 
     const supabase = await createClient();

@@ -123,23 +123,39 @@ export function ReservationForm({
   const [additionalCosts, setAdditionalCosts] = useState(
     String(reservation?.additional_costs ?? defaults?.additionalCosts ?? 0),
   );
+  const [insurance, setInsurance] = useState(
+    String(reservation?.insurance ?? 0),
+  );
+  const [applyIva, setApplyIva] = useState(
+    Boolean(reservation?.apply_iva),
+  );
+  const taxRate = 0.13;
 
   const quoteExtraLines = defaults?.quoteExtraLines ?? [];
 
   const preview = useMemo(() => {
     if (!startAt || !endAt || agreedRate === "") return null;
     try {
-      return calculateReservationTotal({
+      const base = calculateReservationTotal({
         startAt,
         endAt,
         agreedRate: parseMoneyInput(agreedRate),
-        insurance: 0,
+        insurance: parseMoneyInput(insurance || 0),
         additionalCosts: parseMoneyInput(additionalCosts || 0),
       });
+      const taxAmount = applyIva
+        ? Math.round(base.total * taxRate * 100) / 100
+        : 0;
+      return {
+        ...base,
+        pretaxTotal: base.total,
+        taxAmount,
+        totalWithIva: Math.round((base.total + taxAmount) * 100) / 100,
+      };
     } catch {
       return null;
     }
-  }, [startAt, endAt, agreedRate, additionalCosts]);
+  }, [startAt, endAt, agreedRate, insurance, additionalCosts, applyIva]);
 
   const extrasAmount = parseMoneyInput(additionalCosts || 0);
   const linesSum = quoteExtraLines.reduce((sum, line) => sum + line.amount, 0);
@@ -149,24 +165,38 @@ export function ReservationForm({
     setError(null);
     const computed = preview
       ? preview
-      : calculateReservationTotal({
-          startAt,
-          endAt,
-          agreedRate: parseMoneyInput(agreedRate),
-          insurance: 0,
-          additionalCosts: parseMoneyInput(additionalCosts || 0),
-        });
+      : (() => {
+          const base = calculateReservationTotal({
+            startAt,
+            endAt,
+            agreedRate: parseMoneyInput(agreedRate),
+            insurance: parseMoneyInput(insurance || 0),
+            additionalCosts: parseMoneyInput(additionalCosts || 0),
+          });
+          const taxAmount = applyIva
+            ? Math.round(base.total * taxRate * 100) / 100
+            : 0;
+          return {
+            ...base,
+            pretaxTotal: base.total,
+            taxAmount,
+            totalWithIva: Math.round((base.total + taxAmount) * 100) / 100,
+          };
+        })();
 
-    formData.set("total", String(computed.total));
+    formData.set("total", String(computed.totalWithIva));
     formData.set("agreedRate", String(parseMoneyInput(agreedRate)));
     formData.set("deposit", String(parseMoneyInput(deposit)));
-    formData.set("insurance", "0");
+    formData.set("insurance", String(parseMoneyInput(insurance || 0)));
     formData.set("cashAmount", String(parseMoneyInput(cashAmount || 0)));
     formData.set("cardAmount", String(parseMoneyInput(cardAmount || 0)));
     formData.set(
       "additionalCosts",
       String(parseMoneyInput(additionalCosts || 0)),
     );
+    formData.set("applyIva", applyIva ? "true" : "false");
+    formData.set("taxRate", "13");
+    formData.set("taxAmount", String(computed.taxAmount));
 
     const result = isEdit
       ? await updateReservation(reservation!.id, formData)
@@ -192,25 +222,23 @@ export function ReservationForm({
       {fromQuote ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950">
           Datos heredados de la cotización{" "}
-          <strong>{defaults?.quoteCode ?? ""}</strong>. El total incluye renta +
-          extras para que cuadre antes del contrato. El seguro diario no se
-          cobra aparte (va incluido en la tarifa); use extras solo para cargos
-          reales (silla, entrega fuera de horario, seguro internacional, etc.).
+          <strong>{defaults?.quoteCode ?? ""}</strong>. Complete o ajuste{" "}
+          <strong>Seguro</strong>, <strong>Costos adicionales</strong> e{" "}
+          <strong>IVA</strong> si aplica. El total se recalcula solo.
         </div>
       ) : (
         <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">
-          <strong>No requiere cotización.</strong> Para cliente conocido puede
-          crear la reserva directa (vehículo, fechas y extras). Si viene de una
-          cotización, use “Crear reserva desde cotización” para jalar el
-          desglose. El total se calcula automáticamente (días × tarifa +
-          extras). El seguro diario no aplica: va incluido en el precio.
+          <strong>No requiere cotización.</strong> Capture tarifa,{" "}
+          <strong>Seguro</strong> (si se cobra aparte),{" "}
+          <strong>Costos adicionales</strong> (silla, entrega, etc.) e{" "}
+          <strong>IVA</strong> opcional. El depósito es garantía y no suma al
+          total.
         </div>
       )}
 
       {defaults?.quoteId && !isEdit ? (
         <input type="hidden" name="quoteId" value={defaults.quoteId} />
       ) : null}
-      <input type="hidden" name="insurance" value="0" />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <SearchableSelect
@@ -302,8 +330,23 @@ export function ReservationForm({
         />
         <div className="space-y-1">
           <Input
+            name="insurance"
+            label="Seguro (USD)"
+            type="number"
+            step="0.01"
+            min="0"
+            inputMode="decimal"
+            value={insurance}
+            onChange={(e) => setInsurance(e.target.value)}
+          />
+          <p className="text-xs text-muted">
+            Monto de seguro cobrado en esta reserva (aparte de la tarifa).
+          </p>
+        </div>
+        <div className="space-y-1">
+          <Input
             name="additionalCosts"
-            label="Extras (USD)"
+            label="Costos adicionales (USD)"
             type="number"
             step="0.01"
             min="0"
@@ -312,8 +355,8 @@ export function ReservationForm({
             onChange={(e) => setAdditionalCosts(e.target.value)}
           />
           <p className="text-xs text-muted">
-            Silla, entrega fuera de horario, motorista, seguro internacional,
-            etc.
+            Extras operativos: silla, entrega fuera de horario, motorista, etc.
+            No reemplaza el campo Seguro.
           </p>
         </div>
         <Input
@@ -326,6 +369,25 @@ export function ReservationForm({
           value={deposit}
           onChange={(e) => setDeposit(e.target.value)}
         />
+        <div className="sm:col-span-2 space-y-2 rounded-xl border border-border bg-surface p-4">
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-zinc-300"
+              checked={applyIva}
+              onChange={(e) => setApplyIva(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium text-zinc-900">
+                Aplicar IVA 13% a esta reserva
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Si está activo, el total incluye IVA (igual que en contratos).
+                Recomendado para clientes empresa.
+              </span>
+            </span>
+          </label>
+        </div>
         <Input
           name="pickupLocation"
           label="Lugar recogida"
@@ -344,12 +406,12 @@ export function ReservationForm({
 
       {preview ? (
         <>
-          <input type="hidden" name="total" value={preview.total} />
+          <input type="hidden" name="total" value={preview.totalWithIva} />
           <PricingBreakdown
             rentalDays={preview.rentalDays}
             dailyRate={parseMoneyInput(agreedRate)}
             subtotal={preview.rentalSubtotal}
-            insurance={0}
+            insurance={preview.insurance}
             extras={
               quoteExtraLines.length > 0
                 ? Math.max(0, adjustment)
@@ -358,15 +420,16 @@ export function ReservationForm({
             extrasLabel={
               quoteExtraLines.length > 0
                 ? "Otros / ajustes de cotización"
-                : "Extras"
+                : "Costos adicionales"
             }
             discount={
               quoteExtraLines.length > 0 && adjustment < 0
                 ? Math.abs(adjustment)
                 : 0
             }
+            tax={preview.taxAmount}
             deposit={parseMoneyInput(deposit)}
-            total={preview.total}
+            total={preview.totalWithIva}
             lines={
               quoteExtraLines.length > 0
                 ? quoteExtraLines.map((line) => ({

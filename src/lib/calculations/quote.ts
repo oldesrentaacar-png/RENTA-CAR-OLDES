@@ -163,9 +163,8 @@ export function normalizeQuoteVehicleLines<
   });
 }
 
-/** Reservation total = (tarifa × días) + extras. Depósito no se suma.
- * Seguro diario queda en 0 (va incluido en tarifa); extras cubren
- * silla, entrega fuera de horario, seguro internacional, etc. */
+/** Reservation pretax = (tarifa × días) + seguro + costos adicionales.
+ * Depósito no se suma. IVA opcional se aplica aparte (apply_iva). */
 export function calculateReservationTotal(input: {
   startAt: Date | string;
   endAt: Date | string;

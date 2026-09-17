@@ -63,12 +63,28 @@ export default async function ReservaDetailPage({
                 <p><span className="text-muted">Fin:</span> {formatAppDateTime(reservation.end_at)}</p>
                 <p><span className="text-muted">Tipo:</span> {reservation.vehicle_type ?? "—"}</p>
                 <p><span className="text-muted">Tarifa:</span> {formatMoney(reservation.agreed_rate)}</p>
-                <p><span className="text-muted">Extras:</span> {formatMoney(reservation.additional_costs)}</p>
+                <p><span className="text-muted">Seguro:</span> {formatMoney(reservation.insurance)}</p>
+                <p><span className="text-muted">Costos adicionales:</span> {formatMoney(reservation.additional_costs)}</p>
+                {reservation.apply_iva ? (
+                  <>
+                    <p>
+                      <span className="text-muted">IVA ({(reservation.tax_rate * 100).toFixed(0)}%):</span>{" "}
+                      {formatMoney(reservation.tax_amount)}
+                    </p>
+                    <p>
+                      <span className="text-muted">Subtotal (sin IVA):</span>{" "}
+                      {formatMoney(
+                        Math.max(0, reservation.total - reservation.tax_amount),
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    <span className="text-muted">IVA:</span> No aplicado
+                  </p>
+                )}
                 <p className="font-semibold"><span className="text-muted">Total a cobrar:</span> {formatMoney(reservation.total)}</p>
                 <p><span className="text-muted">Depósito:</span> {formatMoney(reservation.deposit)}</p>
-                {reservation.insurance > 0 ? (
-                  <p><span className="text-muted">Seguro:</span> {formatMoney(reservation.insurance)}</p>
-                ) : null}
                 <p><span className="text-muted">Efectivo:</span> {formatMoney(reservation.cash_amount)}</p>
                 <p><span className="text-muted">Tarjeta:</span> {formatMoney(reservation.card_amount)}</p>
                 {reservation.quote_id ? (

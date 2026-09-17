@@ -835,11 +835,16 @@ export async function createContract(
     );
     const deposit = parseMoneyInput(formData.get("deposit"), r.deposit);
     const insurance = parseMoneyInput(formData.get("insurance"), r.insurance);
+    const additionalCosts = parseMoneyInput(
+      formData.get("additionalCosts"),
+      r.additional_costs,
+    );
     const computed = calculateReservationTotal({
       startAt,
       endAt,
       agreedRate,
       insurance,
+      additionalCosts,
     });
 
     const { data: customerRow } = await supabase
@@ -854,11 +859,13 @@ export async function createContract(
       passport: (customerRow as { passport?: string | null } | null)?.passport,
     });
 
-    const applyIva =
-      formData.get("applyIva") === "true" ||
-      formData.get("applyIva") === "on" ||
-      formData.get("applyIva") === "1";
-    const taxRateRaw = Number(formData.get("taxRate") || 13);
+    const applyIvaExplicit = formData.has("applyIva");
+    const applyIva = applyIvaExplicit
+      ? formData.get("applyIva") === "true" ||
+        formData.get("applyIva") === "on" ||
+        formData.get("applyIva") === "1"
+      : Boolean(r.apply_iva);
+    const taxRateRaw = Number(formData.get("taxRate") || r.tax_rate || 13);
     const taxRate =
       taxRateRaw > 1 ? taxRateRaw / 100 : Math.max(0, taxRateRaw || 0.13);
     const ivaTotals = computeOptionalIvaTotals({
@@ -866,6 +873,11 @@ export async function createContract(
       applyIva,
       taxRate,
     });
+
+    const manualExtras =
+      additionalCosts > 0
+        ? [{ label: "Costos adicionales (desde reserva)", amount: additionalCosts }]
+        : [];
 
     const { data, error } = await supabase
       .from("contracts")
@@ -883,6 +895,7 @@ export async function createContract(
         apply_iva: applyIva,
         tax_rate: ivaTotals.taxRate,
         tax_amount: ivaTotals.taxAmount,
+        extra_line_items: manualExtras,
         terms: parsed.data.terms ?? null,
         clauses: parsed.data.clauses ?? null,
         notes: parsed.data.notes ?? null,

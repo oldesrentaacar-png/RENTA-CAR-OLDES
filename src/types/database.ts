@@ -554,8 +554,12 @@ export interface Reservation {
   cash_amount: number;
   /** Monto correspondiente al pago con tarjeta. */
   card_amount: number;
-  /** Costos o información adicional (monto). */
+  /** Costos adicionales / extras (silla, entrega, etc.) — distinto de seguro. */
   additional_costs: number;
+  /** Optional IVA (same semantics as contracts). */
+  apply_iva: boolean;
+  tax_rate: number;
+  tax_amount: number;
   notes: string | null;
   created_by: string | null;
   created_at: string;

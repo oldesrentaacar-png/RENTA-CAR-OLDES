@@ -102,7 +102,7 @@ export function PricingBreakdown({
       {discount > 0 ? (
         <Row label="Descuento" value={`− ${formatMoney(discount)}`} />
       ) : null}
-      {tax > 0 ? <Row label="Impuesto" value={formatMoney(tax)} /> : null}
+      {tax > 0 ? <Row label="IVA" value={formatMoney(tax)} /> : null}
       <div className="border-t border-border pt-2">
         <Row label="Total a cobrar" value={formatMoney(total)} strong />
       </div>

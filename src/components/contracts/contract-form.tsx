@@ -34,7 +34,12 @@ export function ContractForm({
   const [agreedRate, setAgreedRate] = useState(String(reservation.agreed_rate));
   const [deposit, setDeposit] = useState(String(reservation.deposit ?? 0));
   const [insurance, setInsurance] = useState(String(reservation.insurance ?? 0));
-  const [applyIva, setApplyIva] = useState(customer.customer_type === "COMPANY");
+  const [additionalCosts, setAdditionalCosts] = useState(
+    String(reservation.additional_costs ?? 0),
+  );
+  const [applyIva, setApplyIva] = useState(
+    Boolean(reservation.apply_iva) || customer.customer_type === "COMPANY",
+  );
   const taxRate = 0.13;
 
   const preview = useMemo(() => {
@@ -45,6 +50,7 @@ export function ContractForm({
         endAt,
         agreedRate: parseMoneyInput(agreedRate),
         insurance: parseMoneyInput(insurance),
+        additionalCosts: parseMoneyInput(additionalCosts || 0),
       });
       const taxAmount = applyIva
         ? Math.round(base.total * taxRate * 100) / 100
@@ -58,7 +64,7 @@ export function ContractForm({
     } catch {
       return null;
     }
-  }, [startAt, endAt, agreedRate, insurance, applyIva]);
+  }, [startAt, endAt, agreedRate, insurance, additionalCosts, applyIva]);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -66,6 +72,10 @@ export function ContractForm({
     formData.set("agreedRate", String(parseMoneyInput(agreedRate)));
     formData.set("deposit", String(parseMoneyInput(deposit)));
     formData.set("insurance", String(parseMoneyInput(insurance)));
+    formData.set(
+      "additionalCosts",
+      String(parseMoneyInput(additionalCosts || 0)),
+    );
     formData.set("applyIva", applyIva ? "true" : "false");
     formData.set("taxRate", "13");
     if (preview) {
@@ -150,6 +160,21 @@ export function ContractForm({
           value={insurance}
           onChange={(e) => setInsurance(e.target.value)}
         />
+        <div className="space-y-1">
+          <Input
+            name="additionalCosts"
+            label="Costos adicionales (USD)"
+            type="number"
+            step="0.01"
+            min="0"
+            inputMode="decimal"
+            value={additionalCosts}
+            onChange={(e) => setAdditionalCosts(e.target.value)}
+          />
+          <p className="text-xs text-muted">
+            Viene de la reserva. Distinto del Seguro.
+          </p>
+        </div>
         <Input
           name="deposit"
           label="Depósito / garantía (USD)"
@@ -170,6 +195,9 @@ export function ContractForm({
             dailyRate={parseMoneyInput(agreedRate)}
             subtotal={preview.rentalSubtotal}
             insurance={preview.insurance}
+            extras={preview.additionalCosts}
+            extrasLabel="Costos adicionales"
+            tax={preview.taxAmount}
             deposit={parseMoneyInput(deposit)}
             total={preview.totalWithIva}
           />

@@ -145,6 +145,9 @@ type ReservationRow = {
   cash_amount?: number | null;
   card_amount?: number | null;
   additional_costs?: number | null;
+  apply_iva?: boolean | null;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;
@@ -430,6 +433,9 @@ export function mapReservationRow(row: ReservationRow): Reservation {
     cash_amount: asNumber(row.cash_amount, 0),
     card_amount: asNumber(row.card_amount, 0),
     additional_costs: asNumber(row.additional_costs, 0),
+    apply_iva: Boolean(row.apply_iva),
+    tax_rate: asNumber(row.tax_rate, 0.13),
+    tax_amount: asNumber(row.tax_amount, 0),
     notes: row.notes,
     created_by: row.created_by,
     created_at: row.created_at,
