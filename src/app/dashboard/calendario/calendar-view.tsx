@@ -95,6 +95,13 @@ function eventLabel(r: CalendarReservation): string {
   return [time, r.vehicleLabel, r.customerName].filter(Boolean).join(" · ");
 }
 
+/** Contract is operational source of truth once it exists. */
+function eventHref(r: CalendarReservation): string {
+  return r.contractId
+    ? `/dashboard/contratos/${r.contractId}`
+    : `/dashboard/reservas/${r.id}`;
+}
+
 function reservationTouchesDay(r: CalendarReservation, day: Date) {
   const start = startOfDay(parseISO(r.start_at));
   const end = startOfDay(parseISO(r.end_at));
@@ -419,8 +426,8 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                     {bars.map((bar) => (
                       <Link
                         key={`${bar.reservation.id}-${bar.startCol}`}
-                        href={`/dashboard/reservas/${bar.reservation.id}`}
-                        title={`${bar.reservation.code} — ${CALENDAR_PHASE_LABELS[bar.reservation.phase]} — ${eventLabel(bar.reservation)}`}
+                        href={eventHref(bar.reservation)}
+                        title={`${bar.reservation.contractCode ? `Contrato ${bar.reservation.contractCode}` : bar.reservation.code} — ${CALENDAR_PHASE_LABELS[bar.reservation.phase]} — ${eventLabel(bar.reservation)}`}
                         className={cn(
                           "pointer-events-auto absolute truncate rounded px-1 text-[10px] font-medium leading-[18px]",
                           calendarPhaseBarClass(bar.reservation.phase),
@@ -460,12 +467,12 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                 {reservationsForDay(day).map((r) => (
                   <Link
                     key={r.id}
-                    href={`/dashboard/reservas/${r.id}`}
+                    href={eventHref(r)}
                     className={cn(
                       "block truncate rounded px-2 py-1 text-xs font-medium",
                       calendarPhaseBarClass(r.phase),
                     )}
-                    title={`${r.code} — ${CALENDAR_PHASE_LABELS[r.phase]} — ${eventLabel(r)}`}
+                    title={`${r.contractCode ? `Contrato ${r.contractCode}` : r.code} — ${CALENDAR_PHASE_LABELS[r.phase]} — ${eventLabel(r)}`}
                   >
                     <span className="mr-1 opacity-80">
                       {CALENDAR_PHASE_LABELS[r.phase]}
@@ -500,7 +507,7 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
               reservationsForDay(cursor).map((r) => (
                 <Link
                   key={r.id}
-                  href={`/dashboard/reservas/${r.id}`}
+                  href={eventHref(r)}
                   className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-4 py-3 hover:bg-surface-muted"
                 >
                   <span

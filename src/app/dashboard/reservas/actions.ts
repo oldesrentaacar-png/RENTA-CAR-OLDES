@@ -20,6 +20,7 @@ import { parseMoneyInput } from "@/lib/money";
 import { computeOptionalIvaTotals } from "@/lib/pdf/contract-billing";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
+import { getLinkedOpenContract } from "@/lib/contracts/sync-reservation";
 import { createClient } from "@/lib/supabase/server";
 import {
   deriveCalendarPhase,
@@ -178,6 +179,13 @@ export async function getReservation(
       vehicleBrand: string | null;
       vehicleModel: string | null;
       vehicleYear: number | null;
+      /** When set, the contract is the operational source of truth. */
+      linkedContract: {
+        id: string;
+        code: string;
+        status: string;
+        closed_at: string | null;
+      } | null;
     }
   >
 > {
@@ -244,6 +252,8 @@ export async function getReservation(
         })
       : "—";
 
+    const linkedContract = await getLinkedOpenContract(supabase, id);
+
     return actionSuccess({
       ...mapReservationRow(row),
       customerName,
@@ -252,6 +262,7 @@ export async function getReservation(
       vehicleBrand: vehicle?.brand ?? null,
       vehicleModel: vehicle?.model ?? null,
       vehicleYear: vehicle?.year ?? null,
+      linkedContract,
     });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -637,6 +648,29 @@ export async function updateReservation(
 
     if (!parsed.success) {
       return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
+    }
+
+    const linked = await getLinkedOpenContract(
+      await createClient(),
+      id,
+    );
+    if (linked && linked.status !== "COMPLETED") {
+      const touchesOps =
+        parsed.data.startAt !== undefined ||
+        parsed.data.endAt !== undefined ||
+        parsed.data.vehicleId !== undefined ||
+        parsed.data.agreedRate !== undefined ||
+        parsed.data.deposit !== undefined ||
+        parsed.data.insurance !== undefined ||
+        parsed.data.additionalCosts !== undefined ||
+        parsed.data.courtesyAmount !== undefined ||
+        parsed.data.applyIva !== undefined ||
+        parsed.data.total !== undefined;
+      if (touchesOps) {
+        return actionError(
+          `Esta reserva ya migró al contrato ${linked.code}. Extienda fechas o cambie montos desde el contrato, no desde la reserva.`,
+        );
+      }
     }
 
     const row: Record<string, unknown> = {};

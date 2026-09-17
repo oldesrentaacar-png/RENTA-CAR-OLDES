@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getReservation } from "@/app/dashboard/reservas/actions";
@@ -91,6 +92,32 @@ export default async function EditarReservaPage({
         />
         {!configured ? (
           <SetupBanner />
+        ) : reservation?.linkedContract &&
+          reservation.linkedContract.status !== "COMPLETED" ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
+            <p className="font-medium">
+              Esta reserva ya migró al contrato{" "}
+              {reservation.linkedContract.code}.
+            </p>
+            <p className="mt-2 text-amber-900/90">
+              Extienda fechas, cambie vehículo o montos desde el contrato. Al
+              guardar ahí, el calendario se actualiza automáticamente.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href={`/dashboard/contratos/${reservation.linkedContract.id}`}
+                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              >
+                Ir al contrato
+              </Link>
+              <Link
+                href={`/dashboard/reservas/${id}`}
+                className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+              >
+                Volver a la reserva
+              </Link>
+            </div>
+          </div>
         ) : reservation ? (
           <ReservationForm
             customers={customers}

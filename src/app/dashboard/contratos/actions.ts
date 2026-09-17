@@ -30,6 +30,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
+import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import {
   OLDES_ACCESSORIES,
@@ -934,15 +935,36 @@ export async function createContract(
 
     const id = (data as { id: string }).id;
 
+    await syncReservationFromContract(supabase, {
+      reservationId: parsed.data.reservationId,
+      startAt,
+      endAt,
+      agreedRate,
+      deposit,
+      insurance,
+      total: ivaTotals.total,
+      courtesyAmount,
+      courtesyDetail,
+      vehicleId: r.vehicle_id,
+      status: "CONFIRMED",
+    });
+
     await writeAuditLog({
       userId: user.id,
       action: "contract.create",
       entityType: "contract",
       entityId: id,
-      metadata: { reservationId: parsed.data.reservationId },
+      metadata: {
+        reservationId: parsed.data.reservationId,
+        migratedFromReservation: true,
+      },
     });
 
     revalidatePath("/dashboard/contratos");
+    revalidatePath(`/dashboard/contratos/${id}`);
+    revalidatePath("/dashboard/reservas");
+    revalidatePath(`/dashboard/reservas/${parsed.data.reservationId}`);
+    revalidatePath("/dashboard/calendario");
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -962,7 +984,9 @@ export async function updateContract(
     const supabase = await createClient();
     const { data: existing, error: existingError } = await supabase
       .from("contracts")
-      .select("status")
+      .select(
+        "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, vehicle_id",
+      )
       .eq("id", id)
       .is("deleted_at", null)
       .maybeSingle();
@@ -970,14 +994,22 @@ export async function updateContract(
     if (existingError) throw mapPostgresError(existingError);
     if (!existing) return actionError("Contrato no encontrado.");
 
-    const status = (existing as { status: ContractStatus }).status;
-    if (status === "COMPLETED" || status === "CANCELLED") {
+    const current = existing as {
+      status: ContractStatus;
+      reservation_id: string;
+      start_at: string;
+      end_at: string;
+      agreed_rate: number;
+      deposit: number;
+      insurance: number;
+      total: number;
+      courtesy_amount?: number | null;
+      courtesy_detail?: string | null;
+      vehicle_id: string;
+    };
+
+    if (current.status === "COMPLETED" || current.status === "CANCELLED") {
       return actionError("No se puede editar un contrato completado o cancelado.");
-    }
-    if (status !== "PENDING") {
-      return actionError(
-        "Solo se pueden editar fechas y tarifas antes de firmar. Después use Anular o Cerrar renta.",
-      );
     }
 
     const row: Record<string, unknown> = {};
@@ -996,12 +1028,17 @@ export async function updateContract(
     const startAt = formData.get("startAt");
     const endAt = formData.get("endAt");
 
+    // Extensiones / ajustes: fechas y tarifa se editan en el contrato (fuente de verdad).
     if (agreedRate) row.agreed_rate = Number(agreedRate);
     if (deposit) row.deposit = Number(deposit);
     if (insurance) row.insurance = Number(insurance);
     if (total) row.total = Number(total);
     if (startAt) row.start_at = normalizeFormDateTimeToIso(startAt);
     if (endAt) row.end_at = normalizeFormDateTimeToIso(endAt);
+
+    if (Object.keys(row).length === 0) {
+      return actionError("No hay cambios para guardar.");
+    }
 
     const { error } = await supabase
       .from("contracts")
@@ -1010,6 +1047,20 @@ export async function updateContract(
       .is("deleted_at", null);
 
     if (error) throw mapPostgresError(error);
+
+    await syncReservationFromContract(supabase, {
+      reservationId: current.reservation_id,
+      startAt: (row.start_at as string | undefined) ?? current.start_at,
+      endAt: (row.end_at as string | undefined) ?? current.end_at,
+      agreedRate:
+        (row.agreed_rate as number | undefined) ?? current.agreed_rate,
+      deposit: (row.deposit as number | undefined) ?? current.deposit,
+      insurance: (row.insurance as number | undefined) ?? current.insurance,
+      total: (row.total as number | undefined) ?? current.total,
+      courtesyAmount: Number(current.courtesy_amount ?? 0),
+      courtesyDetail: current.courtesy_detail ?? null,
+      vehicleId: current.vehicle_id,
+    });
 
     await writeAuditLog({
       userId: user.id,
@@ -1020,6 +1071,9 @@ export async function updateContract(
 
     revalidatePath("/dashboard/contratos");
     revalidatePath(`/dashboard/contratos/${id}`);
+    revalidatePath("/dashboard/reservas");
+    revalidatePath(`/dashboard/reservas/${current.reservation_id}`);
+    revalidatePath("/dashboard/calendario");
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -1999,12 +2053,19 @@ export async function closeContract(
       console.error("[closeContract] vehicle update", vehicleError.message);
     }
 
-    await supabase
-      .from("reservations")
-      .update({ status: "COMPLETED" })
-      .eq("id", contract.reservation_id)
-      .in("status", ["CONFIRMED", "ACTIVE"])
-      .is("deleted_at", null);
+    await syncReservationFromContract(supabase, {
+      reservationId: contract.reservation_id,
+      startAt: contract.start_at,
+      endAt: actualReturnAt || contract.end_at,
+      agreedRate: contract.agreed_rate,
+      deposit: contract.deposit,
+      insurance: contract.insurance,
+      total: Number(contract.total),
+      courtesyAmount,
+      courtesyDetail,
+      vehicleId: contract.vehicle_id,
+      status: "COMPLETED",
+    });
 
     if (mileage != null && mileage >= 0) {
       try {
@@ -2050,6 +2111,11 @@ export async function closeContract(
     revalidatePath("/dashboard/contratos");
     revalidatePath(`/dashboard/contratos/${contractId}`);
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/dashboard/reservas");
+    if (contract.reservation_id) {
+      revalidatePath(`/dashboard/reservas/${contract.reservation_id}`);
+    }
+    revalidatePath("/dashboard/calendario");
     return actionSuccess({ id: contractId });
   } catch (error) {
     return actionError(toUserMessage(error));

@@ -35,14 +35,26 @@ export default async function ReservaDetailPage({
           ]}
           actions={
             reservation ? (
-              <PermissionGuard permission="reservations.edit" fallback={null}>
-                <Link
-                  href={`/dashboard/reservas/${id}/edit`}
-                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
-                >
-                  Editar
-                </Link>
-              </PermissionGuard>
+              reservation.linkedContract &&
+              reservation.linkedContract.status !== "COMPLETED" ? (
+                <PermissionGuard permission="contracts.view" fallback={null}>
+                  <Link
+                    href={`/dashboard/contratos/${reservation.linkedContract.id}`}
+                    className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                  >
+                    Ir al contrato {reservation.linkedContract.code}
+                  </Link>
+                </PermissionGuard>
+              ) : (
+                <PermissionGuard permission="reservations.edit" fallback={null}>
+                  <Link
+                    href={`/dashboard/reservas/${id}/edit`}
+                    className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+                  >
+                    Editar
+                  </Link>
+                </PermissionGuard>
+              )
             ) : null
           }
         />
@@ -51,6 +63,34 @@ export default async function ReservaDetailPage({
           <SetupBanner />
         ) : reservation ? (
           <>
+            {reservation.linkedContract ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                {reservation.linkedContract.status !== "COMPLETED" ? (
+                  <>
+                    Operación migrada al contrato{" "}
+                    <Link
+                      href={`/dashboard/contratos/${reservation.linkedContract.id}`}
+                      className="font-semibold underline"
+                    >
+                      {reservation.linkedContract.code}
+                    </Link>
+                    . Fechas, vehículo y montos se editan ahí; el calendario se
+                    actualiza solo.
+                  </>
+                ) : (
+                  <>
+                    Contrato cerrado:{" "}
+                    <Link
+                      href={`/dashboard/contratos/${reservation.linkedContract.id}`}
+                      className="font-semibold underline"
+                    >
+                      {reservation.linkedContract.code}
+                    </Link>
+                    .
+                  </>
+                )}
+              </div>
+            ) : null}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -129,7 +169,10 @@ export default async function ReservaDetailPage({
                 ) : null}
               </CardContent>
             </Card>
-            <ReservationDetailActions reservation={reservation} />
+            <ReservationDetailActions
+              reservation={reservation}
+              linkedContract={reservation.linkedContract}
+            />
           </>
         ) : null}
       </div>
