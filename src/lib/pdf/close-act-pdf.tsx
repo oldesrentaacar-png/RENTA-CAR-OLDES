@@ -8,8 +8,10 @@ import {
 } from "@react-pdf/renderer";
 
 import { OLDES_COMPANY } from "@/lib/contracts/oldes-terms";
+import { fuelLevelIndex } from "@/lib/inspections/defaults";
 import { formatMoney } from "@/lib/money";
 import { PDF_BRAND } from "@/lib/pdf/brand-assets";
+import { PdfFuelNeedleGauge } from "@/lib/pdf/fuel-needle-gauge";
 import {
   MachoteField,
   MachoteGrid,
@@ -17,7 +19,7 @@ import {
   machoteStyles,
 } from "@/lib/pdf/machote-box";
 
-export const CLOSE_ACT_PDF_VERSION = "2026-09-16-v2";
+export const CLOSE_ACT_PDF_VERSION = "2026-09-16-v3";
 
 export type CloseActAccessoryRow = {
   label: string;
@@ -80,6 +82,10 @@ export type CloseActPdfProps = {
   totalOwed: number;
   observations?: string | null;
   operatorName?: string | null;
+  /** Quién entrega el vehículo al devolver (cliente / conductor). */
+  deliveredByName?: string | null;
+  /** Quién recibe en OLDES al cierre. */
+  receivedByName?: string | null;
   operatorSignatureUrl?: string | null;
   clientSignatureUrl?: string | null;
   clientSignedAt?: string | null;
@@ -214,35 +220,6 @@ const styles = StyleSheet.create({
   note: { fontSize: 7, color: MUTED, paddingHorizontal: 6, paddingBottom: 6 },
 });
 
-const FUEL_SEGMENT_COUNT = 9;
-
-function fuelIndexFromLabel(label?: string | null): number {
-  if (!label) return -1;
-  const map: Record<string, number> = {
-    EMPTY: 0,
-    Vacío: 0,
-    "Vacío (E)": 0,
-    ONE_EIGHTH: 1,
-    "1/8": 1,
-    QUARTER: 2,
-    "1/4": 2,
-    THREE_EIGHTHS: 3,
-    "3/8": 3,
-    HALF: 4,
-    "1/2": 4,
-    FIVE_EIGHTHS: 5,
-    "5/8": 5,
-    THREE_QUARTERS: 6,
-    "3/4": 6,
-    SEVEN_EIGHTHS: 7,
-    "7/8": 7,
-    FULL: 8,
-    Lleno: 8,
-    "Lleno (F)": 8,
-  };
-  return map[label] ?? -1;
-}
-
 function FuelGauge({
   label,
   activeIndex,
@@ -250,34 +227,7 @@ function FuelGauge({
   label: string;
   activeIndex: number;
 }) {
-  return (
-    <View style={styles.fuelRow}>
-      <Text style={styles.fuelLabel}>{label}</Text>
-      <View style={styles.fuelScale}>
-        {Array.from({ length: FUEL_SEGMENT_COUNT }).map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.fuelCell,
-              index === activeIndex ? styles.fuelActive : {},
-              index === FUEL_SEGMENT_COUNT - 1 ? { borderRightWidth: 0 } : {},
-            ]}
-          >
-            {index === 0 || index === FUEL_SEGMENT_COUNT - 1 ? (
-              <Text
-                style={[
-                  styles.fuelCellText,
-                  index !== activeIndex ? { color: MUTED } : {},
-                ]}
-              >
-                {index === 0 ? "E" : "F"}
-              </Text>
-            ) : null}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
+  return <PdfFuelNeedleGauge label={label} activeIndex={activeIndex} width={200} />;
 }
 
 function dash(value?: string | number | null): string {
@@ -430,8 +380,14 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
         <MachoteSection title="3. Nivel de combustible e inventario de accesorios">
           <FuelGauge
             label="NIVEL DE COMBUSTIBLE AL RECIBIR"
-            activeIndex={fuelIndexFromLabel(props.fuelInLabel)}
+            activeIndex={fuelLevelIndex(props.fuelInLabel)}
           />
+          {props.fuelOutLabel ? (
+            <FuelGauge
+              label="NIVEL DE COMBUSTIBLE EN SALIDA"
+              activeIndex={fuelLevelIndex(props.fuelOutLabel)}
+            />
+          ) : null}
           <Text style={styles.note}>
             Combustible salida: {props.fuelOutLabel || "—"} · Combustible
             retorno: {props.fuelInLabel || "—"}
@@ -636,6 +592,9 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
               <Text style={{ fontSize: 7, marginTop: 4 }}>
                 Agente: {dash(props.operatorName)}
               </Text>
+              <Text style={{ fontSize: 7, marginTop: 2 }}>
+                Quién recibe (OLDES): {dash(props.receivedByName)}
+              </Text>
               {props.operatorSignatureUrl ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
                 <Image
@@ -663,6 +622,9 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
               </Text>
               <Text style={{ fontSize: 7, marginTop: 4 }}>
                 Nombre: {props.customerName}
+              </Text>
+              <Text style={{ fontSize: 7, marginTop: 2 }}>
+                Quién entrega: {dash(props.deliveredByName)}
               </Text>
               {props.clientSignatureUrl ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf

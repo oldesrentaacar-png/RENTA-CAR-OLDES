@@ -56,6 +56,42 @@ export const FUEL_GAUGE_MARKS = [
   "F",
 ] as const;
 
+/** Index 0..8 for needle gauges; -1 if unknown. */
+export function fuelLevelIndex(
+  levelOrLabel: string | null | undefined,
+): number {
+  if (!levelOrLabel) return -1;
+  const raw = String(levelOrLabel).trim();
+  const orderIndex = (FUEL_LEVEL_ORDER as readonly string[]).indexOf(raw);
+  if (orderIndex >= 0) return orderIndex;
+
+  const map: Record<string, number> = {
+    EMPTY: 0,
+    Vacío: 0,
+    "Vacío (E)": 0,
+    E: 0,
+    ONE_EIGHTH: 1,
+    "1/8": 1,
+    QUARTER: 2,
+    "1/4": 2,
+    THREE_EIGHTHS: 3,
+    "3/8": 3,
+    HALF: 4,
+    "1/2": 4,
+    FIVE_EIGHTHS: 5,
+    "5/8": 5,
+    THREE_QUARTERS: 6,
+    "3/4": 6,
+    SEVEN_EIGHTHS: 7,
+    "7/8": 7,
+    FULL: 8,
+    Lleno: 8,
+    "Lleno (F)": 8,
+    F: 8,
+  };
+  return map[raw] ?? -1;
+}
+
 /** Ordered options for the damage-type select (OLDES codes first). */
 export const DAMAGE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "SCRATCH", label: "Rayón" },
@@ -99,14 +135,14 @@ export const DAMAGE_MARK_TOOLS: Array<{
   {
     value: "OTHER",
     label: "Libre",
-    symbol: "·",
-    hint: "Marcado libre: describa el hallazgo",
+    symbol: "✎",
+    hint: "Marcado libre: dibuje a mano alzada sobre el diagrama",
   },
 ];
 
 export const DAMAGE_TYPE_DESCRIPTION_HINTS: Record<string, string> = {
   MISSING: "Ej. tapón de bumper, cubierta de parabrisas, embellecedor…",
-  OTHER: "Describa el hallazgo con sus propias palabras",
+  OTHER: "Opcional: describa el trazo libre (rayón largo, mancha, etc.)",
   SCRATCH: "Opcional: zona o detalle del rayón",
   DENT: "Opcional: tamaño o causa del golpe",
   PAINT: "Opcional: detalle de pintura",

@@ -19,7 +19,9 @@ export async function nextDocumentCode(
 
   try {
     const supabase = await createClient();
+    // DB accepts p_doc_type (triggers) and p_sequence_type (legacy client typings).
     const { data, error } = await supabase.rpc("next_document_code", {
+      p_doc_type: sequenceType,
       p_sequence_type: sequenceType,
     });
 
@@ -30,7 +32,10 @@ export async function nextDocumentCode(
     const admin = createAdminClient();
     const { data: adminData, error: adminError } = await admin.rpc(
       "next_document_code",
-      { p_sequence_type: sequenceType },
+      {
+        p_doc_type: sequenceType,
+        p_sequence_type: sequenceType,
+      },
     );
 
     if (adminError || typeof adminData !== "string" || adminData.length === 0) {

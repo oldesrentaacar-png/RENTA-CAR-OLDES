@@ -66,8 +66,8 @@ export function DamageMarkPanel({
       ) : null}
       {mark.damageType === "OTHER" ? (
         <p className="sm:col-span-2 text-xs text-muted">
-          Marcado libre: use la descripción para anotar cualquier hallazgo que
-          no encaje en las otras categorías.
+          Marcado libre: el trazo ya quedó dibujado en el diagrama. Use la
+          descripción solo si quiere anotar un detalle adicional.
         </p>
       ) : null}
       <Button

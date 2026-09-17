@@ -475,18 +475,34 @@ export async function createCustomerFromRequest(
       return actionError(parsed.error.issues[0]?.message ?? "Datos inválidos.");
     }
 
-    const { data: customer, error: createError } = await supabase
+    // Reuse active customer with same phone instead of creating duplicates.
+    const phone = parsed.data.phone.trim();
+    const { data: existing, error: existingError } = await supabase
       .from("customers")
-      .insert({
-        ...customerInputToRow(parsed.data),
-        created_by: user.id,
-      })
       .select("id")
-      .single();
+      .is("deleted_at", null)
+      .eq("phone", phone)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw mapPostgresError(existingError);
 
-    if (createError) throw mapPostgresError(createError);
+    let customerId: string;
+    if (existing) {
+      customerId = (existing as { id: string }).id;
+    } else {
+      const { data: customer, error: createError } = await supabase
+        .from("customers")
+        .insert({
+          ...customerInputToRow(parsed.data),
+          created_by: user.id,
+        })
+        .select("id")
+        .single();
 
-    const customerId = (customer as { id: string }).id;
+      if (createError) throw mapPostgresError(createError);
+      customerId = (customer as { id: string }).id;
+    }
+
     await supabase
       .from("web_requests")
       .update({ customer_id: customerId })
@@ -494,7 +510,9 @@ export async function createCustomerFromRequest(
 
     await writeAuditLog({
       userId: user.id,
-      action: "customer.create_from_request",
+      action: existing
+        ? "customer.link_from_request"
+        : "customer.create_from_request",
       entityType: "customer",
       entityId: customerId,
       metadata: { requestId },

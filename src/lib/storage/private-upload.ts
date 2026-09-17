@@ -137,13 +137,41 @@ export async function uploadInspectionPhoto(
       ? data
       : Buffer.from(await (data as Blob).arrayBuffer());
 
-  return putPrivateObject({
+  const primary = await putPrivateObject({
     r2Key: buildR2Key(R2_PREFIX.inspections, inspectionId, name),
     supabaseBucket: INSPECTION_PHOTOS_BUCKET,
     supabasePath: `${inspectionId}/${name}`,
     body: buffer,
     contentType,
   });
+
+  if (primary.usedStorage) return primary;
+
+  // Legacy bucket name used in older docs/setups
+  const legacy = await putPrivateObject({
+    r2Key: buildR2Key(R2_PREFIX.inspections, inspectionId, name),
+    supabaseBucket: "inspections",
+    supabasePath: `${inspectionId}/${name}`,
+    body: buffer,
+    contentType,
+  });
+
+  if (legacy.usedStorage) return legacy;
+
+  // Tiny inline fallback only (avoid DB/PostgREST payload blow-ups)
+  if (buffer.length <= 80_000) {
+    return {
+      storagePath: `data:${contentType};base64,${buffer.toString("base64")}`,
+      provider: "inline",
+      usedStorage: false,
+      warning:
+        "Almacenamiento privado no disponible. Foto guardada en modo temporal.",
+    };
+  }
+
+  throw new Error(
+    "No se pudo subir la foto: configure Cloudflare R2 o el bucket de Storage «inspection-photos».",
+  );
 }
 
 export async function uploadPrivatePdf(params: {
@@ -169,6 +197,7 @@ export async function uploadPrivatePdf(params: {
 export async function resolvePrivateFileUrl(
   storagePath: string,
   expiresInSeconds = 3600,
+  options?: { bucket?: string },
 ): Promise<string | null> {
   if (!storagePath) return null;
   if (storagePath.startsWith("data:")) return storagePath;
@@ -179,17 +208,27 @@ export async function resolvePrivateFileUrl(
     return getR2SignedUrl(key, expiresInSeconds);
   }
 
-  // Rutas legacy de Supabase Storage
   if (isSupabaseAdminConfigured()) {
     try {
       const admin = createAdminClient();
-      const bucket = storagePath.includes("inspection")
-        ? INSPECTION_PHOTOS_BUCKET
-        : SIGNATURES_BUCKET;
-      const { data } = await admin.storage
+      const bucket =
+        options?.bucket ??
+        (storagePath.includes("signature")
+          ? SIGNATURES_BUCKET
+          : INSPECTION_PHOTOS_BUCKET);
+      const { data, error } = await admin.storage
         .from(bucket)
         .createSignedUrl(storagePath, expiresInSeconds);
-      return data?.signedUrl ?? null;
+      if (!error && data?.signedUrl) return data.signedUrl;
+
+      // Legacy bucket name fallback for inspection photos
+      if (bucket === INSPECTION_PHOTOS_BUCKET) {
+        const alt = await admin.storage
+          .from("inspections")
+          .createSignedUrl(storagePath, expiresInSeconds);
+        return alt.data?.signedUrl ?? null;
+      }
+      return null;
     } catch {
       return null;
     }

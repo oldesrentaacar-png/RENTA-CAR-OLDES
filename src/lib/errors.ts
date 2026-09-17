@@ -47,8 +47,8 @@ type PostgresErrorLike = {
 const POSTGRES_MESSAGES: Record<string, string> = {
   "23P01":
     "Este vehículo ya tiene una reserva entre estas fechas. Seleccione otro rango o vehículo.",
-  "23505": "Ya existe un registro con estos datos.",
-  "23503": "No se puede completar la operación porque faltan referencias relacionadas.",
+  "23503":
+    "No se puede completar la operación porque faltan referencias relacionadas.",
   "23514": "Los datos enviados no cumplen las reglas del negocio.",
   "42501": "No tiene permiso para realizar esta operación.",
 };
@@ -69,6 +69,82 @@ export function isMissingRelationError(error: unknown): boolean {
   );
 }
 
+function conflictMessageFromUniqueViolation(detail: string): string {
+  const d = detail.toLowerCase();
+
+  if (
+    d.includes("(code)=") ||
+    d.includes("_code_key") ||
+    d.includes("code_key")
+  ) {
+    return "El código generado ya estaba en uso. Se reintentará automáticamente; si vuelve a fallar, recargue e intente de nuevo.";
+  }
+
+  if (d.includes("uq_customers_phone_active") || d.includes("(phone)=")) {
+    return "Ya hay un cliente activo con ese teléfono. Búsquelo en Clientes.";
+  }
+  if (
+    d.includes("uq_customers_email_active") ||
+    d.includes("(lower(email))=") ||
+    d.includes("(email)=")
+  ) {
+    return "Ya hay un cliente activo con ese correo. Búsquelo en Clientes.";
+  }
+  if (d.includes("uq_customers_dui_active") || d.includes("(dui)=")) {
+    return "Ya hay un cliente activo con ese DUI. Búsquelo en Clientes.";
+  }
+  if (d.includes("uq_customers_nit_active") || d.includes("(nit)=")) {
+    return "Ya hay un cliente activo con ese NIT. Búsquelo en Clientes.";
+  }
+
+  if (
+    d.includes("uq_vehicles_plate_active") ||
+    d.includes("(upper(btrim(plate)))=") ||
+    (d.includes("vehicles") && d.includes("plate"))
+  ) {
+    return "Ya hay un vehículo activo con esa placa.";
+  }
+  if (
+    d.includes("uq_vehicles_slug_active") ||
+    d.includes("vehicles_slug") ||
+    (d.includes("vehicles") && d.includes("slug"))
+  ) {
+    return "Ya hay un vehículo con ese identificador. Cambie la placa o el nombre.";
+  }
+  if (
+    d.includes("uq_vehicle_types_slug_active") ||
+    d.includes("vehicle_types_slug")
+  ) {
+    return "Ya hay un tipo de vehículo activo con ese nombre. Reactive el anterior o use otro nombre.";
+  }
+
+  if (d.includes("accessory_catalog_code") || d.includes("accessory_catalog")) {
+    return "Ya existe un accesorio con ese código.";
+  }
+
+  if (
+    d.includes("contract_signatures") ||
+    d.includes("signer_type")
+  ) {
+    return "Esa firma del contrato ya estaba registrada. Recargue e intente de nuevo.";
+  }
+
+  if (d.includes("roles_slug") || d.includes("permissions_key")) {
+    return "Ese rol o permiso ya existe en el sistema.";
+  }
+
+  if (d.includes("user_permission_overrides")) {
+    return "Ese permiso ya estaba asignado al usuario.";
+  }
+
+  if (d.includes("idx_alerts_dedupe")) {
+    return "Esa alerta ya estaba activa.";
+  }
+
+  // Never show the old generic "Ya existe un registro con estos datos."
+  return "Conflicto de datos: un valor único ya está en uso (código, placa, correo u otro identificador). Revise e intente de nuevo.";
+}
+
 export function mapPostgresError(error: unknown): AppError {
   const pgError = error as PostgresErrorLike;
   const code = pgError.code ?? "UNKNOWN";
@@ -83,22 +159,13 @@ export function mapPostgresError(error: unknown): AppError {
   }
 
   if (code === "23505") {
-    const detail = `${pgError.details ?? ""} ${pgError.message ?? ""}`.toLowerCase();
-    const codeCollision =
-      detail.includes("(code)=") ||
-      detail.includes("_code_key") ||
-      detail.includes("code_key");
-    return new AppError(
-      codeCollision
-        ? "El código del documento ya existe (secuencia desfasada). Intente de nuevo; si persiste, contacte soporte."
-        : POSTGRES_MESSAGES["23505"],
-      {
-        code: "CONFLICT",
-        statusCode: 409,
-        details: pgError.details,
-        cause: error,
-      },
-    );
+    const detail = `${pgError.details ?? ""} ${pgError.message ?? ""}`;
+    return new AppError(conflictMessageFromUniqueViolation(detail), {
+      code: "CONFLICT",
+      statusCode: 409,
+      details: pgError.details,
+      cause: error,
+    });
   }
 
   const message = POSTGRES_MESSAGES[code];
@@ -133,7 +200,10 @@ export function toUserMessage(error: unknown): string {
 
   if (error instanceof Error && error.message) {
     // Zod sometimes serializes as Error with JSON message — keep UI clean.
-    if (error.message.trim().startsWith("[{") && error.message.includes('"code"')) {
+    if (
+      error.message.trim().startsWith("[{") &&
+      error.message.includes('"code"')
+    ) {
       return "Filtros inválidos. Revise búsqueda y estado e intente de nuevo.";
     }
     return error.message;

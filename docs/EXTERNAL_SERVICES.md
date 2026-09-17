@@ -48,11 +48,29 @@ Uso: galería de vehículos, portadas, imágenes de Landing.
 
 ---
 
-## 3. Cloudflare R2 — bodega privada
+## 3. Almacenamiento privado (Backblaze B2 o Cloudflare R2)
 
-1. En Cloudflare → R2 → Create bucket (ej. `oldes-private`).  
-2. Create API token con permisos Object Read & Write.  
-3. Completar:
+Prioridad del código: **B2/R2 → Supabase Storage → data URL (dev)**.
+
+### Opción A — Backblaze B2 (recomendada si ya tienes cuenta)
+
+1. Buckets → Create (`oldes-private`, **Private**).  
+2. Application Keys → **Add a New Application Key** (NO la maestra):
+   - Solo el bucket `oldes-private`
+   - Read + Write
+3. En el bucket, copia el **endpoint S3** (ej. `https://s3.us-west-004.backblazeb2.com`).
+4. Variables:
+
+```
+R2_ACCESS_KEY_ID=<keyID>
+R2_SECRET_ACCESS_KEY=<applicationKey>
+R2_BUCKET=oldes-private
+R2_ENDPOINT=https://s3.<region>.backblazeb2.com
+```
+
+Verificar: `node --env-file=.env.local scripts/verify-private-storage.mjs`
+
+### Opción B — Cloudflare R2
 
 ```
 R2_ACCOUNT_ID=
@@ -61,7 +79,7 @@ R2_SECRET_ACCESS_KEY=
 R2_BUCKET=oldes-private
 ```
 
-Estructura de keys sugerida:
+Estructura de keys:
 
 ```
 contracts/{id}/...
@@ -74,7 +92,7 @@ documents/{id}/...
 
 Acceso vía **signed URLs** (expiración), nunca URLs públicas permanentes.
 
-Si R2 no está configurado, el código puede usar Supabase Storage temporalmente o data URL en desarrollo (con warning).
+Si no está configurado, el código usa Supabase Storage temporalmente o data URL en desarrollo (con warning).
 
 ---
 

@@ -43,11 +43,61 @@ import {
 import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
 import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS, DAMAGE_TYPE_LABELS } from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
-import { buildContractBillingBreakdown } from "@/lib/pdf/contract-billing";
+import {
+  buildContractBillingBreakdown,
+  computeOptionalIvaTotals,
+} from "@/lib/pdf/contract-billing";
 import { parseMoneyInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
+
+type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
+
+/** Never inserts a duplicate (contract_id, signer_type) — uses DB ON CONFLICT. */
+async function saveContractSignature(
+  supabase: SupabaseServer,
+  input: {
+    contractId: string;
+    signerType: string;
+    signedByName: string;
+    signaturePath: string;
+    signedByUserId?: string | null;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  },
+): Promise<void> {
+  const { data, error } = await supabase.rpc("upsert_contract_signature", {
+    p_contract_id: input.contractId,
+    p_signer_type: input.signerType,
+    p_signed_by_name: input.signedByName,
+    p_signature_path: input.signaturePath,
+    p_signed_by_user_id: input.signedByUserId ?? null,
+    p_ip_address: input.ipAddress ?? null,
+    p_user_agent: input.userAgent ?? null,
+  });
+
+  if (!error && data) return;
+
+  // Fallback if RPC not yet deployed: client upsert still avoids duplicates.
+  const { error: upsertError } = await supabase.from("contract_signatures").upsert(
+    {
+      contract_id: input.contractId,
+      signer_type: input.signerType,
+      signed_by_name: input.signedByName,
+      signed_by_user_id: input.signedByUserId ?? null,
+      signature_path: input.signaturePath,
+      ip_address: input.ipAddress ?? null,
+      user_agent: input.userAgent ?? null,
+    },
+    { onConflict: "contract_id,signer_type" },
+  );
+
+  if (upsertError) {
+    if (error) throw mapPostgresError(error);
+    throw mapPostgresError(upsertError);
+  }
+}
 import {
   contractSchema,
   contractSearchSchema,
@@ -69,6 +119,10 @@ export type ContractDetail = Contract & {
   reservationCode: string;
   /** Pagaré mercantil (solo clientes locales). */
   includePagare: boolean;
+  /** IVA opcional en PDF / total. */
+  applyIva: boolean;
+  taxRate: number;
+  taxAmount: number;
   pagareAmount: number;
 };
 
@@ -95,13 +149,6 @@ async function ensureRepresentativeSignature(
   userAgent: string | null,
   operatorSignatureDataUrl?: string | null,
 ): Promise<string | undefined> {
-  const { data: existing } = await supabase
-    .from("contract_signatures")
-    .select("id, signed_by_user_id, signature_path")
-    .eq("contract_id", contractId)
-    .eq("signer_type", "REPRESENTATIVE")
-    .maybeSingle();
-
   const { data: profile } = await supabase
     .from("profiles")
     .select("first_name, last_name, signature_url")
@@ -122,53 +169,6 @@ async function ensureRepresentativeSignature(
     return "Configure su nombre en Mi perfil para registrar la firma del operador.";
   }
 
-  if (existing) {
-    const row = existing as {
-      id: string;
-      signed_by_user_id: string | null;
-      signature_path: string | null;
-    };
-    // Keep open contracts in sync with Mi perfil when the same operator signed.
-    if (!row.signed_by_user_id || row.signed_by_user_id === userId) {
-      const patch: {
-        signed_by_name: string;
-        signed_by_user_id: string;
-        signature_path?: string;
-      } = {
-        signed_by_name: operatorName,
-        signed_by_user_id: userId,
-      };
-      if (
-        !row.signature_path &&
-        (operatorSignatureDataUrl?.startsWith("data:") ||
-          operator.signature_url)
-      ) {
-        const sourceDataUrl =
-          operatorSignatureDataUrl?.startsWith("data:")
-            ? operatorSignatureDataUrl
-            : operator.signature_url?.startsWith("data:")
-              ? operator.signature_url
-              : null;
-        if (sourceDataUrl) {
-          const upload = await uploadSignatureImage(
-            contractId,
-            "REPRESENTATIVE",
-            sourceDataUrl,
-          );
-          patch.signature_path = upload.storagePath;
-        } else if (operator.signature_url) {
-          patch.signature_path = operator.signature_url;
-        }
-      }
-      await supabase
-        .from("contract_signatures")
-        .update(patch)
-        .eq("id", row.id);
-    }
-    return undefined;
-  }
-
-  let signaturePath: string | null = null;
   const sourceDataUrl =
     operatorSignatureDataUrl?.startsWith("data:")
       ? operatorSignatureDataUrl
@@ -176,6 +176,7 @@ async function ensureRepresentativeSignature(
         ? operator.signature_url
         : null;
 
+  let signaturePath: string | null = null;
   if (sourceDataUrl) {
     const upload = await uploadSignatureImage(
       contractId,
@@ -183,7 +184,7 @@ async function ensureRepresentativeSignature(
       sourceDataUrl,
     );
     signaturePath = upload.storagePath;
-    // Persist on profile for next contracts (even as data URL if R2 missing).
+    // Persist on profile for next contracts.
     if (!operator.signature_url || operatorSignatureDataUrl) {
       await supabase
         .from("profiles")
@@ -198,22 +199,23 @@ async function ensureRepresentativeSignature(
     return "Falta su firma de operador. Guárdela en Mi perfil (menú usuario) o dibújela en esta pantalla.";
   }
 
-  const { error } = await supabase.from("contract_signatures").insert({
-    contract_id: contractId,
-    signer_type: "REPRESENTATIVE",
-    signed_by_name: operatorName,
-    signed_by_user_id: userId,
-    signature_path: signaturePath,
-    ip_address: ipAddress,
-    user_agent: userAgent,
-  });
-
-  if (error) {
+  // Never collide on UNIQUE(contract_id, signer_type).
+  try {
+    await saveContractSignature(supabase, {
+      contractId,
+      signerType: "REPRESENTATIVE",
+      signedByName: operatorName,
+      signaturePath,
+      signedByUserId: userId,
+      ipAddress,
+      userAgent,
+    });
+  } catch (error) {
     console.error(
-      "[ensureRepresentativeSignature] insert failed",
-      error.message,
+      "[ensureRepresentativeSignature] save failed",
+      error instanceof Error ? error.message : error,
     );
-    return "La firma del cliente se guardó, pero no se pudo registrar la firma del operador.";
+    return "La firma del cliente se guardó, pero no se pudo registrar la firma del operador. Recargue e intente de nuevo.";
   }
 
   return undefined;
@@ -542,6 +544,9 @@ export async function getContract(
       plate: vehicles.plate,
       reservationCode: reservations.code,
       includePagare,
+      applyIva: Boolean(contract.apply_iva),
+      taxRate: Number(contract.tax_rate ?? 0.13),
+      taxAmount: Number(contract.tax_amount ?? 0),
       pagareAmount,
     });
   } catch (error) {
@@ -838,7 +843,7 @@ export async function createContract(
 
     const { data: customerRow } = await supabase
       .from("customers")
-      .select("country, dui, passport")
+      .select("country, dui, passport, customer_type")
       .eq("id", r.customer_id)
       .maybeSingle();
 
@@ -846,6 +851,19 @@ export async function createContract(
       country: (customerRow as { country?: string | null } | null)?.country,
       dui: (customerRow as { dui?: string | null } | null)?.dui,
       passport: (customerRow as { passport?: string | null } | null)?.passport,
+    });
+
+    const applyIva =
+      formData.get("applyIva") === "true" ||
+      formData.get("applyIva") === "on" ||
+      formData.get("applyIva") === "1";
+    const taxRateRaw = Number(formData.get("taxRate") || 13);
+    const taxRate =
+      taxRateRaw > 1 ? taxRateRaw / 100 : Math.max(0, taxRateRaw || 0.13);
+    const ivaTotals = computeOptionalIvaTotals({
+      pretaxTotal: computed.total,
+      applyIva,
+      taxRate,
     });
 
     const { data, error } = await supabase
@@ -859,7 +877,11 @@ export async function createContract(
         agreed_rate: agreedRate,
         deposit,
         insurance,
-        total: computed.total,
+        total: ivaTotals.total,
+        subtotal: ivaTotals.pretaxTotal,
+        apply_iva: applyIva,
+        tax_rate: ivaTotals.taxRate,
+        tax_amount: ivaTotals.taxAmount,
         terms: parsed.data.terms ?? null,
         clauses: parsed.data.clauses ?? null,
         notes: parsed.data.notes ?? null,
@@ -1018,6 +1040,115 @@ export async function setContractIncludePagare(
     revalidatePath(`/dashboard/contratos/${contractId}`);
     revalidatePath(`/dashboard/contratos/${contractId}/pdf`);
     return actionSuccess({ includePagare: include });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+/** Optional IVA on contract PDF/total. Recalculates total from pretax base. */
+export async function setContractApplyIva(
+  contractId: string,
+  applyIva: boolean,
+  taxRatePercent = 13,
+): Promise<
+  ActionResult<{ applyIva: boolean; taxRate: number; taxAmount: number; total: number }>
+> {
+  try {
+    const { user } = await assertPermission("contracts.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("contracts")
+      .select(
+        "status, agreed_rate, insurance, start_at, end_at, total, apply_iva, tax_rate, tax_amount, subtotal",
+      )
+      .eq("id", contractId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Contrato no encontrado.");
+
+    const row = existing as {
+      status: ContractStatus;
+      agreed_rate: number;
+      insurance: number;
+      start_at: string;
+      end_at: string;
+      total: number;
+      apply_iva?: boolean;
+      tax_rate?: number;
+      tax_amount?: number;
+      subtotal?: number | null;
+    };
+
+    if (row.status === "COMPLETED" || row.status === "CANCELLED") {
+      return actionError(
+        "No se puede cambiar el IVA de un contrato completado o cancelado.",
+      );
+    }
+
+    const taxRate =
+      taxRatePercent > 1 ? taxRatePercent / 100 : Math.max(0, taxRatePercent);
+
+    // Recover pretax: if IVA was on, strip it; else use current total / rental base.
+    let pretax = Number(row.subtotal ?? 0);
+    if (!(pretax > 0)) {
+      if (row.apply_iva && Number(row.tax_amount) > 0) {
+        pretax = Math.max(0, Number(row.total) - Number(row.tax_amount));
+      } else if (row.apply_iva && Number(row.tax_rate) > 0) {
+        pretax = Number(row.total) / (1 + Number(row.tax_rate));
+      } else {
+        pretax = Number(row.total);
+      }
+    }
+
+    const ivaTotals = computeOptionalIvaTotals({
+      pretaxTotal: pretax,
+      applyIva,
+      taxRate,
+    });
+
+    const { error } = await supabase
+      .from("contracts")
+      .update({
+        apply_iva: applyIva,
+        tax_rate: ivaTotals.taxRate,
+        tax_amount: ivaTotals.taxAmount,
+        subtotal: ivaTotals.pretaxTotal,
+        total: ivaTotals.total,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", contractId)
+      .is("deleted_at", null);
+
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "contract.apply_iva",
+      entityType: "contract",
+      entityId: contractId,
+      metadata: {
+        applyIva,
+        taxRate: ivaTotals.taxRate,
+        taxAmount: ivaTotals.taxAmount,
+        total: ivaTotals.total,
+      },
+    });
+
+    revalidatePath("/dashboard/contratos");
+    revalidatePath(`/dashboard/contratos/${contractId}`);
+    revalidatePath(`/dashboard/contratos/${contractId}/pdf`);
+    return actionSuccess({
+      applyIva,
+      taxRate: ivaTotals.taxRate,
+      taxAmount: ivaTotals.taxAmount,
+      total: ivaTotals.total,
+    });
   } catch (error) {
     return actionError(toUserMessage(error));
   }
@@ -1524,21 +1655,23 @@ export async function closeContract(
       const ipAddress =
         headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
       const userAgent = headerStore.get("user-agent");
-      const { error: conformityError } = await supabase
-        .from("contract_signatures")
-        .upsert(
-          {
-            contract_id: contractId,
-            signer_type: "CLOSE_CONFORMITY",
-            signed_by_name: conformitySignedBy,
-            signed_by_user_id: null,
-            signature_path: upload.storagePath,
-            ip_address: ipAddress,
-            user_agent: userAgent,
-          },
-          { onConflict: "contract_id,signer_type" },
-        );
-      if (conformityError) throw mapPostgresError(conformityError);
+      const { error: conformityError } = await (async () => {
+        try {
+          await saveContractSignature(supabase, {
+            contractId,
+            signerType: "CLOSE_CONFORMITY",
+            signedByName: conformitySignedBy,
+            signaturePath: upload.storagePath,
+            signedByUserId: null,
+            ipAddress,
+            userAgent,
+          });
+          return { error: null };
+        } catch (error) {
+          return { error };
+        }
+      })();
+      if (conformityError) throw conformityError;
     }
 
     const checkInDate = (checkInInspection as { inspection_date?: string })
@@ -1771,21 +1904,16 @@ export async function signContract(
     const ipAddress = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
     const userAgent = headerStore.get("user-agent");
 
-    const { error: sigError } = await supabase.from("contract_signatures").upsert(
-      {
-        contract_id: contractId,
-        signer_type: parsed.data.signerType,
-        signed_by_name: parsed.data.signedBy,
-        signed_by_user_id:
-          parsed.data.signerType === "REPRESENTATIVE" ? user.id : null,
-        signature_path: upload.storagePath,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-      },
-      { onConflict: "contract_id,signer_type" },
-    );
-
-    if (sigError) throw mapPostgresError(sigError);
+    await saveContractSignature(supabase, {
+      contractId,
+      signerType: parsed.data.signerType,
+      signedByName: parsed.data.signedBy,
+      signaturePath: upload.storagePath,
+      signedByUserId:
+        parsed.data.signerType === "REPRESENTATIVE" ? user.id : null,
+      ipAddress,
+      userAgent,
+    });
 
     // Do not surface storage infra warnings (R2) to the operator UI.
     if (upload.warning) {
@@ -1914,7 +2042,7 @@ export async function getContractPdfData(contractId: string) {
     supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description, severity, mark_number), inspection_photos(storage_path, category, caption)",
+        "id, type, mileage, fuel_level, handover_person_name, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description, severity, mark_number), inspection_photos(storage_path, category, caption)",
       )
       .eq("reservation_id", row.reservation_id)
       .order("inspection_date", { ascending: true }),
@@ -1947,6 +2075,7 @@ export async function getContractPdfData(contractId: string) {
     type: "CHECK_OUT" | "CHECK_IN";
     mileage: number | null;
     fuel_level: string | null;
+    handover_person_name?: string | null;
     additional_driver_name?: string | null;
     inspection_checklist_items:
       | Array<{ item_name: string; status: string }>
@@ -2180,27 +2309,50 @@ export async function getContractPdfData(contractId: string) {
     amount?: number | null;
     item_type?: string | null;
   }> = [];
+  let quoteTaxRate: number | null = null;
   if (quoteId) {
-    const { data: quoteItems } = await supabase
-      .from("quote_items")
-      .select("description, amount, item_type")
-      .eq("quote_id", quoteId)
-      .order("sort_order", { ascending: true });
+    const [{ data: quoteItems }, { data: quoteRow }] = await Promise.all([
+      supabase
+        .from("quote_items")
+        .select("description, amount, item_type")
+        .eq("quote_id", quoteId)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("quotes")
+        .select("tax_rate")
+        .eq("id", quoteId)
+        .maybeSingle(),
+    ]);
     quoteLines = (quoteItems ?? []) as typeof quoteLines;
+    const tr = (quoteRow as { tax_rate?: number | null } | null)?.tax_rate;
+    if (tr != null && Number(tr) > 0) quoteTaxRate = Number(tr);
   }
 
   const rentalDays = rentalDaysBetween(mapped.start_at, mapped.end_at);
+  const applyIva = Boolean(mapped.apply_iva);
+  const taxRate =
+    applyIva
+      ? Number(mapped.tax_rate ?? quoteTaxRate ?? 0.13)
+      : Number(mapped.tax_rate ?? 0.13);
   const billing = buildContractBillingBreakdown({
     rentalDays,
     dailyRate: mapped.agreed_rate,
     insurance: mapped.insurance,
     contractTotal: mapped.total,
     quoteLines,
+    applyIva,
+    taxRate,
+    taxAmount: Number(mapped.tax_amount ?? 0),
   });
 
   const additionalDriverName =
     checkOut?.additional_driver_name?.trim() ||
     customer.additional_driver_name?.trim() ||
+    null;
+
+  const handoverPersonName =
+    checkOut?.handover_person_name?.trim() ||
+    customer.receiver_name?.trim() ||
     null;
 
   const contact = resolvePdfBusinessContact(settingsRow);
@@ -2215,7 +2367,14 @@ export async function getContractPdfData(contractId: string) {
     businessWebsite: contact.businessWebsite,
     contractCode: row.code,
     customerName: `${customer.first_name} ${customer.last_name}`,
-    billingName: `${customer.first_name} ${customer.last_name}`,
+    billingName:
+      customer.customer_type === "COMPANY" && customer.company_name
+        ? customer.company_name
+        : `${customer.first_name} ${customer.last_name}`,
+    customerType: customer.customer_type,
+    companyName: customer.company_name,
+    customerNit: customer.nit,
+    customerNrc: customer.nrc,
     customerAddress: customer.address,
     customerPhone: customer.phone,
     customerEmail: customer.email,
@@ -2228,6 +2387,8 @@ export async function getContractPdfData(contractId: string) {
       ? formatAppDate(customer.license_expiry)
       : null,
     additionalDriverName,
+    handoverPersonName,
+    receiverName: customer.receiver_name,
     vehicleBrand: row.vehicles.brand,
     vehicleModel: row.vehicles.model,
     vehicleYear: row.vehicles.year,
@@ -2247,6 +2408,10 @@ export async function getContractPdfData(contractId: string) {
     billingLineItems: billing.extraLines,
     deposit: mapped.deposit,
     insurance: mapped.insurance,
+    applyIva: billing.applyIva,
+    taxRate: billing.taxRate,
+    taxAmount: billing.taxAmount,
+    pretaxTotal: billing.pretaxTotal,
     total: billing.total,
     totalInWords: amountToSpanishUsd(billing.total),
     fuelOutLabel: fuelOut,
@@ -2643,6 +2808,8 @@ export async function getContractCloseActPdfData(contractId: string) {
     totalOwed,
     observations: contract.notes,
     operatorName,
+    deliveredByName: contract.delivered_by_name ?? null,
+    receivedByName: contract.received_by_name ?? null,
     operatorSignatureUrl,
     clientSignatureUrl,
     clientSignedAt,

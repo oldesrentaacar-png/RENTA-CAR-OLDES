@@ -88,7 +88,7 @@ export const DASHBOARD_NAV: NavGroup[] = [
         label: "Calendario",
         href: "/dashboard/calendario",
         icon: Calendar,
-        permission: "reservations.view",
+        permission: ["calendar.view", "reservations.view"],
       },
     ],
   },

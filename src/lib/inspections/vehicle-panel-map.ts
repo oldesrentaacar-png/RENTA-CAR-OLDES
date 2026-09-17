@@ -17,7 +17,7 @@ export const PANEL_DAMAGE_LEGEND = [
   { symbol: "0", meaning: "GOLPE" },
   { symbol: "+", meaning: "RAYON" },
   { symbol: "x", meaning: "FALTANTE" },
-  { symbol: "·", meaning: "LIBRE" },
+  { symbol: "✎", meaning: "LIBRE (trazo)" },
 ] as const;
 
 /** ViewBox del diagrama tipo formulario (azul sobre fondo crema). */
@@ -189,7 +189,7 @@ export function panelDamageGlyph(damageType?: string): string {
     damageType === "CRACK"
   )
     return "x";
-  if (damageType === "OTHER") return "·";
+  if (damageType === "OTHER") return "✎";
   return "0";
 }
 

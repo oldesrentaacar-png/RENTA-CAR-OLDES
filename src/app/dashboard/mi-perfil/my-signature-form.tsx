@@ -33,18 +33,27 @@ export function MySignatureForm({
     setMessage(null);
     setPreview(dataUrl);
 
-    const fd = new FormData();
-    fd.set("signatureUrl", dataUrl);
-    const result = await saveMySignature(fd);
-    setPending(false);
+    try {
+      const fd = new FormData();
+      fd.set("signatureUrl", dataUrl);
+      const result = await saveMySignature(fd);
 
-    if (!result.success) {
-      setError(result.error);
-      return;
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+
+      setMessage("Firma guardada. Se usará automáticamente en contratos.");
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar la firma. Intente de nuevo.",
+      );
+    } finally {
+      setPending(false);
     }
-
-    setMessage("Firma guardada. Se usará automáticamente en contratos.");
-    router.refresh();
   }
 
   async function handleClear() {

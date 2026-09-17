@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 
 import {
   type PermissionKey,
+  hasAnyPermission,
   requirePermission,
 } from "@/lib/auth/permissions";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth/session";
@@ -50,5 +51,19 @@ export async function assertPermission(
 ): Promise<{ user: User; profile: Profile }> {
   const { user, profile } = await assertAuthenticated();
   await requirePermission(user.id, permission);
+  return { user, profile };
+}
+
+export async function assertAnyPermission(
+  permissions: PermissionKey[],
+): Promise<{ user: User; profile: Profile }> {
+  const { user, profile } = await assertAuthenticated();
+  const allowed = await hasAnyPermission(user.id, permissions);
+  if (!allowed) {
+    throw new AppError("No tiene permiso para realizar esta acción.", {
+      code: "FORBIDDEN",
+      statusCode: 403,
+    });
+  }
   return { user, profile };
 }

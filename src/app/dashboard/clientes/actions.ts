@@ -40,6 +40,70 @@ function emptyToUndefined(value: FormDataEntryValue | null) {
   return text === "" ? undefined : text;
 }
 
+async function findActiveCustomerConflict(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: {
+    phone?: string | null;
+    email?: string | null;
+    dui?: string | null;
+    nit?: string | null;
+    excludeId?: string;
+  },
+): Promise<string | null> {
+  const checks: Array<{
+    field: string;
+    column: string;
+    value: string;
+    caseInsensitive?: boolean;
+  }> = [];
+  if (input.phone?.trim()) {
+    checks.push({ field: "teléfono", column: "phone", value: input.phone.trim() });
+  }
+  if (input.email?.trim()) {
+    checks.push({
+      field: "correo",
+      column: "email",
+      value: input.email.trim(),
+      caseInsensitive: true,
+    });
+  }
+  if (input.dui?.trim()) {
+    checks.push({ field: "DUI", column: "dui", value: input.dui.trim() });
+  }
+  if (input.nit?.trim()) {
+    checks.push({ field: "NIT", column: "nit", value: input.nit.trim() });
+  }
+
+  for (const check of checks) {
+    let query = supabase
+      .from("customers")
+      .select("id, first_name, last_name, company_name")
+      .is("deleted_at", null)
+      .limit(1);
+    query = check.caseInsensitive
+      ? query.ilike(check.column, check.value)
+      : query.eq(check.column, check.value);
+    if (input.excludeId) {
+      query = query.neq("id", input.excludeId);
+    }
+    const { data, error } = await query.maybeSingle();
+    if (error) throw mapPostgresError(error);
+    if (data) {
+      const row = data as {
+        first_name: string | null;
+        last_name: string | null;
+        company_name: string | null;
+      };
+      const name =
+        row.company_name?.trim() ||
+        `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
+        "Cliente";
+      return `Ya existe un cliente activo con ese ${check.field}: ${name}. Búsquelo en Clientes.`;
+    }
+  }
+  return null;
+}
+
 async function uploadCustomerImageFile(
   customerId: string,
   kind: "document" | "license",
@@ -266,6 +330,17 @@ export async function createCustomer(
       created_by: user.id,
     };
 
+    // Avoid opaque unique collisions: tell which active client already matches.
+    const conflict = await findActiveCustomerConflict(supabase, {
+      phone: parsed.data.phone,
+      email: parsed.data.email,
+      dui: parsed.data.dui,
+      nit: parsed.data.nit,
+    });
+    if (conflict) {
+      return actionError(conflict);
+    }
+
     const { data, error } = await supabase
       .from("customers")
       .insert(row)
@@ -359,6 +434,17 @@ export async function updateCustomer(
     }
     if (!licenseUrl && formData.get("licenseImageUrl") === "") {
       updateRow.license_image_url = null;
+    }
+
+    const conflict = await findActiveCustomerConflict(supabase, {
+      phone: data.phone,
+      email: data.email,
+      dui: data.dui,
+      nit: data.nit,
+      excludeId: id,
+    });
+    if (conflict) {
+      return actionError(conflict);
     }
 
     const { error } = await supabase

@@ -34,7 +34,7 @@ export default async function CalendarioPage({
     <ModuleListShell
       title="Calendario"
       description="Vista mensual, semanal y diaria de reservas."
-      permission="reservations.view"
+      permission={["calendar.view", "reservations.view"]}
       configured={configured}
       error={error}
       count={reservations.length}

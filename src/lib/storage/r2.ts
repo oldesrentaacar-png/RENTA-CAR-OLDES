@@ -1,8 +1,9 @@
 /**
- * Cloudflare R2 (S3-compatible) — almacenamiento privado definitivo.
+ * Almacenamiento privado S3-compatible (Cloudflare R2 o Backblaze B2).
  * PDFs, firmas, fotos de inspección, comprobantes.
  */
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -13,20 +14,38 @@ import { env, isR2Configured } from "@/lib/env";
 
 let client: S3Client | null = null;
 
+function resolveEndpoint(): string {
+  if (env.R2_ENDPOINT) return env.R2_ENDPOINT;
+  return `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+}
+
+/** B2: s3.us-west-004.backblazeb2.com → us-west-004. R2: auto. */
+function resolveRegion(endpoint: string): string {
+  if (env.R2_REGION) return env.R2_REGION;
+  const b2 = endpoint.match(/s3\.([a-z0-9-]+)\.backblazeb2\.com/i);
+  if (b2) return b2[1];
+  return "auto";
+}
+
+function isBackblazeEndpoint(endpoint: string): boolean {
+  return /backblazeb2\.com/i.test(endpoint);
+}
+
 function getR2Client(): S3Client {
   if (!isR2Configured()) {
     throw new Error(
-      "Cloudflare R2 no está configurado. Defina R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET.",
+      "Almacenamiento privado no configurado. Defina R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET y R2_ENDPOINT (Backblaze B2) o R2_ACCOUNT_ID (Cloudflare R2).",
     );
   }
 
   if (!client) {
-    const endpoint =
-      env.R2_ENDPOINT ||
-      `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    const endpoint = resolveEndpoint();
+    const region = resolveRegion(endpoint);
     client = new S3Client({
-      region: "auto",
+      region,
       endpoint,
+      // B2 S3 API is more reliable with path-style URLs.
+      forcePathStyle: isBackblazeEndpoint(endpoint),
       credentials: {
         accessKeyId: env.R2_ACCESS_KEY_ID!,
         secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
@@ -82,6 +101,16 @@ export async function getR2SignedUrl(
       Key: key,
     }),
     { expiresIn: expiresInSeconds },
+  );
+}
+
+export async function deleteFromR2(key: string): Promise<void> {
+  const s3 = getR2Client();
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: getR2Bucket(),
+      Key: key,
+    }),
   );
 }
 

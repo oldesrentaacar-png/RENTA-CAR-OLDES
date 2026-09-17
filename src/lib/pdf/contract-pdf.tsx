@@ -17,10 +17,12 @@ import {
 import {
   DAMAGE_SEVERITY_LABELS,
   DAMAGE_TYPE_LABELS,
+  fuelLevelIndex,
 } from "@/lib/inspections/defaults";
 import { formatMoney } from "@/lib/money";
 import { PDF_BRAND } from "@/lib/pdf/brand-assets";
 import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
+import { PdfFuelNeedleGauge } from "@/lib/pdf/fuel-needle-gauge";
 import {
   MachoteField,
   MachoteGrid,
@@ -61,6 +63,10 @@ export type ContractPdfProps = {
   operatedAs?: "LOGISTICS" | "INTERMEDIATION" | null;
   customerName: string;
   billingName?: string | null;
+  customerType?: "PERSON" | "COMPANY" | null;
+  companyName?: string | null;
+  customerNit?: string | null;
+  customerNrc?: string | null;
   customerAddress?: string | null;
   customerUsaAddress?: string | null;
   customerPhone?: string | null;
@@ -72,6 +78,9 @@ export type ContractPdfProps = {
   licenseNumber?: string | null;
   licenseExpiry?: string | null;
   additionalDriverName?: string | null;
+  /** Persona que recibe el vehículo en entrega (inspección / cliente). */
+  handoverPersonName?: string | null;
+  receiverName?: string | null;
   vehicleBrand: string;
   vehicleModel: string;
   vehicleYear: number;
@@ -89,6 +98,11 @@ export type ContractPdfProps = {
   deposit: number;
   insurance: number;
   total: number;
+  /** Optional IVA breakdown (only when applyIva). */
+  applyIva?: boolean;
+  taxRate?: number;
+  taxAmount?: number;
+  pretaxTotal?: number;
   totalInWords?: string | null;
   fuelOutLabel?: string | null;
   fuelInLabel?: string | null;
@@ -466,35 +480,6 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 6.5, color: MUTED },
 });
 
-const FUEL_SEGMENT_COUNT = 9;
-
-function fuelIndexFromLabel(label?: string | null): number {
-  if (!label) return -1;
-  const map: Record<string, number> = {
-    EMPTY: 0,
-    Vacío: 0,
-    "Vacío (E)": 0,
-    ONE_EIGHTH: 1,
-    "1/8": 1,
-    QUARTER: 2,
-    "1/4": 2,
-    THREE_EIGHTHS: 3,
-    "3/8": 3,
-    HALF: 4,
-    "1/2": 4,
-    FIVE_EIGHTHS: 5,
-    "5/8": 5,
-    THREE_QUARTERS: 6,
-    "3/4": 6,
-    SEVEN_EIGHTHS: 7,
-    "7/8": 7,
-    FULL: 8,
-    Lleno: 8,
-    "Lleno (F)": 8,
-  };
-  return map[label] ?? -1;
-}
-
 function Field({
   label,
   value,
@@ -519,29 +504,7 @@ function FuelGauge({
   label: string;
   activeIndex: number;
 }) {
-  return (
-    <View style={styles.fuelRow}>
-      <Text style={styles.fuelLabel}>{label}</Text>
-      <View style={styles.fuelScale}>
-        {Array.from({ length: FUEL_SEGMENT_COUNT }).map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.fuelCell,
-              index === activeIndex ? styles.fuelActive : {},
-              index === FUEL_SEGMENT_COUNT - 1 ? { borderRightWidth: 0 } : {},
-            ]}
-          >
-            {index === 0 || index === FUEL_SEGMENT_COUNT - 1 ? (
-              <Text style={styles.fuelCellText}>
-                {index === 0 ? "E" : "F"}
-              </Text>
-            ) : null}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
+  return <PdfFuelNeedleGauge label={label} activeIndex={activeIndex} />;
 }
 
 export function ContractPdfDocument(props: ContractPdfProps) {
@@ -668,6 +631,19 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         <MachoteSection title="1. Datos del arrendatario">
           <MachoteGrid>
             <MachoteField label="Nombre completo" value={props.customerName} width="full" />
+            {props.customerType === "COMPANY" || props.companyName ? (
+              <MachoteField
+                label="Empresa / razón social"
+                value={props.companyName || props.billingName}
+                width="full"
+              />
+            ) : null}
+            {props.customerNit ? (
+              <MachoteField label="NIT" value={props.customerNit} width="half" />
+            ) : null}
+            {props.customerNrc ? (
+              <MachoteField label="NRC" value={props.customerNrc} width="half" />
+            ) : null}
             <MachoteField label="DUI / Pasaporte / ID" value={idDoc} width="half" />
             <MachoteField label="Teléfono / Celular" value={props.customerPhone} width="half" />
             <MachoteField label="N° Licencia de conducir" value={props.licenseNumber} width="half" />
@@ -676,6 +652,15 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             <MachoteField
               label="Conductor adicional"
               value={props.additionalDriverName}
+              width="full"
+            />
+            <MachoteField
+              label="Quién recibe el vehículo"
+              value={
+                props.handoverPersonName?.trim() ||
+                props.receiverName?.trim() ||
+                null
+              }
               width="full"
             />
             <MachoteField label="Dirección" value={props.customerAddress} width="full" />
@@ -737,6 +722,24 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               <Text style={{ fontSize: 7.5 }}>Otros cargos</Text>
               <Text style={{ fontSize: 7.5 }}>{formatMoney(props.otherCharges ?? 0)}</Text>
             </View>
+          ) : null}
+          {props.applyIva ? (
+            <>
+              <View style={machoteStyles.billingRow}>
+                <Text style={{ fontSize: 7.5 }}>Subtotal</Text>
+                <Text style={{ fontSize: 7.5 }}>
+                  {formatMoney(props.pretaxTotal ?? displayedTotal)}
+                </Text>
+              </View>
+              <View style={machoteStyles.billingRow}>
+                <Text style={{ fontSize: 7.5 }}>
+                  IVA ({(((props.taxRate ?? 0.13) * 100).toFixed(0))}%)
+                </Text>
+                <Text style={{ fontSize: 7.5 }}>
+                  {formatMoney(props.taxAmount ?? 0)}
+                </Text>
+              </View>
+            </>
           ) : null}
           <View style={machoteStyles.billingTotal}>
             <Text style={styles.totalStrong}>MONTO TOTAL</Text>
@@ -829,8 +832,8 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                 </Text>
               )}
               <FuelGauge
-                label="NIVEL COMBUSTIBLE"
-                activeIndex={fuelIndexFromLabel(props.fuelOutLabel)}
+                label="NIVEL COMBUSTIBLE (SALIDA)"
+                activeIndex={fuelLevelIndex(props.fuelOutLabel)}
               />
             </View>
             <View style={styles.checklistPanel}>
@@ -966,6 +969,14 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               <Text style={{ fontSize: 7 }}>
                 Nombre: {props.customerName}
               </Text>
+              {props.handoverPersonName?.trim() ||
+              props.receiverName?.trim() ? (
+                <Text style={{ fontSize: 7 }}>
+                  Recibido por:{" "}
+                  {props.handoverPersonName?.trim() ||
+                    props.receiverName?.trim()}
+                </Text>
+              ) : null}
               {props.clientSignatureUrl ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
                 <Image

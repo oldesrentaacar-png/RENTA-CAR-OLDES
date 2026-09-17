@@ -22,6 +22,7 @@ export const PERMISSION_KEYS = [
   "reservations.create",
   "reservations.edit",
   "reservations.cancel",
+  "calendar.view",
   "vehicles.view",
   "vehicles.create",
   "vehicles.edit",

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   Calendar,
   Car,
@@ -186,6 +187,10 @@ export default async function DashboardPage() {
     : new Set();
   const can = (key: Parameters<typeof permissions.has>[0]) =>
     permissions.has(key);
+
+  if (!can("dashboard.view") && can("calendar.view")) {
+    redirect("/dashboard/calendario");
+  }
 
   const [metrics, agenda] = await Promise.all([
     fetchDashboardMetrics(),

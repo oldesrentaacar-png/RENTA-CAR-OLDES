@@ -48,3 +48,11 @@ next-env.d.ts
 tmp/
 .tmp-landing.html
 landing-reference/
+
+# Android APK project — ignore build outputs / binaries; keep source
+apk-android/.gradle/
+apk-android/**/build/
+apk-android/*.apk
+apk-android/*.aab
+apk-android/local.properties
+apk-android/.idea/

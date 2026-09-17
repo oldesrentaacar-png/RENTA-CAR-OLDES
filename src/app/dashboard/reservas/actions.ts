@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
-import { assertPermission } from "@/lib/auth/guards";
+import { assertAnyPermission, assertPermission } from "@/lib/auth/guards";
 import {
   mapQuoteRow,
   mapReservationRow,
@@ -671,7 +671,7 @@ export async function listReservationsForCalendar(
   params: Record<string, string | string[] | undefined> = {},
 ): Promise<ActionResult<CalendarReservationRow[]>> {
   try {
-    await assertPermission("reservations.view");
+    await assertAnyPermission(["calendar.view", "reservations.view"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }

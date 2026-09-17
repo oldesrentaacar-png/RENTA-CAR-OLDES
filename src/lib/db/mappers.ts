@@ -514,6 +514,9 @@ type ContractRow = {
   delivered_by_name?: string | null;
   received_by_name?: string | null;
   include_pagare?: boolean | null;
+  apply_iva?: boolean | null;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -584,6 +587,9 @@ export function mapContractRow(row: ContractRow): Contract {
       row.include_pagare === true || row.include_pagare === false
         ? row.include_pagare
         : null,
+    apply_iva: Boolean(row.apply_iva),
+    tax_rate: asNumber(row.tax_rate, 0.13),
+    tax_amount: asNumber(row.tax_amount, 0),
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -655,8 +661,19 @@ export function mapInspectionDamageRow(row: {
   description: string | null;
   photo_id: string | null;
   mark_number: number;
+  path_points?: Array<{ x: number; y: number }> | null;
   created_at: string;
 }): InspectionDamageMark {
+  const rawPoints = row.path_points;
+  const path_points = Array.isArray(rawPoints)
+    ? rawPoints
+        .map((point) => ({
+          x: asNumber((point as { x?: unknown }).x, NaN),
+          y: asNumber((point as { y?: unknown }).y, NaN),
+        }))
+        .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    : null;
+
   return {
     id: row.id,
     inspection_id: row.inspection_id,
@@ -668,6 +685,7 @@ export function mapInspectionDamageRow(row: {
     description: row.description,
     photo_id: row.photo_id,
     mark_number: row.mark_number,
+    path_points: path_points && path_points.length > 0 ? path_points : null,
     created_at: row.created_at,
   };
 }
@@ -680,6 +698,7 @@ export function mapInspectionPhotoRow(row: {
   file_name: string | null;
   caption: string | null;
   created_at: string;
+  url?: string | null;
 }): InspectionPhoto {
   return {
     id: row.id,
@@ -689,6 +708,7 @@ export function mapInspectionPhotoRow(row: {
     file_name: row.file_name,
     caption: row.caption,
     created_at: row.created_at,
+    url: row.url ?? null,
   };
 }
 

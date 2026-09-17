@@ -36,6 +36,10 @@ export default async function InspeccionDetailPage({
   const canEdit = user
     ? await hasPermission(user.id, "inspections.edit")
     : false;
+  const canCreate = user
+    ? await hasPermission(user.id, "inspections.create")
+    : false;
+  const canUploadPhotos = canEdit || canCreate;
 
   const deliveryFlow =
     configured && inspection
@@ -168,7 +172,7 @@ export default async function InspeccionDetailPage({
                 <PhotoUploader
                   inspectionId={inspection.id}
                   photos={inspection.photos}
-                  readOnly={!canEdit}
+                  readOnly={!canUploadPhotos}
                 />
               </CardContent>
             </Card>

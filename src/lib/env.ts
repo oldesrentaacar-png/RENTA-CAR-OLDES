@@ -27,13 +27,17 @@ export const env = {
   CLOUDINARY_API_KEY: trimEnv(process.env.CLOUDINARY_API_KEY),
   CLOUDINARY_API_SECRET: trimEnv(process.env.CLOUDINARY_API_SECRET),
   LANDING_ALLOWED_ORIGIN: trimEnv(process.env.LANDING_ALLOWED_ORIGIN),
-  /** Cloudflare R2 (S3-compatible) — archivos privados */
+  /**
+   * Almacenamiento privado S3-compatible (Cloudflare R2 o Backblaze B2).
+   * B2: R2_ENDPOINT + keyID/applicationKey. R2: R2_ACCOUNT_ID sin endpoint.
+   */
   R2_ACCOUNT_ID: trimEnv(process.env.R2_ACCOUNT_ID),
   R2_ACCESS_KEY_ID: trimEnv(process.env.R2_ACCESS_KEY_ID),
   R2_SECRET_ACCESS_KEY: trimEnv(process.env.R2_SECRET_ACCESS_KEY),
   R2_BUCKET:
     trimEnv(process.env.R2_BUCKET) || trimEnv(process.env.R2_BUCKET_NAME),
   R2_ENDPOINT: trimEnv(process.env.R2_ENDPOINT),
+  R2_REGION: trimEnv(process.env.R2_REGION),
   R2_PUBLIC_BASE_URL: trimEnv(process.env.R2_PUBLIC_BASE_URL),
 } as const;
 
@@ -62,12 +66,11 @@ export function isCloudinaryConfigured(): boolean {
 }
 
 export function isR2Configured(): boolean {
-  return Boolean(
-    env.R2_ACCOUNT_ID &&
-      env.R2_ACCESS_KEY_ID &&
-      env.R2_SECRET_ACCESS_KEY &&
-      env.R2_BUCKET,
-  );
+  const hasCreds =
+    env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET;
+  if (!hasCreds) return false;
+  // Backblaze B2: endpoint required. Cloudflare R2: account id builds endpoint.
+  return Boolean(env.R2_ENDPOINT || env.R2_ACCOUNT_ID);
 }
 
 export function requireSupabasePublicEnv(): {

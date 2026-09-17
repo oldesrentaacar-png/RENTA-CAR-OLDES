@@ -5,7 +5,7 @@ import type { z } from "zod";
 
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
-import { assertPermission } from "@/lib/auth/guards";
+import { assertAnyPermission, assertPermission } from "@/lib/auth/guards";
 import {
   mapInspectionChecklistRow,
   mapInspectionDamageRow,
@@ -22,7 +22,11 @@ import { getDefaultChecklistFromCatalog } from "@/lib/inspections/accessory-cata
 import {
   DEFAULT_CHECKLIST_ITEMS,
 } from "@/lib/inspections/defaults";
-import { uploadInspectionPhoto } from "@/lib/storage/private-upload";
+import {
+  INSPECTION_PHOTOS_BUCKET,
+  resolvePrivateFileUrl,
+  uploadInspectionPhoto,
+} from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
 import {
   checklistItemSchema,
@@ -227,11 +231,31 @@ async function loadInspectionDetail(
     ? row.vehicles.vehicle_types[0]
     : row.vehicles.vehicle_types;
 
+  const photoRows = (photos ?? []) as Array<{
+    id: string;
+    inspection_id: string;
+    category: InspectionPhoto["category"];
+    storage_path: string;
+    file_name: string | null;
+    caption: string | null;
+    created_at: string;
+  }>;
+
+  const photosWithUrl: InspectionPhoto[] = await Promise.all(
+    photoRows.map(async (photo) => {
+      const mapped = mapInspectionPhotoRow(photo);
+      const url = await resolvePrivateFileUrl(photo.storage_path, 3600, {
+        bucket: INSPECTION_PHOTOS_BUCKET,
+      });
+      return { ...mapped, url };
+    }),
+  );
+
   return {
     ...inspection,
     checklist: (checklist ?? []).map(mapInspectionChecklistRow),
     damageMarks: (damages ?? []).map(mapInspectionDamageRow),
-    photos: (photos ?? []).map(mapInspectionPhotoRow),
+    photos: photosWithUrl,
     reservationCode: row.reservations.code,
     customerName: `${row.customers.first_name} ${row.customers.last_name}`,
     vehicleLabel: `${row.vehicles.brand} ${row.vehicles.model} ${row.vehicles.year}`,
@@ -697,6 +721,10 @@ export async function saveDamageMarks(
         description: mark.description ?? null,
         photo_id: mark.photoId ?? null,
         mark_number: index + 1,
+        path_points:
+          mark.pathPoints && mark.pathPoints.length >= 2
+            ? mark.pathPoints
+            : null,
       }));
 
       const { error } = await supabase
@@ -726,7 +754,10 @@ export async function uploadInspectionPhotoAction(
   formData: FormData,
 ): Promise<ActionResult<{ id: string; warning?: string }>> {
   try {
-    const { user } = await assertPermission("inspections.edit");
+    const { user } = await assertAnyPermission([
+      "inspections.edit",
+      "inspections.create",
+    ]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -737,6 +768,12 @@ export async function uploadInspectionPhotoAction(
 
     if (!(file instanceof File) || file.size === 0) {
       return actionError("Archivo requerido.");
+    }
+    if (!file.type.startsWith("image/")) {
+      return actionError("Solo se permiten imágenes.");
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      return actionError("Cada foto debe pesar menos de 12 MB.");
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());

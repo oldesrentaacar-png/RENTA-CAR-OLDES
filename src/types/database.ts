@@ -598,6 +598,12 @@ export interface Contract {
   grace_extra_days_waived?: number;
   /** null/undefined = auto from customer docs; true/false = operator override. */
   include_pagare?: boolean | null;
+  /** Optional IVA line on contract PDF/billing. */
+  apply_iva?: boolean;
+  /** IVA rate as fraction (0.13 = 13%). */
+  tax_rate?: number;
+  /** IVA amount included in total when apply_iva. */
+  tax_amount?: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -653,6 +659,8 @@ export interface InspectionDamageMark {
   description: string | null;
   photo_id: string | null;
   mark_number: number;
+  /** Freehand stroke points normalized 0..1 (marcado libre). */
+  path_points?: Array<{ x: number; y: number }> | null;
   created_at: string;
 }
 
@@ -664,6 +672,8 @@ export interface InspectionPhoto {
   file_name: string | null;
   caption: string | null;
   created_at: string;
+  /** Temporary signed/view URL for UI (not persisted). */
+  url?: string | null;
 }
 
 export interface IncomeTransaction {
@@ -1017,7 +1027,22 @@ export type Database = {
         Returns: string[];
       };
       next_document_code: {
-        Args: { p_sequence_type: DocumentSequenceType };
+        Args: {
+          p_doc_type?: DocumentSequenceType;
+          p_sequence_type?: DocumentSequenceType;
+        };
+        Returns: string;
+      };
+      upsert_contract_signature: {
+        Args: {
+          p_contract_id: string;
+          p_signer_type: string;
+          p_signed_by_name: string;
+          p_signature_path: string;
+          p_signed_by_user_id?: string | null;
+          p_ip_address?: string | null;
+          p_user_agent?: string | null;
+        };
         Returns: string;
       };
     };

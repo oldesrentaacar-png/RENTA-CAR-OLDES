@@ -8,7 +8,7 @@ import type { PermissionKey } from "@/lib/auth/permissions";
 export type ModuleListShellProps = {
   title: string;
   description: string;
-  permission: PermissionKey;
+  permission: PermissionKey | PermissionKey[];
   configured: boolean;
   error: string | null;
   count: number;

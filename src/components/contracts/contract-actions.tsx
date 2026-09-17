@@ -5,11 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   cancelContract,
+  setContractApplyIva,
   setContractIncludePagare,
   signContract,
   updateContract,
 } from "@/app/dashboard/contratos/actions";
 import type { ContractDetail } from "@/app/dashboard/contratos/actions";
+import { saveMySignature } from "@/app/dashboard/mi-perfil/actions";
 import { SignaturePad } from "@/components/contracts/signature-pad";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
@@ -58,11 +60,17 @@ export function ContractDetailActions({
     Boolean(contract.includePagare),
   );
   const [savingPagareOption, setSavingPagareOption] = useState(false);
+  const [applyIva, setApplyIva] = useState(Boolean(contract.applyIva));
+  const [savingIvaOption, setSavingIvaOption] = useState(false);
   const termsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIncludePagare(Boolean(contract.includePagare));
   }, [contract.includePagare]);
+
+  useEffect(() => {
+    setApplyIva(Boolean(contract.applyIva));
+  }, [contract.applyIva]);
 
   const clientSigned = contract.signatures.some((s) => s.signer_type === "CLIENT");
   const repSigned = contract.signatures.some(
@@ -82,6 +90,31 @@ export function ContractDetailActions({
 
   const editable = canEdit && contract.status === "PENDING";
 
+  async function handleOperatorSignatureConfirm(dataUrl: string) {
+    setOperatorSignatureDataUrl(dataUrl);
+    setError(null);
+    setWarning(null);
+    try {
+      const fd = new FormData();
+      fd.set("signatureUrl", dataUrl);
+      const result = await saveMySignature(fd);
+      if (!result.success) {
+        setWarning(
+          `Firma capturada para este contrato, pero no se guardó en el perfil: ${result.error}`,
+        );
+        return;
+      }
+      setWarning(null);
+      router.refresh();
+    } catch (err) {
+      setWarning(
+        err instanceof Error
+          ? `Firma capturada, pero no se guardó en el perfil: ${err.message}`
+          : "Firma capturada, pero no se guardó en el perfil.",
+      );
+    }
+  }
+
   async function handleToggleIncludePagare(next: boolean) {
     setSavingPagareOption(true);
     setError(null);
@@ -92,6 +125,19 @@ export function ContractDetailActions({
       return;
     }
     setIncludePagare(result.data.includePagare);
+    router.refresh();
+  }
+
+  async function handleToggleApplyIva(next: boolean) {
+    setSavingIvaOption(true);
+    setError(null);
+    const result = await setContractApplyIva(contract.id, next, 13);
+    setSavingIvaOption(false);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    setApplyIva(result.data.applyIva);
     router.refresh();
   }
 
@@ -295,11 +341,13 @@ export function ContractDetailActions({
                     ). Se usará automáticamente en los siguientes contratos.
                   </p>
                   <SignaturePad
-                    onConfirm={setOperatorSignatureDataUrl}
+                    onConfirm={(dataUrl) => void handleOperatorSignatureConfirm(dataUrl)}
                     disabled={signing}
                   />
                   {operatorSignatureDataUrl ? (
-                    <p className="text-xs text-success">Firma de operador capturada.</p>
+                    <p className="text-xs text-success">
+                      Firma de operador confirmada y guardada en su perfil.
+                    </p>
                   ) : null}
                 </div>
               ) : null}
@@ -391,6 +439,31 @@ export function ContractDetailActions({
                 Registrar firma del contrato
               </Button>
             </>
+          ) : null}
+
+          {editable || canSign ? (
+            <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-brand"
+                checked={applyIva}
+                disabled={savingIvaOption}
+                onChange={(event) =>
+                  void handleToggleApplyIva(event.target.checked)
+                }
+              />
+              <span>
+                <strong>Aplicar IVA (13%) en el contrato / PDF</strong>
+                <span className="mt-1 block text-xs text-muted">
+                  Opcional. Si está marcado, el total incluye IVA y el PDF
+                  muestra Subtotal + IVA + Total.
+                  {savingIvaOption ? " Guardando…" : ""}
+                  {applyIva
+                    ? ` IVA actual: ${formatMoney(contract.taxAmount ?? 0)} · Total: ${formatMoney(contract.total)}`
+                    : ""}
+                </span>
+              </span>
+            </label>
           ) : null}
 
           {editable || canSign ? (

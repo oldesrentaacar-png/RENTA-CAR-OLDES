@@ -34,20 +34,31 @@ export function ContractForm({
   const [agreedRate, setAgreedRate] = useState(String(reservation.agreed_rate));
   const [deposit, setDeposit] = useState(String(reservation.deposit ?? 0));
   const [insurance, setInsurance] = useState(String(reservation.insurance ?? 0));
+  const [applyIva, setApplyIva] = useState(customer.customer_type === "COMPANY");
+  const taxRate = 0.13;
 
   const preview = useMemo(() => {
     if (!startAt || !endAt || agreedRate === "") return null;
     try {
-      return calculateReservationTotal({
+      const base = calculateReservationTotal({
         startAt,
         endAt,
         agreedRate: parseMoneyInput(agreedRate),
         insurance: parseMoneyInput(insurance),
       });
+      const taxAmount = applyIva
+        ? Math.round(base.total * taxRate * 100) / 100
+        : 0;
+      return {
+        ...base,
+        taxAmount,
+        pretaxTotal: base.total,
+        totalWithIva: Math.round((base.total + taxAmount) * 100) / 100,
+      };
     } catch {
       return null;
     }
-  }, [startAt, endAt, agreedRate, insurance]);
+  }, [startAt, endAt, agreedRate, insurance, applyIva]);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -55,8 +66,10 @@ export function ContractForm({
     formData.set("agreedRate", String(parseMoneyInput(agreedRate)));
     formData.set("deposit", String(parseMoneyInput(deposit)));
     formData.set("insurance", String(parseMoneyInput(insurance)));
+    formData.set("applyIva", applyIva ? "true" : "false");
+    formData.set("taxRate", "13");
     if (preview) {
-      formData.set("total", String(preview.total));
+      formData.set("total", String(preview.totalWithIva));
     }
 
     const result = await createContract(formData);
@@ -151,17 +164,41 @@ export function ContractForm({
 
       {preview ? (
         <>
-          <input type="hidden" name="total" value={preview.total} />
+          <input type="hidden" name="total" value={preview.totalWithIva} />
           <PricingBreakdown
             rentalDays={preview.rentalDays}
             dailyRate={parseMoneyInput(agreedRate)}
             subtotal={preview.rentalSubtotal}
             insurance={preview.insurance}
             deposit={parseMoneyInput(deposit)}
-            total={preview.total}
+            total={preview.totalWithIva}
           />
+          {applyIva ? (
+            <p className="text-sm text-muted">
+              IVA 13%: {preview.taxAmount.toFixed(2)} · Subtotal{" "}
+              {preview.pretaxTotal.toFixed(2)} · Total con IVA{" "}
+              {preview.totalWithIva.toFixed(2)}
+            </p>
+          ) : null}
         </>
       ) : null}
+
+      <label className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4 accent-brand"
+          checked={applyIva}
+          onChange={(e) => setApplyIva(e.target.checked)}
+        />
+        <span>
+          <strong>Aplicar IVA (13%) en este contrato</strong>
+          <span className="mt-1 block text-xs text-muted">
+            Opcional. Útil para empresas. Si está marcado, el PDF muestra
+            Subtotal + IVA + Total. Por defecto se sugiere para clientes tipo
+            empresa.
+          </span>
+        </span>
+      </label>
 
       <Textarea
         name="terms"
