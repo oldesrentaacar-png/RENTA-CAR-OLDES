@@ -20,11 +20,19 @@ import { quotePdfHref } from "@/lib/pdf/pdf-cache";
 import type { Quote } from "@/types/database";
 
 async function downloadPdfFile(pdfUrl: string, filename: string): Promise<File> {
-  const response = await fetch(pdfUrl, { credentials: "omit", cache: "no-store" });
+  const response = await fetch(pdfUrl, {
+    credentials: "include",
+    cache: "no-store",
+  });
   if (!response.ok) {
-    throw new Error("No se pudo descargar el PDF de la cotización.");
+    throw new Error(
+      `No se pudo descargar el PDF de la cotización (${response.status}).`,
+    );
   }
   const blob = await response.blob();
+  if (!blob.size) {
+    throw new Error("El PDF descargado está vacío.");
+  }
   return new File([blob], filename, { type: "application/pdf" });
 }
 
@@ -125,14 +133,18 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
         return;
       }
 
-      const { url, pdfUrl, filename } = result.data;
+      const { url, filename } = result.data;
+      // Descarga autenticada (operador logueado) — no depende del enlace público.
+      const pdfHref = quotePdfHref(quote.id, quote.updated_at);
 
       try {
-        const pdfFile = await downloadPdfFile(pdfUrl, filename);
+        const pdfFile = await downloadPdfFile(pdfHref, filename);
         triggerBrowserDownload(pdfFile);
-      } catch {
+      } catch (downloadError) {
         setError(
-          "No se pudo descargar el PDF. Revise su conexión e intente de nuevo.",
+          downloadError instanceof Error
+            ? downloadError.message
+            : "No se pudo descargar el PDF. Revise su conexión e intente de nuevo.",
         );
         return;
       }
