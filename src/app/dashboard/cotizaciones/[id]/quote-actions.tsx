@@ -54,6 +54,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [openingWhatsApp, setOpeningWhatsApp] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailTo, setEmailTo] = useState("");
@@ -119,7 +120,28 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
     router.refresh();
   }
 
-  async function handleWhatsApp() {
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const filename = `cotizacion-${quote.code}.pdf`;
+      const pdfHref = quotePdfHref(quote.id, quote.updated_at);
+      const pdfFile = await downloadPdfFile(pdfHref, filename);
+      triggerBrowserDownload(pdfFile);
+      setMessage(`PDF descargado: ${filename}`);
+    } catch (downloadError) {
+      setError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "No se pudo descargar el PDF. Revise su conexión e intente de nuevo.",
+      );
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
+  async function handleWhatsAppMessage() {
     setOpeningWhatsApp(true);
     setError(null);
     setMessage(null);
@@ -132,26 +154,9 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
         setError(result.error);
         return;
       }
-
-      const { url, filename } = result.data;
-      // Descarga autenticada (operador logueado) — no depende del enlace público.
-      const pdfHref = quotePdfHref(quote.id, quote.updated_at);
-
-      try {
-        const pdfFile = await downloadPdfFile(pdfHref, filename);
-        triggerBrowserDownload(pdfFile);
-      } catch (downloadError) {
-        setError(
-          downloadError instanceof Error
-            ? downloadError.message
-            : "No se pudo descargar el PDF. Revise su conexión e intente de nuevo.",
-        );
-        return;
-      }
-
-      window.open(url, "_blank", "noopener,noreferrer");
+      window.open(result.data.url, "_blank", "noopener,noreferrer");
       setMessage(
-        `PDF descargado (${filename}). WhatsApp abierto con el mensaje. Adjunte el PDF con el clip 📎 → Documento.`,
+        "WhatsApp abierto con el mensaje de texto. Si necesita el PDF, use Descargar y adjúntelo con el clip 📎.",
       );
       router.refresh();
     } finally {
@@ -259,10 +264,20 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           <Button
             type="button"
             variant="secondary"
-            disabled={openingWhatsApp}
-            onClick={() => void handleWhatsApp()}
+            disabled={downloadingPdf}
+            onClick={() => void handleDownloadPdf()}
           >
-            {openingWhatsApp ? "Preparando…" : "Descargar"}
+            {downloadingPdf ? "Descargando…" : "Descargar"}
+          </Button>
+        </PermissionGuard>
+        <PermissionGuard permission="quotes.send" fallback={null}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={openingWhatsApp}
+            onClick={() => void handleWhatsAppMessage()}
+          >
+            {openingWhatsApp ? "Abriendo…" : "Enviar mensaje"}
           </Button>
         </PermissionGuard>
         <Link
