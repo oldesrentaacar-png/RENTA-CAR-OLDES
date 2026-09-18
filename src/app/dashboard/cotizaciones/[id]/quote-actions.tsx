@@ -125,51 +125,53 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
         return;
       }
 
-      const { url, pdfUrl, filename } = result.data;
-      let pdfFile: File | null = null;
+      const { url, pdfUrl, filename, message: waText, quoteCode } = result.data;
+
+      let pdfFile: File;
       try {
         pdfFile = await downloadPdfFile(pdfUrl, filename);
       } catch {
-        // Seguir con el enlace aunque falle la descarga local.
+        setError(
+          "No se pudo preparar el PDF. Revise su conexión e intente de nuevo.",
+        );
+        return;
       }
 
-      if (pdfFile) {
-        const canShareFile =
-          typeof navigator.share === "function" &&
-          typeof navigator.canShare === "function" &&
-          navigator.canShare({ files: [pdfFile] });
+      // Preferir enviar el ARCHIVO (sin enlace). Funciona bien en celular.
+      const canShareFile =
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [pdfFile] });
 
-        if (canShareFile) {
-          try {
-            await navigator.share({
-              files: [pdfFile],
-              title: `Cotización ${result.data.quoteCode}`,
-              text: `Cotización ${result.data.quoteCode} — OLDES Rent-a-Car`,
-            });
-            setMessage(
-              "PDF listo. Si eligió WhatsApp en el menú de compartir, el archivo ya va adjunto.",
-            );
-            router.refresh();
+      if (canShareFile) {
+        try {
+          await navigator.share({
+            files: [pdfFile],
+            title: `Cotización ${quoteCode}`,
+            text: waText,
+          });
+          setMessage(
+            "PDF listo. Elija WhatsApp en el menú de compartir para enviar el archivo al cliente (sin enlace).",
+          );
+          router.refresh();
+          return;
+        } catch (shareError) {
+          if (
+            shareError instanceof DOMException &&
+            shareError.name === "AbortError"
+          ) {
             return;
-          } catch (shareError) {
-            if (
-              shareError instanceof DOMException &&
-              shareError.name === "AbortError"
-            ) {
-              return;
-            }
-            // Continuar con descarga + wa.me
           }
+          // Continuar con flujo de escritorio
         }
-
-        triggerBrowserDownload(pdfFile);
       }
 
+      // Escritorio / navegador sin share de archivos:
+      // 1) descarga el PDF  2) abre WhatsApp solo con el texto  3) el operador adjunta el PDF
+      triggerBrowserDownload(pdfFile);
       window.open(url, "_blank", "noopener,noreferrer");
       setMessage(
-        pdfFile
-          ? "WhatsApp abierto con el mensaje y el enlace corto del PDF. En el celular también puede adjuntar el PDF descargado."
-          : "WhatsApp abierto con el mensaje y el enlace del PDF.",
+        `PDF descargado (${filename}). En WhatsApp use el clip 📎 → Documento y seleccione ese archivo. El mensaje ya no lleva enlace.`,
       );
       router.refresh();
     } finally {
@@ -280,7 +282,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
             disabled={openingWhatsApp}
             onClick={() => void handleWhatsApp()}
           >
-            {openingWhatsApp ? "Preparando PDF…" : "WhatsApp + PDF"}
+            {openingWhatsApp ? "Preparando PDF…" : "Enviar PDF por WhatsApp"}
           </Button>
         </PermissionGuard>
         <Link

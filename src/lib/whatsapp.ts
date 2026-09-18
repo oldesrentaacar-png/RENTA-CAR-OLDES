@@ -30,21 +30,19 @@ export function buildQuoteWhatsAppMessage(input: {
   vehicleLabel: string;
   totalLabel: string;
   businessName?: string;
-  pdfUrl?: string | null;
 }): string {
   const business = input.businessName ?? "OLDES Rent-a-Car";
-  const lines = [
+  return [
     `Hola ${input.customerName},`,
     "",
     `Le compartimos su cotización ${input.quoteCode} de ${business}.`,
     `Vehículo: ${input.vehicleLabel}.`,
     `Total: ${input.totalLabel}.`,
-  ];
-  if (input.pdfUrl) {
-    lines.push("", `Ver PDF de la cotización:`, input.pdfUrl);
-  }
-  lines.push("", "Quedamos atentos para confirmar su reserva.");
-  return lines.join("\n");
+    "",
+    "Adjuntamos el PDF de la cotización.",
+    "",
+    "Quedamos atentos para confirmar su reserva.",
+  ].join("\n");
 }
 
 export function buildReservationWhatsAppMessage(input: {

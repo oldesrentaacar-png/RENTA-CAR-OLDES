@@ -925,6 +925,7 @@ export async function getQuoteWhatsAppLink(
   ActionResult<{
     url: string;
     pdfUrl: string;
+    message: string;
     quoteCode: string;
     filename: string;
   }>
@@ -997,7 +998,6 @@ export async function getQuoteWhatsAppLink(
         vehicleTypeLabelFromJoin(firstRelation(q.vehicle_types), "es") ??
         vehicleLabelFromJoin(firstRelation(q.vehicles)),
       totalLabel: formatMoney(q.total),
-      pdfUrl,
     });
 
     await supabase.from("quotes").update({ status: "SENT" }).eq("id", quoteId);
@@ -1014,6 +1014,7 @@ export async function getQuoteWhatsAppLink(
     return actionSuccess({
       url: buildWaMeLink(phone, message),
       pdfUrl,
+      message,
       quoteCode: q.code,
       filename: `cotizacion-${q.code}.pdf`,
     });
