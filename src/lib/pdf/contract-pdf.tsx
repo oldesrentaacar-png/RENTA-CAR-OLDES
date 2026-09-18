@@ -715,7 +715,11 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           {billingLines.map((line) => (
             <View key={`${line.label}-${line.amount}`} style={machoteStyles.billingRow}>
               <Text style={{ fontSize: 7.5 }}>{line.label}</Text>
-              <Text style={{ fontSize: 7.5 }}>{formatMoney(line.amount)}</Text>
+              <Text style={{ fontSize: 7.5 }}>
+                {line.amount < 0
+                  ? `−${formatMoney(Math.abs(line.amount))}`
+                  : formatMoney(line.amount)}
+              </Text>
             </View>
           ))}
           {(props.otherCharges ?? 0) > 0 ? (

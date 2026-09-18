@@ -35,7 +35,7 @@ import { calculateReservationTotal } from "@/lib/calculations/quote";
 import {
   extraLinesFromQuoteItems,
   normalizeExtraLineItems,
-  resolveExtraLineItems,
+  reconcileNamedExtrasWithLump,
   sumExtraLineItems,
 } from "@/lib/billing/extra-lines";
 import {
@@ -862,15 +862,13 @@ export async function createContract(
         .eq("quote_id", r.quote_id);
       namedExtras = extraLinesFromQuoteItems(quoteItems);
     }
-    const extraLineItems = resolveExtraLineItems({
+    const extraLineItems = reconcileNamedExtrasWithLump({
       named: namedExtras,
       lumpAmount: additionalCostsForm,
+      residualLabel: "Ajuste / otros de cotización",
       lumpLabel: "Costos adicionales (desde reserva)",
     });
-    const additionalCosts =
-      extraLineItems.length > 0
-        ? sumExtraLineItems(extraLineItems)
-        : additionalCostsForm;
+    const additionalCosts = sumExtraLineItems(extraLineItems);
     const canCourtesy = await canManageCourtesyDiscount(user.id);
     const courtesyAmount = canCourtesy
       ? parseMoneyInput(
@@ -1247,6 +1245,11 @@ export async function setContractApplyIva(
 
     if (error) throw mapPostgresError(error);
 
+    await syncReservationFromContract(supabase, {
+      reservationId: row.reservation_id,
+      total: ivaTotals.total,
+    });
+
     await writeAuditLog({
       userId: user.id,
       action: "contract.apply_iva",
@@ -1263,6 +1266,9 @@ export async function setContractApplyIva(
     revalidatePath("/dashboard/contratos");
     revalidatePath(`/dashboard/contratos/${contractId}`);
     revalidatePath(`/dashboard/contratos/${contractId}/pdf`);
+    revalidatePath("/dashboard/reservas");
+    revalidatePath(`/dashboard/reservas/${row.reservation_id}`);
+    revalidatePath("/dashboard/calendario");
     return actionSuccess({
       applyIva,
       taxRate: ivaTotals.taxRate,
@@ -2645,6 +2651,7 @@ export async function getContractPdfData(contractId: string) {
     contractTotal: mapped.total,
     quoteLines,
     manualLines: mapped.extra_line_items ?? [],
+    courtesyAmount: Number(mapped.courtesy_amount ?? 0),
     applyIva,
     taxRate,
     taxAmount: Number(mapped.tax_amount ?? 0),

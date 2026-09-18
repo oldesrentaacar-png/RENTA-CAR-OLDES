@@ -22,6 +22,7 @@ import {
   extraLinesFromQuoteItems,
   normalizeExtraLineItems,
   parseExtraLineItemsFromForm,
+  reconcileNamedExtrasWithLump,
   resolveExtraLineItems,
   sumExtraLineItems,
 } from "@/lib/billing/extra-lines";
@@ -551,14 +552,27 @@ export async function createReservationFromQuote(
           ].join("\n")
         : "";
 
-    const namedExtras = pricing.extraLines.map((line) => ({
-      label: line.description,
-      amount: line.amount,
-    }));
-    const extraLineItems = resolveExtraLineItems({
+    const namedExtras = pricing.extraLines
+      .map((line) => ({
+        label: line.description,
+        amount: line.amount,
+      }))
+      .filter((line) => !/\bseguro\b/i.test(line.label));
+    const insuranceAmount = Math.max(0, Number(q.insurance_amount ?? 0));
+    const extrasLump = Math.max(0, pricing.additionalCosts - insuranceAmount);
+    const extraLineItems = reconcileNamedExtrasWithLump({
       named: namedExtras,
-      lumpAmount: pricing.additionalCosts,
+      lumpAmount: extrasLump,
+      residualLabel: `Ajuste / otros de cotización ${q.code}`,
       lumpLabel: `Extras desde cotización ${q.code}`,
+    });
+    const additionalCosts = sumExtraLineItems(extraLineItems);
+    const recomputed = calculateReservationTotal({
+      startAt: q.start_at,
+      endAt: q.end_at,
+      agreedRate: pricing.agreedRate,
+      insurance: insuranceAmount,
+      additionalCosts,
     });
 
     const insertPayload: Record<string, unknown> = {
@@ -569,11 +583,11 @@ export async function createReservationFromQuote(
       end_at: q.end_at,
       agreed_rate: pricing.agreedRate,
       deposit: q.deposit_amount,
-      insurance: 0,
-      total: pricing.total,
-      cash_amount: pricing.total,
+      insurance: insuranceAmount,
+      total: recomputed.total,
+      cash_amount: recomputed.total,
       card_amount: 0,
-      additional_costs: pricing.additionalCosts,
+      additional_costs: additionalCosts,
       extra_line_items: extraLineItems,
       apply_iva: false,
       tax_rate: 0.13,

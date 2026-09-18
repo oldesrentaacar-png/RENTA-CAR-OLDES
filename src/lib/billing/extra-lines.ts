@@ -58,6 +58,36 @@ export function resolveExtraLineItems(input: {
   return [];
 }
 
+/** Prefer named lines; if lump is higher, keep named + residual so totals match. */
+export function reconcileNamedExtrasWithLump(input: {
+  named?: Array<{ label?: string | null; amount?: number | null }> | null;
+  lumpAmount?: number | null;
+  residualLabel?: string;
+  lumpLabel?: string;
+}): ExtraLineItem[] {
+  const named = normalizeExtraLineItems(input.named);
+  const lump = Math.round(Number(input.lumpAmount ?? 0) * 100) / 100;
+  if (named.length === 0) {
+    return resolveExtraLineItems({
+      lumpAmount: lump,
+      lumpLabel: input.lumpLabel || input.residualLabel,
+    });
+  }
+  const namedSum = sumExtraLineItems(named);
+  const residual = Math.round((lump - namedSum) * 100) / 100;
+  if (residual > 0.009) {
+    return [
+      ...named,
+      {
+        label:
+          (input.residualLabel || "Ajuste / otros de cotización").slice(0, 200),
+        amount: residual,
+      },
+    ].slice(0, 40);
+  }
+  return named;
+}
+
 export function parseExtraLineItemsFromForm(
   raw: FormDataEntryValue | null,
 ): ExtraLineItem[] | undefined {

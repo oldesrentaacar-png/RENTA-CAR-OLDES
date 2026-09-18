@@ -5,7 +5,7 @@ import {
   sumExtraLineItems,
   type ExtraLineItem,
 } from "@/lib/billing/extra-lines";
-import { isMissingRelationError } from "@/lib/errors";
+import { isMissingRelationError, mapPostgresError } from "@/lib/errors";
 
 /**
  * After a contract exists, it is the operational source of truth.
@@ -88,6 +88,7 @@ export async function syncReservationFromContract(
       input.reservationId,
       error.message,
     );
+    throw mapPostgresError(error);
   }
 }
 

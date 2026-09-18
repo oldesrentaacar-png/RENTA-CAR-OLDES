@@ -45,17 +45,8 @@ export function deriveCalendarPhase(input: CalendarPhaseInput): CalendarPhase {
   }
 
   if (hasContract) {
-    const now = input.now ?? new Date();
-    const start = new Date(input.startAt);
-    const end = new Date(input.endAt);
-    if (
-      !Number.isNaN(start.getTime()) &&
-      !Number.isNaN(end.getTime()) &&
-      now >= start &&
-      now <= end
-    ) {
-      return "EN_CURSO";
-    }
+    // With contract but no CHECK_OUT yet → still pending delivery
+    // (do not infer "En curso" from dates alone).
     return "PENDIENTE_ENTREGA";
   }
 
