@@ -17,6 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { quotePdfHref } from "@/lib/pdf/pdf-cache";
+import {
+  openWhatsAppCrossDevice,
+  savePdfCrossDevice,
+} from "@/lib/share/device";
 import type { Quote } from "@/types/database";
 
 async function downloadPdfFile(pdfUrl: string, filename: string): Promise<File> {
@@ -34,18 +38,6 @@ async function downloadPdfFile(pdfUrl: string, filename: string): Promise<File> 
     throw new Error("El PDF descargado está vacío.");
   }
   return new File([blob], filename, { type: "application/pdf" });
-}
-
-function triggerBrowserDownload(file: File) {
-  const objectUrl = URL.createObjectURL(file);
-  const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = file.name;
-  anchor.rel = "noopener";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
 }
 
 export function QuoteDetailActions({ quote }: { quote: Quote }) {
@@ -128,9 +120,25 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
       const filename = `cotizacion-${quote.code}.pdf`;
       const pdfHref = quotePdfHref(quote.id, quote.updated_at);
       const pdfFile = await downloadPdfFile(pdfHref, filename);
-      triggerBrowserDownload(pdfFile);
-      setMessage(`PDF descargado: ${filename}`);
+      const mode = await savePdfCrossDevice(pdfFile);
+      if (mode === "shared") {
+        setMessage(
+          "PDF listo. Guárdelo o envíelo desde el menú de compartir del dispositivo.",
+        );
+      } else if (mode === "opened") {
+        setMessage(
+          "PDF abierto. En iPhone/iPad use Compartir → Guardar en Archivos o WhatsApp.",
+        );
+      } else {
+        setMessage(`PDF descargado: ${filename}`);
+      }
     } catch (downloadError) {
+      if (
+        downloadError instanceof DOMException &&
+        downloadError.name === "AbortError"
+      ) {
+        return;
+      }
       setError(
         downloadError instanceof Error
           ? downloadError.message
@@ -154,7 +162,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
         setError(result.error);
         return;
       }
-      window.open(result.data.url, "_blank", "noopener,noreferrer");
+      openWhatsAppCrossDevice(result.data.url);
       setMessage(
         "WhatsApp abierto con el mensaje de texto. Si necesita el PDF, use Descargar y adjúntelo con el clip 📎.",
       );
@@ -177,11 +185,11 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <PermissionGuard permission="quotes.edit" fallback={null}>
           <Link
             href={`/dashboard/cotizaciones/${quote.id}/editar`}
-            className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 sm:w-auto"
           >
             Editar
           </Link>
@@ -191,6 +199,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           <Button
             type="button"
             variant="danger"
+            className="min-h-11 w-full sm:w-auto"
             disabled={deleting}
             onClick={() => void handleDelete()}
           >
@@ -203,6 +212,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
             <Button
               type="button"
               variant="secondary"
+              className="min-h-11 w-full sm:w-auto"
               onClick={() => handleStatus("SENT")}
             >
               Marcar enviada
@@ -214,6 +224,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
             <Button
               type="button"
               variant="danger"
+              className="min-h-11 w-full sm:w-auto"
               onClick={() => handleStatus("REJECTED")}
             >
               Rechazar
@@ -224,6 +235,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           <PermissionGuard permission="quotes.accept" fallback={null}>
             <Button
               type="button"
+              className="min-h-11 w-full sm:w-auto"
               onClick={async () => {
                 setError(null);
                 setMessage(null);
@@ -244,7 +256,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           <PermissionGuard permission="reservations.create" fallback={null}>
             <Link
               href={`/dashboard/reservas/nuevo?quoteId=${quote.id}`}
-              className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 sm:w-auto"
             >
               Crear reserva desde cotización
             </Link>
@@ -254,6 +266,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           <Button
             type="button"
             variant="secondary"
+            className="min-h-11 w-full sm:w-auto"
             disabled={sendingEmail}
             onClick={() => void openEmailDialog()}
           >
@@ -264,6 +277,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           <Button
             type="button"
             variant="secondary"
+            className="min-h-11 w-full sm:w-auto"
             disabled={downloadingPdf}
             onClick={() => void handleDownloadPdf()}
           >
@@ -274,6 +288,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
           <Button
             type="button"
             variant="secondary"
+            className="min-h-11 w-full sm:w-auto"
             disabled={openingWhatsApp}
             onClick={() => void handleWhatsAppMessage()}
           >
@@ -283,7 +298,8 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
         <Link
           href={quotePdfHref(quote.id, quote.updated_at)}
           target="_blank"
-          className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 sm:w-auto"
         >
           Ver PDF
         </Link>
