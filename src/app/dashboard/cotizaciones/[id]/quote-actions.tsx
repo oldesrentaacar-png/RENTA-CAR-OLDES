@@ -262,7 +262,7 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
             disabled={openingWhatsApp}
             onClick={() => void handleWhatsApp()}
           >
-            {openingWhatsApp ? "Preparando…" : "WhatsApp + PDF"}
+            {openingWhatsApp ? "Preparando…" : "Descargar PDF + WhatsApp"}
           </Button>
         </PermissionGuard>
         <Link
