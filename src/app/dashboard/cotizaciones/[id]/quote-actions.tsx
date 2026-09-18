@@ -168,8 +168,8 @@ export function QuoteDetailActions({ quote }: { quote: Quote }) {
       window.open(url, "_blank", "noopener,noreferrer");
       setMessage(
         pdfFile
-          ? "PDF descargado y WhatsApp abierto con el enlace. En WhatsApp puede adjuntar el PDF descargado o tocar el enlace."
-          : "WhatsApp abierto con el enlace del PDF.",
+          ? "WhatsApp abierto con el mensaje y el enlace corto del PDF. En el celular también puede adjuntar el PDF descargado."
+          : "WhatsApp abierto con el mensaje y el enlace del PDF.",
       );
       router.refresh();
     } finally {

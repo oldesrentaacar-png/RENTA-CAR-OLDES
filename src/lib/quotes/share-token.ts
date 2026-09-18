@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { env } from "@/lib/env";
-import { QUOTE_PDF_TEMPLATE_VERSION } from "@/lib/pdf/pdf-cache";
 import { resolveAppBaseUrl } from "@/lib/receipts/share-token";
 
 const DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
@@ -31,6 +30,29 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+/** Prefer production APP_URL; never send localhost links to clients. */
+export function resolvePublicShareOrigin(
+  preferred?: string | null,
+): string | null {
+  const configured = resolveAppBaseUrl()?.replace(/\/$/, "") ?? null;
+  const candidate = preferred?.replace(/\/$/, "") ?? null;
+
+  const usable = (origin: string | null): string | null => {
+    if (!origin) return null;
+    try {
+      const host = new URL(origin).hostname.toLowerCase();
+      if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+        return null;
+      }
+      return origin;
+    } catch {
+      return null;
+    }
+  };
+
+  return usable(configured) ?? usable(candidate) ?? configured ?? candidate;
+}
+
 /** Signed token so the customer can open the quote PDF without login. */
 export function createQuotePdfShareToken(
   quoteId: string,
@@ -57,17 +79,19 @@ export function verifyQuotePdfShareToken(
   return safeEqual(sig, expected);
 }
 
+/**
+ * Short WhatsApp-friendly PDF URL:
+ *   https://dominio.com/c/COT-XXXX?k=<token>
+ */
 export function buildQuotePdfShareUrl(
   quoteId: string,
+  quoteCode: string,
   baseUrl?: string | null,
 ): string | null {
-  const origin = (baseUrl ?? resolveAppBaseUrl())?.replace(/\/$/, "");
+  const origin = resolvePublicShareOrigin(baseUrl);
   if (!origin || !shareSecret()) return null;
+  const code = String(quoteCode ?? "").trim();
+  if (!code) return null;
   const token = createQuotePdfShareToken(quoteId);
-  const params = new URLSearchParams({
-    token,
-    v: QUOTE_PDF_TEMPLATE_VERSION,
-    t: String(Date.now()),
-  });
-  return `${origin}/api/quotes/${quoteId}/pdf?${params.toString()}`;
+  return `${origin}/c/${encodeURIComponent(code)}?k=${encodeURIComponent(token)}`;
 }

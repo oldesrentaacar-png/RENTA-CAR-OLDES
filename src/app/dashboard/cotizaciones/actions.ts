@@ -983,10 +983,10 @@ export async function getQuoteWhatsAppLink(
       );
     }
 
-    const pdfUrl = buildQuotePdfShareUrl(quoteId, baseUrl);
+    const pdfUrl = buildQuotePdfShareUrl(quoteId, q.code, baseUrl);
     if (!pdfUrl) {
       return actionError(
-        "No se pudo generar el enlace del PDF. Verifique la URL de la aplicación.",
+        "No se pudo generar el enlace del PDF. Configure NEXT_PUBLIC_APP_URL con el dominio público (ej. https://app.oldesrentacar.com).",
       );
     }
 
