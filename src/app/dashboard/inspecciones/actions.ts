@@ -31,6 +31,7 @@ import {
   uploadInspectionPhoto,
 } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
+import { firstRelation } from "@/lib/validation/form-helpers";
 import {
   checklistItemSchema,
   damageMarkSchema,
@@ -45,6 +46,7 @@ import type {
   InspectionType,
 } from "@/types/database";
 import type { PaginatedResult } from "@/types/api";
+
 async function revalidateContractsLinkedToInspection(
   inspectionId: string,
 ): Promise<void> {
@@ -112,9 +114,60 @@ export type InspectionComparison = {
   }>;
 };
 
+export type InspectionListItem = Inspection & {
+  vehicleLabel: string;
+  vehiclePlate: string | null;
+  vehicleBrand: string | null;
+  vehicleModel: string | null;
+  vehicleYear: number | null;
+};
+
+export type InspectionVehicleFilterOption = {
+  id: string;
+  label: string;
+};
+
+export async function listVehiclesForInspectionFilter(): Promise<
+  ActionResult<InspectionVehicleFilterOption[]>
+> {
+  try {
+    await assertPermission("inspections.view");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("vehicles")
+      .select("id, brand, model, year, plate")
+      .is("deleted_at", null)
+      .order("brand", { ascending: true })
+      .order("model", { ascending: true })
+      .order("plate", { ascending: true })
+      .limit(500);
+
+    if (error) throw mapPostgresError(error);
+
+    const items = ((data ?? []) as Array<{
+      id: string;
+      brand: string | null;
+      model: string | null;
+      year: number | null;
+      plate: string | null;
+    }>).map((row) => ({
+      id: row.id,
+      label: formatVehicleLabel(row, { includeBrand: true }),
+    }));
+
+    return actionSuccess(items);
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
 export async function listInspections(
   params: Record<string, string | string[] | undefined> = {},
-): Promise<ActionResult<PaginatedResult<Inspection>>> {
+): Promise<ActionResult<PaginatedResult<InspectionListItem>>> {
   try {
     await assertPermission("inspections.view");
     if (!isSupabaseConfigured()) {
@@ -133,7 +186,10 @@ export async function listInspections(
     const supabase = await createClient();
     let query = supabase
       .from("inspections")
-      .select("*", { count: "exact" })
+      .select(
+        "*, vehicles(brand, model, year, plate)",
+        { count: "exact" },
+      )
       .order("inspection_date", { ascending: false });
 
     if (filters.reservationId) {
@@ -143,38 +199,27 @@ export async function listInspections(
     if (filters.type) query = query.eq("type", filters.type);
 
     if (filters.query) {
-      const term = filters.query.trim().replace(/[,()]/g, " ").replace(/\s+/g, " ").trim();
+      const term = filters.query
+        .trim()
+        .replace(/[,()]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
       if (term) {
         const like = `%${term}%`;
-        const [{ data: matchingVehicles }, { data: matchingCustomers }] =
-          await Promise.all([
-            supabase
-              .from("vehicles")
-              .select("id")
-              .or(`plate.ilike.${like},brand.ilike.${like},model.ilike.${like}`)
-              .limit(80),
-            supabase
-              .from("customers")
-              .select("id")
-              .or(
-                `first_name.ilike.${like},last_name.ilike.${like},company_name.ilike.${like},phone.ilike.${like}`,
-              )
-              .limit(80),
-          ]);
+        // Prioridad operativa: vehículo (placa/marca/modelo) y código de inspección.
+        const { data: matchingVehicles } = await supabase
+          .from("vehicles")
+          .select("id")
+          .or(`plate.ilike.${like},brand.ilike.${like},model.ilike.${like}`)
+          .limit(100);
 
         const vehicleIds = (matchingVehicles ?? []).map(
-          (row) => (row as { id: string }).id,
-        );
-        const customerIds = (matchingCustomers ?? []).map(
           (row) => (row as { id: string }).id,
         );
 
         const orParts = [`code.ilike.${like}`];
         if (vehicleIds.length > 0) {
           orParts.push(`vehicle_id.in.(${vehicleIds.join(",")})`);
-        }
-        if (customerIds.length > 0) {
-          orParts.push(`customer_id.in.(${customerIds.join(",")})`);
         }
         query = query.or(orParts.join(","));
       }
@@ -186,8 +231,34 @@ export async function listInspections(
 
     if (error) throw mapPostgresError(error);
 
+    type VehicleJoin = {
+      brand: string | null;
+      model: string | null;
+      year: number | null;
+      plate: string | null;
+    };
+
+    const items: InspectionListItem[] = (
+      (data ?? []) as Array<
+        InspectionRow & {
+          vehicles: VehicleJoin | VehicleJoin[] | null;
+        }
+      >
+    ).map((row) => {
+      const vehicle = firstRelation(row.vehicles);
+      const mapped = mapInspectionRow(row);
+      return {
+        ...mapped,
+        vehicleBrand: vehicle?.brand ?? null,
+        vehicleModel: vehicle?.model ?? null,
+        vehicleYear: vehicle?.year ?? null,
+        vehiclePlate: vehicle?.plate ?? null,
+        vehicleLabel: formatVehicleLabel(vehicle, { includeBrand: true }),
+      };
+    });
+
     return actionSuccess({
-      items: ((data ?? []) as InspectionRow[]).map(mapInspectionRow),
+      items,
       total: count ?? 0,
       page: filters.page,
       pageSize: filters.pageSize,

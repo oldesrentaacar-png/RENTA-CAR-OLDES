@@ -1,12 +1,20 @@
 import Link from "next/link";
 
-import { listInspections } from "@/app/dashboard/inspecciones/actions";
+import {
+  listInspections,
+  listVehiclesForInspectionFilter,
+} from "@/app/dashboard/inspecciones/actions";
 import { InspectionListActions } from "@/components/dashboard/inspection-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
-import { ListFilters } from "@/components/dashboard/list-filters";
+import { FilterBar, FilterField } from "@/components/shared/filter-bar";
 import { DataTable } from "@/components/shared/data-table";
 import { Pagination } from "@/components/shared/pagination";
-import { FUEL_LEVEL_LABELS, INSPECTION_TYPE_LABELS } from "@/lib/inspections/defaults";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import {
+  FUEL_LEVEL_LABELS,
+  INSPECTION_TYPE_LABELS,
+} from "@/lib/inspections/defaults";
 import { formatAppDate } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
 
@@ -17,19 +25,25 @@ export default async function InspeccionesPage({
 }) {
   const params = await searchParams;
   const configured = isSupabaseConfigured();
-  const result = configured ? await listInspections(params) : null;
+  const [result, vehiclesResult] = configured
+    ? await Promise.all([
+        listInspections(params),
+        listVehiclesForInspectionFilter(),
+      ])
+    : [null, null];
   const pageData = result?.success ? result.data : null;
   const data = pageData?.items ?? [];
   const error = result && !result.success ? result.error : null;
+  const vehicleOptions = vehiclesResult?.success ? vehiclesResult.data : [];
 
-  const typeOptions = Object.entries(INSPECTION_TYPE_LABELS).map(
-    ([value, label]) => ({ value, label }),
-  );
+  const typeValue = String(params.type ?? params.status ?? "");
+  const vehicleId = String(params.vehicleId ?? "");
+  const q = String(params.q ?? "");
 
   return (
     <ModuleListShell
       title="Inspecciones"
-      description="Inspecciones de salida y entrada de vehículos."
+      description="Registro de salidas y entradas por vehículo (km, combustible y estado)."
       permission="inspections.view"
       configured={configured}
       error={error}
@@ -45,30 +59,68 @@ export default async function InspeccionesPage({
       }
     >
       <form method="get" className="mb-4">
-        <ListFilters
-          q={String(params.q ?? "")}
-          status={String(params.status ?? params.type ?? "")}
-          statusOptions={typeOptions}
-          searchPlaceholder="Código, placa, marca o cliente…"
-        />
+        <FilterBar>
+          <FilterField label="Buscar vehículo" className="min-w-[200px] flex-[2]">
+            <Input
+              name="q"
+              defaultValue={q}
+              placeholder="Placa, marca, modelo o código…"
+            />
+          </FilterField>
+          <FilterField label="Tipo">
+            <Select
+              name="type"
+              defaultValue={typeValue}
+              options={[
+                { value: "", label: "Todas" },
+                { value: "CHECK_OUT", label: "Solo salidas" },
+                { value: "CHECK_IN", label: "Solo entradas" },
+              ]}
+            />
+          </FilterField>
+          <FilterField label="Vehículo" className="min-w-[220px] flex-[2]">
+            <Select
+              name="vehicleId"
+              defaultValue={vehicleId}
+              options={[
+                { value: "", label: "Todos los vehículos" },
+                ...vehicleOptions.map((v) => ({
+                  value: v.id,
+                  label: v.label,
+                })),
+              ]}
+            />
+          </FilterField>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Filtrar
+            </button>
+          </div>
+        </FilterBar>
       </form>
 
       <DataTable
         data={data}
         getRowKey={(row) => row.id}
         emptyTitle="Sin inspecciones"
-        emptyDescription="Registre inspecciones al entregar o recibir vehículos."
+        emptyDescription="No hay inspecciones con esos filtros. Pruebe otra placa, tipo o vehículo."
         columns={[
           {
-            key: "code",
-            header: "Código",
+            key: "vehicle",
+            header: "Vehículo",
             cell: (row) => (
-              <Link
-                href={`/dashboard/inspecciones/${row.id}`}
-                className="font-medium text-brand hover:underline"
-              >
-                {row.code}
-              </Link>
+              <div className="flex flex-col gap-0.5">
+                <Link
+                  href={`/dashboard/inspecciones/${row.id}`}
+                  className="font-medium text-brand hover:underline"
+                >
+                  {row.vehicleLabel}
+                </Link>
+                <span className="text-xs text-muted">{row.code}</span>
+              </div>
             ),
           },
           {
@@ -117,8 +169,9 @@ export default async function InspeccionesPage({
           totalPages={pageData.totalPages}
           basePath="/dashboard/inspecciones"
           searchParams={{
-            q: String(params.q ?? "") || undefined,
-            status: String(params.status ?? params.type ?? "") || undefined,
+            q: q || undefined,
+            type: typeValue || undefined,
+            vehicleId: vehicleId || undefined,
           }}
         />
       ) : null}
