@@ -560,7 +560,8 @@ export async function createInspection(
         .from("inspections")
         .update({ code: withA })
         .eq("id", id);
-      if (!codeError) code = withA;
+      if (codeError) throw mapPostgresError(codeError);
+      code = withA;
     }
 
     const checklistDefaults =

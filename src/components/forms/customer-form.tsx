@@ -109,12 +109,17 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
               defaultValue={customer?.contact_person ?? ""}
             />
           </div>
-          <Input
-            name="phone"
-            label="Teléfono *"
-            defaultValue={customer?.phone}
-            required
-          />
+          <div>
+            <Input
+              name="phone"
+              label="Teléfono *"
+              defaultValue={customer?.phone}
+              required
+            />
+            <p className="mt-1 text-xs text-muted">
+              Puede repetirse entre clientes (p. ej. varias sociedades o facturación del mismo contacto).
+            </p>
+          </div>
           <Input
             name="email"
             label="Correo"
@@ -171,12 +176,17 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
               type="date"
               defaultValue={customer?.license_expiry ?? ""}
             />
-            <Input
-              name="phone"
-              label="Teléfono *"
-              defaultValue={customer?.phone}
-              required
-            />
+            <div>
+              <Input
+                name="phone"
+                label="Teléfono *"
+                defaultValue={customer?.phone}
+                required
+              />
+              <p className="mt-1 text-xs text-muted">
+                Puede repetirse entre clientes (p. ej. varias sociedades o facturación del mismo contacto).
+              </p>
+            </div>
             <Input
               name="country"
               label="País"

@@ -65,6 +65,13 @@ export function fuelLevelIndex(
   const orderIndex = (FUEL_LEVEL_ORDER as readonly string[]).indexOf(raw);
   if (orderIndex >= 0) return orderIndex;
 
+  // Match human labels from FUEL_LEVEL_LABELS (e.g. "7/8 (casi lleno)").
+  for (const [key, label] of Object.entries(FUEL_LEVEL_LABELS)) {
+    if (label === raw) {
+      return (FUEL_LEVEL_ORDER as readonly string[]).indexOf(key);
+    }
+  }
+
   const map: Record<string, number> = {
     EMPTY: 0,
     Vacío: 0,
@@ -84,6 +91,7 @@ export function fuelLevelIndex(
     "3/4": 6,
     SEVEN_EIGHTHS: 7,
     "7/8": 7,
+    "7/8 (casi lleno)": 7,
     FULL: 8,
     Lleno: 8,
     "Lleno (F)": 8,

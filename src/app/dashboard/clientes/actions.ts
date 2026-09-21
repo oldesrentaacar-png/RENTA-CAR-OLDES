@@ -17,6 +17,7 @@ import {
   type ReservationRow,
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
+import { getCustomerDisplayName } from "@/lib/customers";
 import { isCloudinaryConfigured, isSupabaseConfigured } from "@/lib/env";
 import { uploadImageFromBuffer } from "@/lib/cloudinary/upload";
 import { createClient } from "@/lib/supabase/server";
@@ -199,7 +200,15 @@ export async function listCustomers(
 
     if (error) throw mapPostgresError(error);
 
-    const items = ((data ?? []) as CustomerRow[]).map(mapCustomerRow);
+    const items = ((data ?? []) as CustomerRow[])
+      .map(mapCustomerRow)
+      .sort((a, b) =>
+        getCustomerDisplayName(a).localeCompare(
+          getCustomerDisplayName(b),
+          "es",
+          { sensitivity: "base" },
+        ),
+      );
     const total = count ?? 0;
 
     return actionSuccess({

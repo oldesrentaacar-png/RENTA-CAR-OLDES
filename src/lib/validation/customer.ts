@@ -91,10 +91,11 @@ export const customerSchema = z
   })
   .transform((data) => {
     if (data.customerType === "COMPANY") {
+      // last_name = razón social → orden alfabético del listado coincide con el nombre mostrado.
       return {
         ...data,
         firstName: data.firstName ?? data.companyName ?? "Empresa",
-        lastName: data.lastName ?? data.contactPerson ?? "-",
+        lastName: data.companyName ?? data.lastName ?? "-",
       };
     }
     return {
@@ -185,7 +186,8 @@ export const customerUpdateSchema = z
     return {
       ...data,
       firstName: data.firstName ?? data.companyName,
-      lastName: data.lastName ?? data.contactPerson ?? data.lastName,
+      // Orden alfabético del listado = razón social mostrada.
+      lastName: data.companyName ?? data.lastName,
     };
   });
 

@@ -231,7 +231,8 @@ export function CloseContractWizard({
           ? "Inspección lista con km y combustible"
           : "Inspección creada — complete km y combustible en el siguiente paso"
         : "Crear CHECK_IN del vehículo",
-      done: hasCheckIn && hasFuelAndMileage,
+      // Km/combustible se validan en el paso "fuel", no aquí.
+      done: hasCheckIn,
       required: true,
     },
     {
@@ -310,38 +311,67 @@ export function CloseContractWizard({
       setError("Primero cree la inspección de entrada.");
       return false;
     }
+    if (!mileageInput.trim()) {
+      setError(
+        "Indique el kilometraje de entrada. Puede corregirlo aquí; también puede volver con Anterior o Salir.",
+      );
+      return false;
+    }
     const mileage = Number(mileageInput);
     if (!Number.isInteger(mileage) || mileage < 0) {
-      setError("Indique un kilometraje válido (número entero).");
+      setError(
+        "Indique el kilometraje de entrada (número entero). Puede corregirlo aquí y seguir; también puede volver con Anterior o Salir.",
+      );
       return false;
     }
     if (!fuelLevelInput.trim()) {
-      setError("Seleccione el nivel de combustible.");
+      setError(
+        "Seleccione el nivel de combustible. Puede corregirlo aquí; también puede volver con Anterior o Salir.",
+      );
       return false;
     }
     setSavingVitals(true);
     setError(null);
     setVitalsOk(null);
-    const result = await saveCloseCheckInVitals(contract.id, {
-      mileage,
-      fuelLevel: fuelLevelInput.trim(),
-    });
-    setSavingVitals(false);
-    if (!result.success) {
-      setError(result.error);
+    try {
+      const result = await saveCloseCheckInVitals(contract.id, {
+        mileage,
+        fuelLevel: fuelLevelInput.trim(),
+      });
+      if (!result.success) {
+        setError(result.error);
+        return false;
+      }
+      setSavedMileage(result.data.mileage);
+      setSavedFuelLevel(result.data.fuelLevel);
+      if (result.data.hasChecklist) setChecklistReady(true);
+      setVitalsOk(
+        "Kilometraje y combustible guardados. Puede corregirlos de nuevo si hace falta.",
+      );
+      router.refresh();
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar km/combustible. Intente de nuevo o salga del cierre.",
+      );
       return false;
+    } finally {
+      setSavingVitals(false);
     }
-    setSavedMileage(result.data.mileage);
-    setSavedFuelLevel(result.data.fuelLevel);
-    if (result.data.hasChecklist) setChecklistReady(true);
-    setVitalsOk("Kilometraje y combustible guardados. Puede continuar.");
-    router.refresh();
-    return true;
   }
 
   async function goNext() {
     setError(null);
     if (current.id === "fuel" && hasCheckIn) {
+      // Validación local primero: no llamar al servidor si falta km/combustible.
+      if (!mileageInput.trim() || !fuelLevelInput.trim()) {
+        setError(
+          "Complete kilometraje y combustible para continuar. Use Anterior o Salir si necesita salir de esta pantalla.",
+        );
+        return;
+      }
       const needsSave =
         savedMileage == null ||
         !savedFuelLevel ||
@@ -387,64 +417,91 @@ export function CloseContractWizard({
   async function confirmAndClose() {
     setClosing(true);
     setError(null);
+    try {
+      const formData = new FormData();
+      formData.set("extraCharges", extraCharges);
+      formData.set("damageCharges", damageCharges);
+      formData.set("fuelCharges", fuelCharges);
+      formData.set("complementaryAmount", complementaryAmount);
+      formData.set("finalPayment", finalPayment);
+      formData.set("courtesyHours", courtesyHours);
+      formData.set("courtesyDays", courtesyDays);
+      if (canManageCourtesy) {
+        formData.set("courtesyAmount", courtesyAmount);
+        formData.set("courtesyDetail", courtesyDetail.trim());
+      }
+      formData.set("graceExtraDaysWaived", graceExtraDaysWaived);
+      formData.set("actualReturnAt", actualReturnAt);
+      formData.set("deliveredByName", deliveredByName);
+      formData.set("receivedByName", receivedByName);
+      formData.set("closeNotes", closeNotes);
+      formData.set("chargeConcept", chargeConcept);
+      formData.set("depositReturned", depositReturned ? "true" : "false");
+      formData.set("confirmClose", "true");
+      if (effectiveMileage != null && effectiveFuel) {
+        formData.set("checkInMileage", String(effectiveMileage));
+        formData.set("checkInFuelLevel", effectiveFuel);
+      }
+      if (conformitySignatureDataUrl) {
+        formData.set("conformitySignatureDataUrl", conformitySignatureDataUrl);
+        formData.set(
+          "conformitySignedBy",
+          conformitySignedBy.trim() || contract.customerName || "Cliente",
+        );
+      }
 
-    const formData = new FormData();
-    formData.set("extraCharges", extraCharges);
-    formData.set("damageCharges", damageCharges);
-    formData.set("fuelCharges", fuelCharges);
-    formData.set("complementaryAmount", complementaryAmount);
-    formData.set("finalPayment", finalPayment);
-    formData.set("courtesyHours", courtesyHours);
-    formData.set("courtesyDays", courtesyDays);
-    if (canManageCourtesy) {
-      formData.set("courtesyAmount", courtesyAmount);
-      formData.set("courtesyDetail", courtesyDetail.trim());
-    }
-    formData.set("graceExtraDaysWaived", graceExtraDaysWaived);
-    formData.set("actualReturnAt", actualReturnAt);
-    formData.set("deliveredByName", deliveredByName);
-    formData.set("receivedByName", receivedByName);
-    formData.set("closeNotes", closeNotes);
-    formData.set("chargeConcept", chargeConcept);
-    formData.set("depositReturned", depositReturned ? "true" : "false");
-    formData.set("confirmClose", "true");
-    if (effectiveMileage != null && effectiveFuel) {
-      formData.set("checkInMileage", String(effectiveMileage));
-      formData.set("checkInFuelLevel", effectiveFuel);
-    }
-    if (conformitySignatureDataUrl) {
-      formData.set("conformitySignatureDataUrl", conformitySignatureDataUrl);
-      formData.set(
-        "conformitySignedBy",
-        conformitySignedBy.trim() || contract.customerName || "Cliente",
+      const result = await closeContract(contract.id, formData);
+
+      if (!result.success) {
+        setConfirmOpen(false);
+        setError(result.error);
+        return;
+      }
+
+      window.open(
+        closeActPdfHref(contract.id, new Date().toISOString()),
+        "_blank",
+        "noopener,noreferrer",
       );
-    }
-
-    const result = await closeContract(contract.id, formData);
-    setClosing(false);
-
-    if (!result.success) {
+      router.push(`/dashboard/contratos/${contract.id}`);
+      router.refresh();
+    } catch (err) {
       setConfirmOpen(false);
-      setError(result.error);
-      return;
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo cerrar el contrato. Intente de nuevo o salga del cierre.",
+      );
+    } finally {
+      setClosing(false);
     }
-
-    window.open(
-      closeActPdfHref(contract.id, new Date().toISOString()),
-      "_blank",
-      "noopener,noreferrer",
-    );
-    router.push(`/dashboard/contratos/${contract.id}`);
-    router.refresh();
   }
 
   function goPrev() {
     setError(null);
+    setSavingVitals(false);
+    if (isFirst) {
+      router.push(`/dashboard/contratos/${contract.id}`);
+      return;
+    }
     setStepIndex((value) => Math.max(value - 1, 0));
   }
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/40 px-3 py-2 text-sm">
+        <p className="text-muted">
+          Cierre de <strong>{contract.code}</strong>
+          {contract.customerName ? ` · ${contract.customerName}` : ""}
+        </p>
+        <Link
+          href={`/dashboard/contratos/${contract.id}`}
+          className="font-medium text-brand hover:underline"
+        >
+          Salir del cierre (volver al contrato)
+        </Link>
+      </div>
+
       {!canClose ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <p className="font-semibold">
@@ -1095,16 +1152,17 @@ export function CloseContractWizard({
                 variant="outline"
                 size="sm"
                 onClick={goPrev}
-                disabled={isFirst}
+                disabled={closing}
               >
                 <ChevronLeft className="mr-1 h-4 w-4" />
-                Anterior
+                {isFirst ? "Salir" : "Anterior"}
               </Button>
               <Button
                 type="button"
                 size="sm"
                 onClick={() => void goNext()}
-                disabled={closing || savingVitals}
+                disabled={closing}
+                loading={savingVitals}
               >
                 {isLast ? "Confirmar cierre" : "Siguiente"}
                 {!isLast ? <ChevronRight className="ml-1 h-4 w-4" /> : null}
@@ -1150,8 +1208,10 @@ export function CloseContractWizard({
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setConfirmOpen(false)}
-                disabled={closing}
+                onClick={() => {
+                  setClosing(false);
+                  setConfirmOpen(false);
+                }}
               >
                 No, volver
               </Button>

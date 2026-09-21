@@ -213,12 +213,13 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         const isOverdue = startAt < now;
         const dedupeKey = `pickup:${reservation.id}`;
         activeDedupeKeys.add(dedupeKey);
+        const when = personAndTimeLabel(customerLabel, reservation.start_at);
         const inserted = await upsertAlert(supabase, {
           alert_type: isOverdue ? "pickup_overdue" : "pickup_due",
           title: isOverdue
-            ? `Entrega vencida — ${customerLabel}`
-            : `Entrega próxima — ${customerLabel}`,
-          message: `${personAndTimeLabel(customerLabel, reservation.start_at)} · ${vehicleLabel} · ${reservation.code}`,
+            ? `Entrega vencida — ${when}`
+            : `Entrega próxima — ${when}`,
+          message: vehicleLabel,
           entity_type: "reservation",
           entity_id: reservation.id,
           severity: isOverdue ? "danger" : "warning",
@@ -233,12 +234,13 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         const isOverdue = endAt < now;
         const dedupeKey = `return:${reservation.id}`;
         activeDedupeKeys.add(dedupeKey);
+        const when = personAndTimeLabel(customerLabel, reservation.end_at);
         const inserted = await upsertAlert(supabase, {
           alert_type: isOverdue ? "return_overdue" : "return_due",
           title: isOverdue
-            ? `Devolución vencida — ${customerLabel}`
-            : `Devolución próxima — ${customerLabel}`,
-          message: `${personAndTimeLabel(customerLabel, reservation.end_at)} · ${vehicleLabel} · ${reservation.code}`,
+            ? `Devolución vencida — ${when}`
+            : `Devolución próxima — ${when}`,
+          message: vehicleLabel,
           entity_type: "reservation",
           entity_id: reservation.id,
           severity: isOverdue ? "danger" : "warning",
@@ -266,10 +268,11 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
       const dedupeKey = `contract:overdue:${contract.id}`;
       activeDedupeKeys.add(dedupeKey);
 
+      const when = personAndTimeLabel(customerLabel, contract.end_at);
       const inserted = await upsertAlert(supabase, {
         alert_type: "contract_overdue",
-        title: `Contrato sin cerrar — ${customerLabel}`,
-        message: `${personAndTimeLabel(customerLabel, contract.end_at)} · venció ${formatAppDate(contract.end_at)} · ${vehicleLabel} · ${contract.code}`,
+        title: `Contrato sin cerrar — ${when}`,
+        message: `Venció ${formatAppDate(contract.end_at)} · ${vehicleLabel}`,
         entity_type: "contract",
         entity_id: contract.id,
         severity: "danger",
