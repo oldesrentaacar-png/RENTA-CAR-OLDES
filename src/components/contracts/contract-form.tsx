@@ -6,9 +6,19 @@ import { useMemo, useState } from "react";
 
 import { createContract } from "@/app/dashboard/contratos/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
+import {
+  BillingExtrasEditor,
+  draftsFromExtraItems,
+  draftsToExtraItems,
+  type BillingCatalogItem,
+} from "@/components/shared/billing-extras-editor";
 import { PricingBreakdown } from "@/components/shared/pricing-breakdown";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  formatExtraLineDetail,
+  sumExtraLineItems,
+} from "@/lib/billing/extra-lines";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { toDatetimeLocalValue } from "@/lib/dates";
 import { formatMoney, parseMoneyInput } from "@/lib/money";
@@ -21,6 +31,7 @@ type ContractFormProps = {
   vehicle: Vehicle;
   defaultTerms?: string | null;
   canManageCourtesy?: boolean;
+  catalogItems?: BillingCatalogItem[];
 };
 
 export function ContractForm({
@@ -29,6 +40,7 @@ export function ContractForm({
   vehicle,
   defaultTerms,
   canManageCourtesy = false,
+  catalogItems = [],
 }: ContractFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -37,14 +49,24 @@ export function ContractForm({
   const [agreedRate, setAgreedRate] = useState(String(reservation.agreed_rate));
   const [deposit, setDeposit] = useState(String(reservation.deposit ?? 0));
   const [insurance, setInsurance] = useState(String(reservation.insurance ?? 0));
-  const additionalCosts = String(
-    (reservation.extra_line_items ?? []).length > 0
-      ? (reservation.extra_line_items ?? []).reduce(
-          (sum, line) => sum + Number(line.amount || 0),
-          0,
-        )
-      : (reservation.additional_costs ?? 0),
-  );
+  const [extraLines, setExtraLines] = useState(() => {
+    const named = draftsFromExtraItems(reservation.extra_line_items);
+    if (named.length > 0) return named;
+    const lump = Number(reservation.additional_costs ?? 0);
+    if (lump > 0) {
+      return draftsFromExtraItems([
+        {
+          label: "Costos adicionales (desde reserva)",
+          amount: lump,
+          quantity: 1,
+          unitPrice: lump,
+        },
+      ]);
+    }
+    return [];
+  });
+  const namedExtras = draftsToExtraItems(extraLines);
+  const additionalCosts = String(sumExtraLineItems(namedExtras));
   const [courtesyAmount, setCourtesyAmount] = useState(
     String(reservation.courtesy_amount ?? 0),
   );
@@ -103,6 +125,7 @@ export function ContractForm({
       "additionalCosts",
       String(parseMoneyInput(additionalCosts || 0)),
     );
+    formData.set("extraLineItems", JSON.stringify(namedExtras));
     if (canManageCourtesy) {
       formData.set(
         "courtesyAmount",
@@ -198,32 +221,15 @@ export function ContractForm({
           value={insurance}
           onChange={(e) => setInsurance(e.target.value)}
         />
-        <div className="sm:col-span-2 space-y-2 rounded-xl border border-border bg-surface-muted/30 p-4">
-          <p className="text-sm font-semibold">Cobros extras desde la reserva</p>
-          {(reservation.extra_line_items ?? []).length > 0 ? (
-            <ul className="space-y-1 text-sm">
-              {(reservation.extra_line_items ?? []).map((line, index) => (
-                <li
-                  key={`${line.label}-${index}`}
-                  className="flex justify-between gap-3"
-                >
-                  <span>{line.label}</span>
-                  <span className="font-medium">{formatMoney(line.amount)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : Number(reservation.additional_costs ?? 0) > 0 ? (
-            <p className="text-sm">
-              Costos adicionales:{" "}
-              <strong>{formatMoney(reservation.additional_costs)}</strong>
-            </p>
-          ) : (
-            <p className="text-xs text-muted">
-              Sin extras nombrados en la reserva. Podrá agregarlos en la sección
-              1 del contrato antes de firmar.
-            </p>
-          )}
-          <input type="hidden" name="additionalCosts" value={additionalCosts} />
+        <div className="sm:col-span-2">
+          <BillingExtrasEditor
+            catalogItems={catalogItems}
+            lines={extraLines}
+            onChange={setExtraLines}
+            hiddenFieldName="extraLineItems"
+            title="Catálogo (extras / servicios)"
+            hint="Igual que cotización/reserva: silla, motorista, permiso, seguro internacional… con cantidad. Quedan en sección 1 y PDF."
+          />
         </div>
         <Input
           name="deposit"
@@ -289,7 +295,7 @@ export function ContractForm({
             dailyRate={parseMoneyInput(agreedRate)}
             subtotal={preview.rentalSubtotal}
             insurance={preview.insurance}
-            extras={preview.additionalCosts}
+            extras={namedExtras.length > 0 ? 0 : preview.additionalCosts}
             extrasLabel="Cobros extras"
             courtesy={preview.courtesyAmount}
             courtesyDetail={
@@ -300,10 +306,15 @@ export function ContractForm({
             tax={preview.taxAmount}
             deposit={parseMoneyInput(deposit)}
             total={preview.totalWithIva}
-            lines={(reservation.extra_line_items ?? []).map((line) => ({
-              description: line.label,
-              amount: line.amount,
-            }))}
+            lines={
+              namedExtras.length > 0
+                ? namedExtras.map((line) => ({
+                    description: line.label,
+                    amount: line.amount,
+                    detail: formatExtraLineDetail(line),
+                  }))
+                : undefined
+            }
           />
           {applyIva ? (
             <p className="text-sm text-muted">

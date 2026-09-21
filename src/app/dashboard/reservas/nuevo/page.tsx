@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
+import { loadBillingCatalogItems } from "@/lib/billing/load-catalog";
 import { deriveReservationPricingFromQuote } from "@/lib/calculations/quote";
 import { toCustomerSelectOption } from "@/lib/customers";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -58,6 +59,7 @@ export default async function NuevaReservaPage({
     }>;
   } = {};
   let canManageCourtesy = false;
+  let catalogItems: Awaited<ReturnType<typeof loadBillingCatalogItems>> = [];
 
   if (configured) {
     const user = await getCurrentUser();
@@ -65,7 +67,8 @@ export default async function NuevaReservaPage({
       canManageCourtesy = await canManageCourtesyDiscount(user.id);
     }
     const supabase = await createClient();
-    const [{ data: customerRows }, { data: vehicleRows }] = await Promise.all([
+    const [{ data: customerRows }, { data: vehicleRows }, catalog] =
+      await Promise.all([
       supabase
         .from("customers")
         .select("*")
@@ -77,7 +80,9 @@ export default async function NuevaReservaPage({
         .is("deleted_at", null)
         .eq("is_active", true)
         .order("plate"),
+      loadBillingCatalogItems(),
     ]);
+    catalogItems = catalog;
 
     customers = ((customerRows ?? []) as CustomerRow[]).map((row) =>
       toCustomerSelectOption(mapCustomerRow(row)),
@@ -190,6 +195,7 @@ export default async function NuevaReservaPage({
             vehicles={vehicles}
             defaults={defaults}
             canManageCourtesy={canManageCourtesy}
+            catalogItems={catalogItems}
           />
         )}
       </div>

@@ -3,6 +3,7 @@ import { add, subtract, toNumber } from "@/lib/money";
 export type ContractBillingLine = {
   label: string;
   amount: number;
+  detail?: string;
 };
 
 export type ContractBillingBreakdown = {
@@ -61,7 +62,12 @@ export function buildContractBillingBreakdown(input: {
     item_type?: string | null;
   }>;
   /** Manual extras added on the contract (always shown). */
-  manualLines?: Array<{ label?: string | null; amount?: number | null }>;
+  manualLines?: Array<{
+    label?: string | null;
+    amount?: number | null;
+    quantity?: number | null;
+    unitPrice?: number | null;
+  }>;
   /** Admin courtesy discount already baked into contractTotal. */
   courtesyAmount?: number;
   applyIva?: boolean;
@@ -81,9 +87,22 @@ export function buildContractBillingBreakdown(input: {
   const manual: ContractBillingLine[] = [];
   for (const item of input.manualLines ?? []) {
     const label = String(item.label ?? "").trim();
-    const amount = money(Number(item.amount ?? 0));
+    const quantity = Number(item.quantity ?? 0);
+    const unitPrice = Number(item.unitPrice ?? 0);
+    let amount = money(Number(item.amount ?? 0));
+    if (quantity > 0 && unitPrice >= 0) {
+      amount = money(quantity * unitPrice);
+    }
     if (!label || amount <= 0) continue;
-    manual.push({ label, amount });
+    const detail =
+      quantity > 1 || (quantity > 0 && unitPrice > 0)
+        ? `${quantity} × $${unitPrice.toFixed(2)}`
+        : undefined;
+    manual.push({
+      label: detail ? `${label} (${detail})` : label,
+      amount,
+      detail,
+    });
   }
 
   // If the contract already has named extras, those are the source of truth.

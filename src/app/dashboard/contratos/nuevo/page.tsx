@@ -15,6 +15,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
+import { loadBillingCatalogItems } from "@/lib/billing/load-catalog";
 
 export default async function NuevoContratoPage({
   searchParams,
@@ -142,6 +143,7 @@ export default async function NuevoContratoPage({
   const canManageCourtesy = user
     ? await canManageCourtesyDiscount(user.id)
     : false;
+  const catalogItems = configured ? await loadBillingCatalogItems() : [];
 
   return (
     <PermissionGuard permission="contracts.create">
@@ -163,6 +165,7 @@ export default async function NuevoContratoPage({
             vehicle={prefill.vehicle}
             defaultTerms={prefill.defaultTerms}
             canManageCourtesy={canManageCourtesy}
+            catalogItems={catalogItems}
           />
         ) : null}
       </div>

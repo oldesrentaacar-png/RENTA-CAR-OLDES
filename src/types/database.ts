@@ -557,7 +557,12 @@ export interface Reservation {
   /** Costos adicionales / extras (silla, entrega, etc.) — distinto de seguro. */
   additional_costs: number;
   /** Named billable extras (same shape as contracts.extra_line_items). */
-  extra_line_items?: Array<{ label: string; amount: number }>;
+  extra_line_items?: Array<{
+    label: string;
+    amount: number;
+    quantity?: number;
+    unitPrice?: number;
+  }>;
   /** Admin-only courtesy discount (USD). */
   courtesy_amount?: number;
   /** Justification for courtesy discount. */
@@ -618,7 +623,12 @@ export interface Contract {
   /** IVA amount included in total when apply_iva. */
   tax_amount?: number;
   /** Manual extras: [{ label, amount }]. */
-  extra_line_items?: Array<{ label: string; amount: number }>;
+  extra_line_items?: Array<{
+    label: string;
+    amount: number;
+    quantity?: number;
+    unitPrice?: number;
+  }>;
   created_by: string | null;
   created_at: string;
   updated_at: string;

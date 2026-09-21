@@ -145,7 +145,12 @@ type ReservationRow = {
   cash_amount?: number | null;
   card_amount?: number | null;
   additional_costs?: number | null;
-  extra_line_items?: Array<{ label?: string; amount?: number }> | null;
+  extra_line_items?: Array<{
+    label?: string;
+    amount?: number;
+    quantity?: number;
+    unitPrice?: number;
+  }> | null;
   courtesy_amount?: number | null;
   courtesy_detail?: string | null;
   apply_iva?: boolean | null;
@@ -438,10 +443,25 @@ export function mapReservationRow(row: ReservationRow): Reservation {
     additional_costs: asNumber(row.additional_costs, 0),
     extra_line_items: Array.isArray(row.extra_line_items)
       ? row.extra_line_items
-          .map((item) => ({
-            label: String(item?.label ?? "").trim(),
-            amount: asNumber(item?.amount, 0),
-          }))
+          .map((item) => {
+            const label = String(item?.label ?? "").trim();
+            const quantityRaw = asNumber(
+              (item as { quantity?: number })?.quantity,
+              0,
+            );
+            const unitPriceRaw = asNumber(
+              (item as { unitPrice?: number; unit_price?: number })?.unitPrice ??
+                (item as { unit_price?: number })?.unit_price,
+              0,
+            );
+            let amount = asNumber(item?.amount, 0);
+            const quantity = quantityRaw > 0 ? quantityRaw : undefined;
+            const unitPrice = unitPriceRaw > 0 ? unitPriceRaw : undefined;
+            if (quantity && unitPrice) {
+              amount = Math.round(quantity * unitPrice * 100) / 100;
+            }
+            return { label, amount, quantity, unitPrice };
+          })
           .filter((item) => item.label && item.amount > 0)
       : [],
     courtesy_amount: asNumber(row.courtesy_amount, 0),
@@ -542,7 +562,12 @@ type ContractRow = {
   apply_iva?: boolean | null;
   tax_rate?: number | null;
   tax_amount?: number | null;
-  extra_line_items?: Array<{ label?: string; amount?: number }> | null;
+  extra_line_items?: Array<{
+    label?: string;
+    amount?: number;
+    quantity?: number;
+    unitPrice?: number;
+  }> | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -624,10 +649,25 @@ export function mapContractRow(row: ContractRow): Contract {
     tax_amount: asNumber(row.tax_amount, 0),
     extra_line_items: Array.isArray(row.extra_line_items)
       ? row.extra_line_items
-          .map((item) => ({
-            label: String(item?.label ?? "").trim(),
-            amount: asNumber(item?.amount, 0),
-          }))
+          .map((item) => {
+            const label = String(item?.label ?? "").trim();
+            const quantityRaw = asNumber(
+              (item as { quantity?: number })?.quantity,
+              0,
+            );
+            const unitPriceRaw = asNumber(
+              (item as { unitPrice?: number; unit_price?: number })?.unitPrice ??
+                (item as { unit_price?: number })?.unit_price,
+              0,
+            );
+            let amount = asNumber(item?.amount, 0);
+            const quantity = quantityRaw > 0 ? quantityRaw : undefined;
+            const unitPrice = unitPriceRaw > 0 ? unitPriceRaw : undefined;
+            if (quantity && unitPrice) {
+              amount = Math.round(quantity * unitPrice * 100) / 100;
+            }
+            return { label, amount, quantity, unitPrice };
+          })
           .filter((item) => item.label && item.amount > 0)
       : [],
     created_by: row.created_by,

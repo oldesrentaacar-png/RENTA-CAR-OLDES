@@ -35,8 +35,10 @@ import { calculateReservationTotal } from "@/lib/calculations/quote";
 import {
   extraLinesFromQuoteItems,
   normalizeExtraLineItems,
+  parseExtraLineItemsFromForm,
   reconcileNamedExtrasWithLump,
   sumExtraLineItems,
+  type ExtraLineItem,
 } from "@/lib/billing/extra-lines";
 import {
   OLDES_ACCESSORIES,
@@ -854,11 +856,16 @@ export async function createContract(
       formData.get("additionalCosts"),
       r.additional_costs,
     );
-    let namedExtras = normalizeExtraLineItems(r.extra_line_items);
+    let namedExtras = parseExtraLineItemsFromForm(
+      formData.get("extraLineItems"),
+    );
+    if (namedExtras === undefined) {
+      namedExtras = normalizeExtraLineItems(r.extra_line_items);
+    }
     if (namedExtras.length === 0 && r.quote_id) {
       const { data: quoteItems } = await supabase
         .from("quote_items")
-        .select("description, amount, item_type")
+        .select("description, amount, quantity, unit_price, item_type")
         .eq("quote_id", r.quote_id);
       namedExtras = extraLinesFromQuoteItems(quoteItems);
     }
@@ -1002,7 +1009,7 @@ export async function updateContract(
     const { data: existing, error: existingError } = await supabase
       .from("contracts")
       .select(
-        "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, vehicle_id",
+        "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, vehicle_id, extra_line_items, apply_iva, tax_rate",
       )
       .eq("id", id)
       .is("deleted_at", null)
@@ -1023,6 +1030,9 @@ export async function updateContract(
       courtesy_amount?: number | null;
       courtesy_detail?: string | null;
       vehicle_id: string;
+      extra_line_items?: ExtraLineItem[] | null;
+      apply_iva?: boolean;
+      tax_rate?: number;
     };
 
     if (current.status === "COMPLETED" || current.status === "CANCELLED") {
@@ -1041,21 +1051,62 @@ export async function updateContract(
     const agreedRate = formData.get("agreedRate");
     const deposit = formData.get("deposit");
     const insurance = formData.get("insurance");
-    const total = formData.get("total");
     const startAt = formData.get("startAt");
     const endAt = formData.get("endAt");
 
-    // Extensiones / ajustes: fechas y tarifa se editan en el contrato (fuente de verdad).
+    // Extensiones / ajustes: fechas y tarifa se editan en el contrato (fuente de verdad),
+    // incluso después de firmar (p. ej. extender renta desde calendario → contrato).
     if (agreedRate) row.agreed_rate = Number(agreedRate);
     if (deposit) row.deposit = Number(deposit);
     if (insurance) row.insurance = Number(insurance);
-    if (total) row.total = Number(total);
     if (startAt) row.start_at = normalizeFormDateTimeToIso(startAt);
     if (endAt) row.end_at = normalizeFormDateTimeToIso(endAt);
+
+    const nextStart =
+      (row.start_at as string | undefined) ?? current.start_at;
+    const nextEnd = (row.end_at as string | undefined) ?? current.end_at;
+    const nextRate =
+      (row.agreed_rate as number | undefined) ?? current.agreed_rate;
+    const nextInsurance =
+      (row.insurance as number | undefined) ?? current.insurance;
+    const nextDeposit =
+      (row.deposit as number | undefined) ?? current.deposit;
+
+    const datesOrMoneyChanged =
+      Boolean(startAt) ||
+      Boolean(endAt) ||
+      Boolean(agreedRate) ||
+      Boolean(insurance);
+
+    if (datesOrMoneyChanged) {
+      const extras = normalizeExtraLineItems(current.extra_line_items);
+      const additionalCosts = sumExtraLineItems(extras);
+      const computed = calculateReservationTotal({
+        startAt: nextStart,
+        endAt: nextEnd,
+        agreedRate: nextRate,
+        insurance: nextInsurance,
+        additionalCosts,
+        courtesyAmount: Number(current.courtesy_amount ?? 0),
+      });
+      const ivaTotals = computeOptionalIvaTotals({
+        pretaxTotal: computed.total,
+        applyIva: Boolean(current.apply_iva),
+        taxRate: Number(current.tax_rate ?? 0.13),
+      });
+      row.subtotal = ivaTotals.pretaxTotal;
+      row.tax_amount = ivaTotals.taxAmount;
+      row.total = ivaTotals.total;
+    } else {
+      const total = formData.get("total");
+      if (total) row.total = Number(total);
+    }
 
     if (Object.keys(row).length === 0) {
       return actionError("No hay cambios para guardar.");
     }
+
+    row.updated_at = new Date().toISOString();
 
     const { error } = await supabase
       .from("contracts")
@@ -1067,13 +1118,16 @@ export async function updateContract(
 
     await syncReservationFromContract(supabase, {
       reservationId: current.reservation_id,
-      startAt: (row.start_at as string | undefined) ?? current.start_at,
-      endAt: (row.end_at as string | undefined) ?? current.end_at,
-      agreedRate:
-        (row.agreed_rate as number | undefined) ?? current.agreed_rate,
-      deposit: (row.deposit as number | undefined) ?? current.deposit,
-      insurance: (row.insurance as number | undefined) ?? current.insurance,
+      startAt: nextStart,
+      endAt: nextEnd,
+      agreedRate: nextRate,
+      deposit: nextDeposit,
+      insurance: nextInsurance,
       total: (row.total as number | undefined) ?? current.total,
+      additionalCosts: sumExtraLineItems(
+        normalizeExtraLineItems(current.extra_line_items),
+      ),
+      extraLineItems: normalizeExtraLineItems(current.extra_line_items),
       courtesyAmount: Number(current.courtesy_amount ?? 0),
       courtesyDetail: current.courtesy_detail ?? null,
       vehicleId: current.vehicle_id,
@@ -1280,7 +1334,7 @@ export async function setContractApplyIva(
   }
 }
 
-export type ContractExtraLineInput = { label: string; amount: number };
+export type ContractExtraLineInput = ExtraLineItem;
 
 /** Replace manual extras on a contract and recalculate total (+ optional IVA). */
 export async function setContractExtraLineItems(
@@ -1288,7 +1342,7 @@ export async function setContractExtraLineItems(
   lines: ContractExtraLineInput[],
 ): Promise<
   ActionResult<{
-    extraLineItems: ContractExtraLineInput[];
+    extraLineItems: ExtraLineItem[];
     total: number;
     taxAmount: number;
   }>
@@ -1299,13 +1353,7 @@ export async function setContractExtraLineItems(
       return actionError("Supabase no está configurado.");
     }
 
-    const cleaned = lines
-      .map((line) => ({
-        label: String(line.label ?? "").trim().slice(0, 200),
-        amount: Math.round(Number(line.amount) * 100) / 100,
-      }))
-      .filter((line) => line.label.length > 0 && line.amount > 0)
-      .slice(0, 40);
+    const cleaned = normalizeExtraLineItems(lines);
 
     const supabase = await createClient();
     const { data: existing, error: existingError } = await supabase
@@ -1337,16 +1385,11 @@ export async function setContractExtraLineItems(
         "No se pueden editar extras de un contrato completado o cancelado.",
       );
     }
-    if (row.status !== "PENDING") {
-      return actionError(
-        "Los cobros extras solo se editan mientras el contrato está pendiente de firma (sección 1). Tras firmar, use Cerrar renta para cargos de cierre.",
-      );
-    }
 
     const days = rentalDaysBetween(row.start_at, row.end_at);
     const rental = Number(row.agreed_rate) * days;
     const insurance = Number(row.insurance ?? 0);
-    const manualSum = cleaned.reduce((sum, line) => sum + line.amount, 0);
+    const manualSum = sumExtraLineItems(cleaned);
     const courtesyAmount = Number(row.courtesy_amount ?? 0);
     const pretaxBase = Math.max(
       0,

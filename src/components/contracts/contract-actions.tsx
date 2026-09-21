@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import {
   resolveContractClauses,
 } from "@/lib/contracts/oldes-terms";
+import { toDatetimeLocalValue } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -88,7 +89,11 @@ export function ContractDetailActions({
     [contract.clauses],
   );
 
-  const editable = canEdit && contract.status === "PENDING";
+  const editable =
+    canEdit &&
+    contract.status !== "COMPLETED" &&
+    contract.status !== "CANCELLED";
+  const termsEditable = canEdit && contract.status === "PENDING";
 
   async function handleOperatorSignatureConfirm(dataUrl: string) {
     setOperatorSignatureDataUrl(dataUrl);
@@ -238,19 +243,27 @@ export function ContractDetailActions({
 
       {editable ? (
         <form action={handleUpdate} className="space-y-4 rounded-xl border border-border bg-surface p-6">
-          <h3 className="font-semibold">Editar términos</h3>
+          <h3 className="font-semibold">
+            {termsEditable
+              ? "Editar términos"
+              : "Extender / ajustar fechas y montos"}
+          </h3>
+          <p className="text-xs text-muted">
+            Desde el calendario abra el contrato para extender la renta. Al
+            guardar, el calendario se actualiza automáticamente.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               name="startAt"
               label="Inicio"
               type="datetime-local"
-              defaultValue={contract.start_at.slice(0, 16)}
+              defaultValue={toDatetimeLocalValue(contract.start_at)}
             />
             <Input
               name="endAt"
-              label="Fin"
+              label="Fin (extender aquí)"
               type="datetime-local"
-              defaultValue={contract.end_at.slice(0, 16)}
+              defaultValue={toDatetimeLocalValue(contract.end_at)}
             />
             <Input
               name="agreedRate"
@@ -273,28 +286,21 @@ export function ContractDetailActions({
               step="0.01"
               defaultValue={contract.insurance}
             />
-            <Input
-              name="total"
-              label="Total"
-              type="number"
-              step="0.01"
-              defaultValue={contract.total}
-            />
           </div>
-          <Textarea name="terms" label="Términos" rows={5} defaultValue={contract.terms ?? ""} />
-          <Textarea name="clauses" label="Cláusulas" rows={4} defaultValue={contract.clauses ?? ""} />
-          <Textarea name="notes" label="Notas" rows={3} defaultValue={contract.notes ?? ""} />
+          {termsEditable ? (
+            <>
+              <Textarea name="terms" label="Términos" rows={5} defaultValue={contract.terms ?? ""} />
+              <Textarea name="clauses" label="Cláusulas" rows={4} defaultValue={contract.clauses ?? ""} />
+              <Textarea name="notes" label="Notas" rows={3} defaultValue={contract.notes ?? ""} />
+            </>
+          ) : (
+            <p className="text-xs text-amber-900">
+              El total se recalcula con los días nuevos, tarifa, seguro y extras
+              de la sección 1. Los textos legales no se editan tras firmar.
+            </p>
+          )}
           <SubmitButton>Guardar cambios</SubmitButton>
         </form>
-      ) : canEdit &&
-        contract.status !== "COMPLETED" &&
-        contract.status !== "CANCELLED" ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Este contrato ya no está en estado pendiente de firma. Las fechas,
-          tarifas y cobros extras de la sección 1 ya no se editan. Use{" "}
-          <strong>Anular</strong> o <strong>Cerrar renta</strong> (cargos de
-          cierre) según corresponda.
-        </div>
       ) : null}
 
       {canSign && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (

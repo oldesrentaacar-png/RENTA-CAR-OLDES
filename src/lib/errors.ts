@@ -80,8 +80,8 @@ function conflictMessageFromUniqueViolation(detail: string): string {
     return "El código generado ya estaba en uso. Se reintentará automáticamente; si vuelve a fallar, recargue e intente de nuevo.";
   }
 
-  if (d.includes("uq_customers_phone_active") || d.includes("(phone)=")) {
-    return "Ya hay un cliente activo con ese teléfono. Búsquelo en Clientes.";
+  if (d.includes("uq_customers_phone_active")) {
+    return "El índice de teléfono único aún está activo en la base. Aplique la migración que permite teléfonos duplicados.";
   }
   if (
     d.includes("uq_customers_email_active") ||

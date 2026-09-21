@@ -1,6 +1,3 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-
 import { getReservation } from "@/app/dashboard/reservas/actions";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ReservationForm } from "@/components/forms/reservation-form";
@@ -8,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
+import { loadBillingCatalogItems } from "@/lib/billing/load-catalog";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { vehicleSelectParts } from "@/lib/vehicles/label";
@@ -18,6 +16,8 @@ import {
   type VehicleRow,
 } from "@/lib/db/mappers";
 import { toCustomerSelectOption } from "@/lib/customers";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 
 export default async function EditarReservaPage({
   params,
@@ -43,6 +43,7 @@ export default async function EditarReservaPage({
     category?: string | null;
   }> = [];
   let canManageCourtesy = false;
+  let catalogItems: Awaited<ReturnType<typeof loadBillingCatalogItems>> = [];
 
   if (configured) {
     const user = await getCurrentUser();
@@ -50,10 +51,13 @@ export default async function EditarReservaPage({
       canManageCourtesy = await canManageCourtesyDiscount(user.id);
     }
     const supabase = await createClient();
-    const [{ data: customerRows }, { data: vehicleRows }] = await Promise.all([
+    const [{ data: customerRows }, { data: vehicleRows }, catalog] =
+      await Promise.all([
       supabase.from("customers").select("*").is("deleted_at", null).order("last_name"),
       supabase.from("vehicles").select("*").is("deleted_at", null).order("plate"),
+      loadBillingCatalogItems(),
     ]);
+    catalogItems = catalog;
     customers = ((customerRows ?? []) as CustomerRow[]).map((row) =>
       toCustomerSelectOption(mapCustomerRow(row)),
     );
@@ -124,6 +128,7 @@ export default async function EditarReservaPage({
             vehicles={vehicles}
             reservation={reservation}
             canManageCourtesy={canManageCourtesy}
+            catalogItems={catalogItems}
           />
         ) : null}
       </div>

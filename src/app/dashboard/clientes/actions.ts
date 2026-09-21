@@ -56,9 +56,7 @@ async function findActiveCustomerConflict(
     value: string;
     caseInsensitive?: boolean;
   }> = [];
-  if (input.phone?.trim()) {
-    checks.push({ field: "teléfono", column: "phone", value: input.phone.trim() });
-  }
+  // Phone may be shared across customers (client request). Uniqueness stays on email / DUI / NIT.
   if (input.email?.trim()) {
     checks.push({
       field: "correo",

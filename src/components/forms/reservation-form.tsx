@@ -9,11 +9,21 @@ import {
   updateReservation,
 } from "@/app/dashboard/reservas/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
+import {
+  BillingExtrasEditor,
+  draftsFromExtraItems,
+  draftsToExtraItems,
+  type BillingCatalogItem,
+} from "@/components/shared/billing-extras-editor";
 import { PricingBreakdown } from "@/components/shared/pricing-breakdown";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  formatExtraLineDetail,
+  sumExtraLineItems,
+  type ExtraLineDraft,
+} from "@/lib/billing/extra-lines";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { toDatetimeLocalValue } from "@/lib/dates";
 import { formatMoney, parseMoneyInput } from "@/lib/money";
@@ -42,6 +52,7 @@ type ReservationFormProps = {
   vehicles: VehicleOption[];
   reservation?: Reservation;
   canManageCourtesy?: boolean;
+  catalogItems?: BillingCatalogItem[];
   defaults?: {
     customerId?: string;
     vehicleId?: string;
@@ -68,6 +79,7 @@ export function ReservationForm({
   vehicles,
   reservation,
   canManageCourtesy = false,
+  catalogItems = [],
   defaults,
 }: ReservationFormProps) {
   const router = useRouter();
@@ -129,38 +141,33 @@ export function ReservationForm({
   const [insurance, setInsurance] = useState(
     String(reservation?.insurance ?? 0),
   );
-  const initialExtraLines = (() => {
-    const fromReservation = (reservation?.extra_line_items ?? []).filter(
-      (line) => line.label && line.amount > 0,
-    );
-    if (fromReservation.length > 0) {
-      return fromReservation.map((line) => ({
-        label: line.label,
-        amount: String(line.amount),
-      }));
-    }
+  const initialExtraLines: ExtraLineDraft[] = (() => {
+    const fromReservation = draftsFromExtraItems(reservation?.extra_line_items);
+    if (fromReservation.length > 0) return fromReservation;
     const fromQuote = defaults?.quoteExtraLines ?? [];
     if (fromQuote.length > 0) {
-      return fromQuote.map((line) => ({
-        label: line.description,
-        amount: String(line.amount),
-      }));
+      return draftsFromExtraItems(
+        fromQuote.map((line) => ({
+          label: line.description,
+          amount: line.amount,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+        })),
+      );
     }
     const lump = Number(
       reservation?.additional_costs ?? defaults?.additionalCosts ?? 0,
     );
     if (lump > 0) {
-      return [{ label: "Costos adicionales", amount: String(lump) }];
+      return draftsFromExtraItems([
+        { label: "Costos adicionales", amount: lump, quantity: 1, unitPrice: lump },
+      ]);
     }
-    return [{ label: "", amount: "" }];
+    return [];
   })();
   const [extraLines, setExtraLines] = useState(initialExtraLines);
-  const additionalCosts = String(
-    extraLines.reduce((sum, line) => {
-      const amount = Number(parseMoneyInput(line.amount || "0"));
-      return sum + (line.label.trim() && amount > 0 ? amount : 0);
-    }, 0),
-  );
+  const namedExtraItems = draftsToExtraItems(extraLines);
+  const additionalCosts = String(sumExtraLineItems(namedExtraItems));
   const [courtesyAmount, setCourtesyAmount] = useState(
     String(reservation?.courtesy_amount ?? 0),
   );
@@ -172,19 +179,12 @@ export function ReservationForm({
   );
   const taxRate = 0.13;
 
-  const quoteExtraLines = extraLines
-    .map((line) => {
-      const amount = parseMoneyInput(line.amount || "0");
-      const label = line.label.trim();
-      if (!label || amount <= 0) return null;
-      return {
-        description: label,
-        quantity: 1,
-        unitPrice: amount,
-        amount,
-      };
-    })
-    .filter(Boolean) as ReservationQuoteLine[];
+  const quoteExtraLines: ReservationQuoteLine[] = namedExtraItems.map((line) => ({
+    description: line.label,
+    quantity: line.quantity ?? 1,
+    unitPrice: line.unitPrice ?? line.amount,
+    amount: line.amount,
+  }));
 
   const preview = useMemo(() => {
     if (!startAt || !endAt || agreedRate === "") return null;
@@ -222,19 +222,6 @@ export function ReservationForm({
     applyIva,
   ]);
 
-  const extrasAmount = parseMoneyInput(additionalCosts || 0);
-  const linesSum = quoteExtraLines.reduce((sum, line) => sum + line.amount, 0);
-  const adjustment = Math.round((extrasAmount - linesSum) * 100) / 100;
-
-  function updateExtraLine(
-    index: number,
-    patch: Partial<{ label: string; amount: string }>,
-  ) {
-    setExtraLines((prev) =>
-      prev.map((line, i) => (i === index ? { ...line, ...patch } : line)),
-    );
-  }
-
   async function handleSubmit(formData: FormData) {
     setError(null);
     const computed = preview
@@ -271,17 +258,7 @@ export function ReservationForm({
       "additionalCosts",
       String(parseMoneyInput(additionalCosts || 0)),
     );
-    formData.set(
-      "extraLineItems",
-      JSON.stringify(
-        extraLines
-          .map((line) => ({
-            label: line.label.trim(),
-            amount: parseMoneyInput(line.amount || "0"),
-          }))
-          .filter((line) => line.label && line.amount > 0),
-      ),
-    );
+    formData.set("extraLineItems", JSON.stringify(namedExtraItems));
     if (canManageCourtesy) {
       formData.set(
         "courtesyAmount",
@@ -441,71 +418,15 @@ export function ReservationForm({
             Monto de seguro cobrado en esta reserva (aparte de la tarifa).
           </p>
         </div>
-        <div className="sm:col-span-2 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
-          <div>
-            <p className="text-sm font-semibold text-zinc-900">
-              Cobros extras (con nombre)
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              Especifique cada cobro (silla bebé, entrega, GPS…). Estos mismos
-              conceptos pasan al contrato (sección 1) y al PDF.
-            </p>
-          </div>
-          <input type="hidden" name="additionalCosts" value={additionalCosts} />
-          {extraLines.map((line, index) => (
-            <div
-              key={`res-extra-${index}`}
-              className="grid gap-2 sm:grid-cols-[1fr_140px_auto]"
-            >
-              <Input
-                label={index === 0 ? "Concepto" : undefined}
-                value={line.label}
-                placeholder="Ej. Silla bebé"
-                onChange={(e) =>
-                  updateExtraLine(index, { label: e.target.value })
-                }
-              />
-              <Input
-                label={index === 0 ? "Monto USD" : undefined}
-                type="number"
-                step="0.01"
-                min="0"
-                inputMode="decimal"
-                value={line.amount}
-                placeholder="0.00"
-                onChange={(e) =>
-                  updateExtraLine(index, { amount: e.target.value })
-                }
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="sm:mt-6"
-                onClick={() =>
-                  setExtraLines((prev) => {
-                    const next = prev.filter((_, i) => i !== index);
-                    return next.length > 0 ? next : [{ label: "", amount: "" }];
-                  })
-                }
-              >
-                Quitar
-              </Button>
-            </div>
-          ))}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setExtraLines((prev) => [...prev, { label: "", amount: "" }])
-              }
-            >
-              Agregar cobro
-            </Button>
-            <span className="text-sm text-muted">
-              Suma extras: <strong>{formatMoney(parseMoneyInput(additionalCosts || 0))}</strong>
-            </span>
-          </div>
+        <div className="sm:col-span-2">
+          <BillingExtrasEditor
+            catalogItems={catalogItems}
+            lines={extraLines}
+            onChange={setExtraLines}
+            hiddenFieldName="extraLineItems"
+            title="Catálogo (extras / servicios)"
+            hint="Igual que en cotización: elija del catálogo o línea personalizada. Pasan al contrato (sección 1) y al PDF."
+          />
         </div>
         <Input
           name="deposit"
@@ -594,21 +515,9 @@ export function ReservationForm({
             dailyRate={parseMoneyInput(agreedRate)}
             subtotal={preview.rentalSubtotal}
             insurance={preview.insurance}
-            extras={
-              quoteExtraLines.length > 0
-                ? Math.max(0, adjustment)
-                : preview.additionalCosts
-            }
-            extrasLabel={
-              quoteExtraLines.length > 0
-                ? "Otros / ajustes de cotización"
-                : "Costos adicionales"
-            }
-            discount={
-              quoteExtraLines.length > 0 && adjustment < 0
-                ? Math.abs(adjustment)
-                : 0
-            }
+            extras={quoteExtraLines.length > 0 ? 0 : preview.additionalCosts}
+            extrasLabel="Costos adicionales"
+            discount={0}
             courtesy={preview.courtesyAmount}
             courtesyDetail={
               canManageCourtesy ? courtesyDetail.trim() || null : null
@@ -621,10 +530,12 @@ export function ReservationForm({
                 ? quoteExtraLines.map((line) => ({
                     description: line.description,
                     amount: line.amount,
-                    detail:
-                      line.quantity > 1
-                        ? `${line.quantity} × ${formatMoney(line.unitPrice)}`
-                        : undefined,
+                    detail: formatExtraLineDetail({
+                      label: line.description,
+                      amount: line.amount,
+                      quantity: line.quantity,
+                      unitPrice: line.unitPrice,
+                    }),
                   }))
                 : undefined
             }

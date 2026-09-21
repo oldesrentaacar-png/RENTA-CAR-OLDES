@@ -26,6 +26,7 @@ import { formatAppDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
 import { closeActPdfHref } from "@/lib/pdf/pdf-cache";
+import { loadBillingCatalogItems } from "@/lib/billing/load-catalog";
 
 export default async function ContratoDetailPage({
   params,
@@ -40,7 +41,7 @@ export default async function ContratoDetailPage({
   const contract = result?.success ? result.data : null;
 
   const user = configured ? await getCurrentUser() : null;
-  const [canEdit, canSign, canCancel, canFinanceCreate, canFinanceView, canFinanceDelete] =
+  const [canEdit, canSign, canCancel, canFinanceCreate, canFinanceView, canFinanceDelete, catalogItems] =
     user
       ? await Promise.all([
           hasPermission(user.id, "contracts.edit"),
@@ -49,8 +50,9 @@ export default async function ContratoDetailPage({
           hasPermission(user.id, "finance.create"),
           hasPermission(user.id, "finance.view"),
           hasPermission(user.id, "finance.delete"),
+          loadBillingCatalogItems(),
         ])
-      : [false, false, false, false, false, false];
+      : [false, false, false, false, false, false, []];
 
   let operatorName: string | null = null;
   let operatorHasSignature = false;
@@ -340,7 +342,12 @@ export default async function ContratoDetailPage({
                 <ContractExtraLinesEditor
                   contractId={contract.id}
                   initialLines={contract.extra_line_items ?? []}
-                  canEdit={canEdit && contract.status === "PENDING"}
+                  catalogItems={catalogItems}
+                  canEdit={
+                    canEdit &&
+                    contract.status !== "COMPLETED" &&
+                    contract.status !== "CANCELLED"
+                  }
                 />
               </CardContent>
             </Card>
