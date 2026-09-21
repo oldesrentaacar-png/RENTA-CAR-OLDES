@@ -311,22 +311,22 @@ export function CloseContractWizard({
       setError("Primero cree la inspección de entrada.");
       return false;
     }
-    if (!mileageInput.trim()) {
+      if (!mileageInput.trim()) {
       setError(
-        "Indique el kilometraje de entrada. Puede corregirlo aquí; también puede volver con Anterior o Salir.",
+        "El kilometraje es obligatorio. Indíquelo aquí; si necesita salir, use Anterior o Salir.",
       );
       return false;
     }
     const mileage = Number(mileageInput);
     if (!Number.isInteger(mileage) || mileage < 0) {
       setError(
-        "Indique el kilometraje de entrada (número entero). Puede corregirlo aquí y seguir; también puede volver con Anterior o Salir.",
+        "Indique un kilometraje válido (número entero). Puede corregirlo y continuar; o use Anterior / Salir.",
       );
       return false;
     }
     if (!fuelLevelInput.trim()) {
       setError(
-        "Seleccione el nivel de combustible. Puede corregirlo aquí; también puede volver con Anterior o Salir.",
+        "El combustible es obligatorio. Selecciónelo aquí; o use Anterior / Salir.",
       );
       return false;
     }
@@ -368,7 +368,7 @@ export function CloseContractWizard({
       // Validación local primero: no llamar al servidor si falta km/combustible.
       if (!mileageInput.trim() || !fuelLevelInput.trim()) {
         setError(
-          "Complete kilometraje y combustible para continuar. Use Anterior o Salir si necesita salir de esta pantalla.",
+          "Kilometraje y combustible son obligatorios para continuar. Use Anterior o Salir si necesita salir; los campos siguen editables.",
         );
         return;
       }
@@ -404,11 +404,36 @@ export function CloseContractWizard({
     setStepIndex((value) => Math.min(value + 1, steps.length - 1));
   }
 
+  function goToStep(index: number) {
+    const target = Math.max(0, Math.min(index, steps.length - 1));
+    if (target > stepIndex) {
+      const blocker = steps
+        .slice(0, target)
+        .find((step) => step.required && !step.done);
+      if (blocker) {
+        const blockerIndex = steps.findIndex((step) => step.id === blocker.id);
+        setError(
+          `Complete primero «${blocker.title}». El kilometraje y combustible son obligatorios para el seguimiento de mantenimiento.`,
+        );
+        if (blockerIndex >= 0) setStepIndex(blockerIndex);
+        return;
+      }
+    }
+    setError(null);
+    setStepIndex(target);
+  }
+
   function openConfirm() {
     setError(null);
     const missing = missingRequirements();
     if (missing.length > 0) {
       setError(`Antes de cerrar debe: ${missing.join("; ")}.`);
+      if (
+        missing.some((item) => item.includes("kilometraje") || item.includes("combustible"))
+      ) {
+        const fuelIndex = steps.findIndex((step) => step.id === "fuel");
+        if (fuelIndex >= 0) setStepIndex(fuelIndex);
+      }
       return;
     }
     setConfirmOpen(true);
@@ -455,6 +480,13 @@ export function CloseContractWizard({
       if (!result.success) {
         setConfirmOpen(false);
         setError(result.error);
+        if (
+          /kilometr|combustible/i.test(result.error) ||
+          /Combustible y km/i.test(result.error)
+        ) {
+          const fuelIndex = steps.findIndex((step) => step.id === "fuel");
+          if (fuelIndex >= 0) setStepIndex(fuelIndex);
+        }
         return;
       }
 
@@ -576,10 +608,7 @@ export function CloseContractWizard({
               <li key={step.id} className="min-w-[9.5rem] flex-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setError(null);
-                    setStepIndex(index);
-                  }}
+                    onClick={() => goToStep(index)}
                   className={cn(
                     "h-full w-full rounded-lg border px-3 py-2 text-left text-sm transition",
                     index === stepIndex && "ring-2 ring-brand/30",
@@ -688,6 +717,17 @@ export function CloseContractWizard({
                   </p>
                 ) : (
                   <>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950">
+                      <p className="font-semibold">
+                        Kilometraje obligatorio
+                      </p>
+                      <p className="mt-1 text-sm">
+                        Sin el km de entrada no se puede cerrar el contrato. Así
+                        el sistema puede alertar mantenimientos (aceite, frenos,
+                        caja, etc.). Si se equivoca, corrija aquí o use{" "}
+                        <strong>Anterior / Salir</strong>; no queda trabado.
+                      </p>
+                    </div>
                     <p className="text-muted">
                       Registre aquí el kilometraje y combustible de entrada. No
                       necesita salir a otra pantalla.

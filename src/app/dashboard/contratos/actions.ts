@@ -2144,7 +2144,7 @@ export async function closeContract(
 
     if (checkInInfo?.mileage == null || !checkInInfo.fuel_level) {
       return actionError(
-        "Complete kilometraje y combustible en el paso «Combustible y km» antes de cerrar.",
+        "Kilometraje y combustible son obligatorios. Vuelva al paso «Combustible y km», complete los datos (siguen editables) y cierre de nuevo. Puede usar Anterior o Salir si necesita salir.",
       );
     }
     if (!checklistRows || checklistRows.length === 0) {

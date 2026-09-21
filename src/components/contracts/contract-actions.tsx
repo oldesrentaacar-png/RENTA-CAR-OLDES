@@ -300,14 +300,14 @@ export function ContractDetailActions({
           )}
           <Textarea
             name="notes"
-            label="4. Observaciones (aparecen en el PDF del contrato)"
+            label="4. Observaciones del contrato (un solo cuadro)"
             rows={3}
             defaultValue={contract.notes ?? ""}
             placeholder="Ej.: combustible casi lleno (7/8), golpes observados, acuerdos con el cliente…"
           />
           <p className="text-xs text-muted">
-            Este texto llena la sección <strong>4. OBSERVACIONES</strong> del
-            PDF. El código del contrato solo ordena el archivo.
+            Mismo cuadro <strong>4. OBSERVACIONES</strong> del PDF y del
+            contrato físico: un solo texto general, no por accesorio.
           </p>
           <SubmitButton>Guardar cambios</SubmitButton>
         </form>

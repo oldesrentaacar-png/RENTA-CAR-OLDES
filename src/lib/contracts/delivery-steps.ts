@@ -51,11 +51,11 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     },
     {
       id: "accesorios",
-      title: "Accesorios, daños y observaciones",
+      title: "Accesorios + 1 cuadro de observaciones",
       description: checkOutId
         ? checkOutChecklistCount > 0
-          ? `${checkOutChecklistCount} ítems · aquí se llena 4. OBSERVACIONES del PDF`
-          : "Complete checklist, mapa de daños y observaciones del PDF."
+          ? `${checkOutChecklistCount} ítems · un solo cuadro 4. OBSERVACIONES (no por ítem)`
+          : "Marque accesorios y llene UN solo cuadro de observaciones (como el contrato físico)."
         : "Disponible tras la inspección de salida.",
       status: !checkOutId
         ? "pending"

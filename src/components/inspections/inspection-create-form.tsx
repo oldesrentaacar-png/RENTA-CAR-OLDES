@@ -132,9 +132,9 @@ export function InspectionCreateForm({
       />
       <Textarea
         name="notes"
-        label="Observaciones generales"
+        label="Observaciones generales (un solo cuadro)"
         rows={4}
-        placeholder="Un solo cuadro de observaciones (igual que en el contrato PDF)"
+        placeholder="Igual que en el contrato físico: un solo texto, no por accesorio"
       />
 
       <div className="flex flex-wrap gap-3">

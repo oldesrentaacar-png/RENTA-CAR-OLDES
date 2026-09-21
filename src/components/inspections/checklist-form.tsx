@@ -135,57 +135,60 @@ export function ChecklistForm({
       ) : null}
 
       <p className="text-sm text-muted">
-        Toque el chequeo: está / no está / averiado. Pensado para entrega rápida
-        en aeropuerto. Las observaciones van solo al final (cuadro general).
+        Solo marque el estado de cada accesorio (está / no está / averiado).{" "}
+        <strong>No hay nota por ítem</strong>: las observaciones van en un solo
+        cuadro general al final, igual que en el contrato físico.
       </p>
 
-      <div className="space-y-2">
+      <div className="overflow-hidden rounded-xl border border-border">
         {drafts.map((item, index) => (
           <div
             key={item.itemKey}
-            className="rounded-xl border border-border bg-white p-3 sm:p-4"
+            className={cn(
+              "flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between",
+              index > 0 && "border-t border-border",
+              index % 2 === 0 ? "bg-white" : "bg-surface-muted/40",
+            )}
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="min-w-0 flex-1 font-medium text-foreground">
-                {item.label}
+            <p className="min-w-0 flex-1 text-sm font-medium text-foreground">
+              {item.label}
+            </p>
+            {readOnly ? (
+              <p className="text-sm font-semibold">
+                {CHECKLIST_STATUS_LABELS[item.status] ?? item.status}
               </p>
-              {readOnly ? (
-                <p className="text-sm font-semibold">
-                  {CHECKLIST_STATUS_LABELS[item.status] ?? item.status}
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_STATUSES.map((opt) => {
-                    const active = item.status === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() =>
-                          updateDrafts((current) =>
-                            current.map((row, rowIndex) =>
-                              rowIndex === index
-                                ? { ...row, status: opt.value }
-                                : row,
-                            ),
-                          )
-                        }
-                        className={cn(
-                          "inline-flex min-h-11 min-w-[4.5rem] flex-col items-center justify-center rounded-lg border-2 px-2 py-1.5 text-xs font-bold touch-manipulation",
-                          active
-                            ? opt.activeClass
-                            : "border-border bg-surface-muted text-muted hover:border-brand/40",
-                        )}
-                      >
-                        <span className="text-base leading-none">{opt.mark}</span>
-                        <span className="mt-0.5">{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_STATUSES.map((opt) => {
+                  const active = item.status === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() =>
+                        updateDrafts((current) =>
+                          current.map((row, rowIndex) =>
+                            rowIndex === index
+                              ? { ...row, status: opt.value }
+                              : row,
+                          ),
+                        )
+                      }
+                      className={cn(
+                        "inline-flex min-h-9 min-w-[3.75rem] flex-col items-center justify-center rounded-md border px-1.5 py-1 text-[10px] font-bold touch-manipulation",
+                        active
+                          ? opt.activeClass
+                          : "border-border bg-white text-muted hover:border-brand/40",
+                      )}
+                    >
+                      <span className="text-sm leading-none">{opt.mark}</span>
+                      <span className="mt-0.5">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
       </div>

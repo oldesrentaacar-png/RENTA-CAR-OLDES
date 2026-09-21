@@ -331,8 +331,9 @@ export default async function ContratoDetailPage({
                     </p>
                   ) : (
                     <p className="mt-1 text-sm text-muted">
-                      Vacío. Llénele en Accesorios y mapa de daños → Observaciones,
-                      o en Editar términos / notas abajo.
+                      Vacío. Llénele en el paso «Accesorios + 1 cuadro de
+                      observaciones» (un solo texto general, no por ítem), o
+                      abajo en Editar términos / notas.
                     </p>
                   )}
                 </div>
