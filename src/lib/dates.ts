@@ -37,6 +37,16 @@ export function formatAppTime(date: Date | string): string {
   return formatInAppTimezone(date, "HH:mm");
 }
 
+/** Hora legible para operaciones: "8:00 p. m." */
+export function formatAppTime12h(date: Date | string): string {
+  return formatInAppTimezone(date, "h:mm a");
+}
+
+/** Fecha + hora legible: "21/09/2026 · 8:00 p. m." */
+export function formatAppDateTime12h(date: Date | string): string {
+  return `${formatAppDate(date)} · ${formatAppTime12h(date)}`;
+}
+
 /**
  * Combines a local date (YYYY-MM-DD) and time (HH:mm) in El Salvador
  * and returns the equivalent UTC Date for storage.

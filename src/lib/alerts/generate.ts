@@ -7,6 +7,9 @@ import {
   webRequestAlertWindowStart,
   type RecentWebRequestRef,
 } from "@/lib/alerts/web-request-window";
+import { getCustomerDisplayName } from "@/lib/customers";
+import { formatAppDate, formatAppTime12h } from "@/lib/dates";
+import { formatVehicleLabel } from "@/lib/vehicles/label";
 
 const PICKUP_RETURN_WINDOW_HOURS = 48;
 const MAINTENANCE_DATE_WINDOW_DAYS = 14;
@@ -27,13 +30,52 @@ type AlertInsert = {
   due_at: string | null;
 };
 
+type CustomerJoin = {
+  first_name: string;
+  last_name: string;
+  company_name?: string | null;
+  customer_type?: "PERSON" | "COMPANY" | null;
+};
+
+type VehicleJoin = {
+  brand: string;
+  model: string;
+  plate: string;
+  year?: number | null;
+};
+
 export type GenerateAlertsResult = {
   created: number;
   resolved: number;
   error: string | null;
 };
 
-async function upsertAlert(supabase: Awaited<ReturnType<typeof createClient>>, alert: AlertInsert) {
+function customerLabelFrom(customer: CustomerJoin | null): string {
+  if (!customer) return "Cliente";
+  return (
+    getCustomerDisplayName({
+      customer_type: customer.customer_type === "COMPANY" ? "COMPANY" : "PERSON",
+      first_name: customer.first_name,
+      last_name: customer.last_name,
+      company_name: customer.company_name ?? null,
+    }) || "Cliente"
+  );
+}
+
+function vehicleLabelFrom(vehicle: VehicleJoin | null): string {
+  if (!vehicle) return "Vehículo";
+  return formatVehicleLabel(vehicle, { includeBrand: true });
+}
+
+/** Ej: "Jorge Ortiz · 8:00 p. m." */
+function personAndTimeLabel(person: string, at: string): string {
+  return `${person} · ${formatAppTime12h(at)}`;
+}
+
+async function upsertAlert(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  alert: AlertInsert,
+) {
   const { data: existing } = await supabase
     .from("alerts")
     .select("id")
@@ -45,10 +87,13 @@ async function upsertAlert(supabase: Awaited<ReturnType<typeof createClient>>, a
     await supabase
       .from("alerts")
       .update({
+        alert_type: alert.alert_type,
         title: alert.title,
         message: alert.message,
         due_at: alert.due_at,
         severity: alert.severity,
+        entity_type: alert.entity_type,
+        entity_id: alert.entity_id,
       })
       .eq("id", (existing as { id: string }).id);
     return false;
@@ -81,12 +126,17 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
 
     const requestAlertWindowStart = webRequestAlertWindowStart(now);
 
-    const [reservationsRes, maintenanceRes, webRequestsRes, recentRequestsRes] =
-      await Promise.all([
+    const [
+      reservationsRes,
+      maintenanceRes,
+      webRequestsRes,
+      recentRequestsRes,
+      overdueContractsRes,
+    ] = await Promise.all([
       supabase
         .from("reservations")
         .select(
-          "id, code, status, start_at, end_at, vehicle_id, customer_id, vehicles(brand, model, plate), customers(first_name, last_name)",
+          "id, code, status, start_at, end_at, vehicle_id, customer_id, vehicles(brand, model, year, plate), customers(first_name, last_name, company_name, customer_type)",
         )
         .in("status", ["CONFIRMED", "ACTIVE"])
         .is("deleted_at", null),
@@ -108,7 +158,6 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         .gte("created_at", requestAlertWindowStart.toISOString())
         .order("created_at", { ascending: false })
         .limit(100),
-      // Full 72h history (any status) to flag repeat callers after reject/cancel.
       supabase
         .from("web_requests")
         .select("id, code, status, phone, email, created_at, first_name, last_name")
@@ -116,12 +165,27 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         .gte("created_at", requestAlertWindowStart.toISOString())
         .order("created_at", { ascending: false })
         .limit(300),
+      // Contratos abiertos cuya fecha de fin ya pasó y no se han cerrado.
+      supabase
+        .from("contracts")
+        .select(
+          "id, code, status, end_at, closed_at, vehicles(brand, model, year, plate), customers(first_name, last_name, company_name, customer_type)",
+        )
+        .is("deleted_at", null)
+        .is("closed_at", null)
+        .not("status", "in", '("COMPLETED","CANCELLED")')
+        .lt("end_at", now.toISOString())
+        .order("end_at", { ascending: true })
+        .limit(150),
     ]);
 
     if (reservationsRes.error) throw new Error(reservationsRes.error.message);
     if (maintenanceRes.error) throw new Error(maintenanceRes.error.message);
     if (webRequestsRes.error) throw new Error(webRequestsRes.error.message);
     if (recentRequestsRes.error) throw new Error(recentRequestsRes.error.message);
+    if (overdueContractsRes.error) {
+      throw new Error(overdueContractsRes.error.message);
+    }
 
     const recentPool = (recentRequestsRes.data ?? []) as RecentWebRequestRef[];
 
@@ -132,68 +196,87 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         status: string;
         start_at: string;
         end_at: string;
-        vehicles:
-          | { brand: string; model: string; plate: string }
-          | Array<{ brand: string; model: string; plate: string }>
-          | null;
-        customers:
-          | { first_name: string; last_name: string }
-          | Array<{ first_name: string; last_name: string }>
-          | null;
+        vehicles: VehicleJoin | VehicleJoin[] | null;
+        customers: CustomerJoin | CustomerJoin[] | null;
       };
 
       const vehicle = unwrapRelation(reservation.vehicles);
       const customer = unwrapRelation(reservation.customers);
-
-      const vehicleLabel = vehicle
-        ? `${vehicle.brand} ${vehicle.model} (${vehicle.plate})`
-        : "Vehículo";
-      const customerLabel = customer
-        ? `${customer.first_name} ${customer.last_name}`
-        : "Cliente";
+      const vehicleLabel = vehicleLabelFrom(vehicle);
+      const customerLabel = customerLabelFrom(customer);
 
       const startAt = new Date(reservation.start_at);
       const endAt = new Date(reservation.end_at);
 
-      if (
-        reservation.status === "CONFIRMED" &&
-        startAt >= now &&
-        startAt <= pickupCutoff
-      ) {
+      // Entrega: próximas 48h o ya vencida (CONFIRMED sin entregar).
+      if (reservation.status === "CONFIRMED" && startAt <= pickupCutoff) {
+        const isOverdue = startAt < now;
         const dedupeKey = `pickup:${reservation.id}`;
         activeDedupeKeys.add(dedupeKey);
         const inserted = await upsertAlert(supabase, {
-          alert_type: "pickup_due",
-          title: `Entrega próxima — ${reservation.code}`,
-          message: `${customerLabel} recogerá ${vehicleLabel}.`,
+          alert_type: isOverdue ? "pickup_overdue" : "pickup_due",
+          title: isOverdue
+            ? `Entrega vencida — ${customerLabel}`
+            : `Entrega próxima — ${customerLabel}`,
+          message: `${personAndTimeLabel(customerLabel, reservation.start_at)} · ${vehicleLabel} · ${reservation.code}`,
           entity_type: "reservation",
           entity_id: reservation.id,
-          severity: "warning",
+          severity: isOverdue ? "danger" : "warning",
           dedupe_key: dedupeKey,
           due_at: reservation.start_at,
         });
         if (inserted) created += 1;
       }
 
-      if (
-        reservation.status === "ACTIVE" &&
-        endAt >= now &&
-        endAt <= pickupCutoff
-      ) {
+      // Devolución: próximas 48h o ya vencida (ACTIVE sin devolver).
+      if (reservation.status === "ACTIVE" && endAt <= pickupCutoff) {
+        const isOverdue = endAt < now;
         const dedupeKey = `return:${reservation.id}`;
         activeDedupeKeys.add(dedupeKey);
         const inserted = await upsertAlert(supabase, {
-          alert_type: "return_due",
-          title: `Devolución próxima — ${reservation.code}`,
-          message: `${customerLabel} devolverá ${vehicleLabel}.`,
+          alert_type: isOverdue ? "return_overdue" : "return_due",
+          title: isOverdue
+            ? `Devolución vencida — ${customerLabel}`
+            : `Devolución próxima — ${customerLabel}`,
+          message: `${personAndTimeLabel(customerLabel, reservation.end_at)} · ${vehicleLabel} · ${reservation.code}`,
           entity_type: "reservation",
           entity_id: reservation.id,
-          severity: "warning",
+          severity: isOverdue ? "danger" : "warning",
           dedupe_key: dedupeKey,
           due_at: reservation.end_at,
         });
         if (inserted) created += 1;
       }
+    }
+
+    for (const row of overdueContractsRes.data ?? []) {
+      const contract = row as {
+        id: string;
+        code: string;
+        status: string;
+        end_at: string;
+        vehicles: VehicleJoin | VehicleJoin[] | null;
+        customers: CustomerJoin | CustomerJoin[] | null;
+      };
+
+      const vehicle = unwrapRelation(contract.vehicles);
+      const customer = unwrapRelation(contract.customers);
+      const vehicleLabel = vehicleLabelFrom(vehicle);
+      const customerLabel = customerLabelFrom(customer);
+      const dedupeKey = `contract:overdue:${contract.id}`;
+      activeDedupeKeys.add(dedupeKey);
+
+      const inserted = await upsertAlert(supabase, {
+        alert_type: "contract_overdue",
+        title: `Contrato sin cerrar — ${customerLabel}`,
+        message: `${personAndTimeLabel(customerLabel, contract.end_at)} · venció ${formatAppDate(contract.end_at)} · ${vehicleLabel} · ${contract.code}`,
+        entity_type: "contract",
+        entity_id: contract.id,
+        severity: "danger",
+        dedupe_key: dedupeKey,
+        due_at: contract.end_at,
+      });
+      if (inserted) created += 1;
     }
 
     for (const row of maintenanceRes.data ?? []) {
@@ -315,8 +398,8 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
       const inserted = await upsertAlert(supabase, {
         alert_type: "web_request_pending",
         title: relatedNote
-          ? `Solicitud repetida — ${request.code}`
-          : `Solicitud pendiente — ${request.code}`,
+          ? `Solicitud repetida — ${name}`
+          : `Solicitud pendiente — ${name}`,
         message,
         entity_type: "web_request",
         entity_id: request.id,

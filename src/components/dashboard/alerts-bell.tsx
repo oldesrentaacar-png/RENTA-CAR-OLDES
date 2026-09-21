@@ -31,6 +31,9 @@ function alertHref(alert: Alert): string | null {
   if (alert.entity_type === "reservation" && alert.entity_id) {
     return `/dashboard/reservas/${alert.entity_id}`;
   }
+  if (alert.entity_type === "contract" && alert.entity_id) {
+    return `/dashboard/contratos/${alert.entity_id}`;
+  }
   if (alert.entity_type === "maintenance" && alert.entity_id) {
     return `/dashboard/mantenimiento/${alert.entity_id}`;
   }

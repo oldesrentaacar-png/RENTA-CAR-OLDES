@@ -7,7 +7,7 @@ import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
 import { ALERT_TYPE_LABELS } from "@/lib/labels";
-import { formatAppDateTime } from "@/lib/dates";
+import { formatAppDateTime12h } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { Alert } from "@/types/database";
 
@@ -28,6 +28,9 @@ function alertLink(alert: Alert): string | null {
   if (alert.entity_type === "reservation" && alert.entity_id) {
     return `/dashboard/reservas/${alert.entity_id}`;
   }
+  if (alert.entity_type === "contract" && alert.entity_id) {
+    return `/dashboard/contratos/${alert.entity_id}`;
+  }
   if (alert.entity_type === "maintenance" && alert.entity_id) {
     return `/dashboard/mantenimiento/${alert.entity_id}`;
   }
@@ -35,6 +38,23 @@ function alertLink(alert: Alert): string | null {
     return `/dashboard/solicitudes/${alert.entity_id}`;
   }
   return null;
+}
+
+function typeBadgeVariant(
+  alertType: string,
+  severity: string,
+): "info" | "warning" | "danger" | "default" {
+  if (
+    alertType === "contract_overdue" ||
+    alertType === "pickup_overdue" ||
+    alertType === "return_overdue" ||
+    severity === "danger"
+  ) {
+    return "danger";
+  }
+  if (alertType === "webboost_notice") return "warning";
+  if (severity === "warning") return "warning";
+  return "info";
 }
 
 export default async function AlertasPage() {
@@ -46,7 +66,7 @@ export default async function AlertasPage() {
   return (
     <ModuleListShell
       title="Alertas"
-      description="Avisos del sistema por tu perfil: si quitas uno, solo desaparece para ti; otros usuarios siguen viéndolo."
+      description="Avisos por tu perfil (cliente y hora visibles). Quitar solo te afecta a ti. Incluye contratos abiertos vencidos."
       permission="dashboard.view"
       configured={configured}
       error={error}
@@ -64,37 +84,41 @@ export default async function AlertasPage() {
             key: "type",
             header: "Tipo",
             cell: (row) => (
-              <Badge
-                variant={
-                  row.alert_type === "webboost_notice"
-                    ? "warning"
-                    : "info"
-                }
-              >
+              <Badge variant={typeBadgeVariant(row.alert_type, row.severity)}>
                 {ALERT_TYPE_LABELS[row.alert_type] ?? row.alert_type}
               </Badge>
             ),
           },
           {
             key: "title",
-            header: "Título",
+            header: "Aviso",
             cell: (row) => {
               const href = alertLink(row);
-              return href ? (
-                <Link href={href} className="text-brand hover:underline">
-                  {row.title}
-                </Link>
-              ) : (
-                row.title
+              return (
+                <div className="flex max-w-md flex-col gap-0.5">
+                  {href ? (
+                    <Link
+                      href={href}
+                      className="font-medium text-brand hover:underline"
+                    >
+                      {row.title}
+                    </Link>
+                  ) : (
+                    <span className="font-medium">{row.title}</span>
+                  )}
+                  {row.message ? (
+                    <span className="text-xs text-muted">{row.message}</span>
+                  ) : null}
+                </div>
               );
             },
           },
           {
             key: "due",
-            header: "Vence",
+            header: "Cuándo",
             cell: (row) =>
-              row.due_at ? formatAppDateTime(row.due_at) : "—",
-            className: "hidden md:table-cell",
+              row.due_at ? formatAppDateTime12h(row.due_at) : "—",
+            className: "hidden md:table-cell whitespace-nowrap",
           },
           {
             key: "severity",

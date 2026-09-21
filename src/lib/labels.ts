@@ -120,7 +120,10 @@ export const VENDOR_LEDGER_KIND_LABELS: Record<VendorLedgerKind, string> = {
 
 export const ALERT_TYPE_LABELS: Record<string, string> = {
   pickup_due: "Entrega próxima",
+  pickup_overdue: "Entrega vencida",
   return_due: "Devolución próxima",
+  return_overdue: "Devolución vencida",
+  contract_overdue: "Contrato sin cerrar",
   maintenance_due_date: "Mantenimiento por fecha",
   maintenance_due_mileage: "Mantenimiento por kilometraje",
   web_request_pending: "Solicitud web (72h)",
