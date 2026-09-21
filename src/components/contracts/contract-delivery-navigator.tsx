@@ -19,12 +19,15 @@ type ContractDeliveryNavigatorProps = {
 function StepAction({
   href,
   label,
+  primary,
 }: {
   href: string;
   label: string;
+  primary?: boolean;
 }) {
-  const className =
-    "mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800";
+  const className = primary
+    ? "inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
+    : "inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800";
 
   if (isDocumentHref(href)) {
     return (
@@ -47,6 +50,10 @@ function StepAction({
   );
 }
 
+/**
+ * Flujo de entrega enfocado: barra compacta de pasos + solo el paso actual
+ * expandido (evita mezclar firmas, abonos, cobros, etc. en la misma vista).
+ */
 export function ContractDeliveryNavigator({
   contractId,
   steps,
@@ -54,7 +61,8 @@ export function ContractDeliveryNavigator({
 }: ContractDeliveryNavigatorProps) {
   const currentIndex = useMemo(() => {
     if (!currentStepId) {
-      return steps.findIndex((step) => step.status !== "done");
+      const pending = steps.findIndex((step) => step.status !== "done");
+      return pending >= 0 ? pending : 0;
     }
     const idx = steps.findIndex((step) => step.id === currentStepId);
     return idx >= 0 ? idx : 0;
@@ -71,49 +79,87 @@ export function ContractDeliveryNavigator({
 
   return (
     <Card id="entrega">
-      <CardHeader>
+      <CardHeader className="pb-3">
         <CardTitle className="text-base">Flujo de entrega — paso a paso</CardTitle>
         <p className="text-sm text-muted">
-          Puede volver a abrir cualquier paso terminado para verlo o corregirlo.
+          Solo se muestra el paso actual. Toque otro número para saltar; no se
+          mezclan firmas, abonos ni cobros en la misma pantalla.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <ol className="grid gap-2 sm:grid-cols-2">
-          {steps.map((step, index) => (
-            <li
-              key={step.id}
-              className={cn(
-                "rounded-lg border border-border px-3 py-3 text-sm",
-                step.status === "done" && "border-green-200 bg-green-50/40",
-                step.status === "partial" && "border-amber-200 bg-amber-50/40",
-                index === currentIndex && "ring-2 ring-brand/30",
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="font-medium">
-                  {index + 1}. {step.title}
-                </span>
-                {step.status === "done" ? (
-                  <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-800">
-                    Listo
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-1 text-muted">{step.description}</p>
-              {step.href && step.linkLabel ? (
-                <StepAction href={step.href} label={step.linkLabel} />
-              ) : null}
-            </li>
-          ))}
+        <ol className="flex gap-2 overflow-x-auto pb-1">
+          {steps.map((step, index) => {
+            const active = index === currentIndex;
+            return (
+              <li key={step.id} className="min-w-[7.5rem] flex-1">
+                {step.href ? (
+                  <Link
+                    href={step.href}
+                    className={cn(
+                      "block h-full rounded-lg border px-2.5 py-2 text-left text-xs transition",
+                      active && "ring-2 ring-brand/35",
+                      step.status === "done" &&
+                        !active &&
+                        "border-green-200 bg-green-50/50",
+                      step.status === "partial" &&
+                        !active &&
+                        "border-amber-200 bg-amber-50/40",
+                      step.status === "pending" &&
+                        !active &&
+                        "border-border bg-white",
+                      active && "border-brand/40 bg-white",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-semibold tabular-nums text-muted">
+                        {index + 1}
+                      </span>
+                      {step.status === "done" ? (
+                        <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-green-800">
+                          Listo
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 line-clamp-2 font-medium leading-snug text-foreground">
+                      {step.title}
+                    </p>
+                  </Link>
+                ) : (
+                  <div className="rounded-lg border border-border px-2.5 py-2 text-xs">
+                    <span className="font-semibold text-muted">{index + 1}</span>
+                    <p className="mt-1 font-medium">{step.title}</p>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ol>
 
+        <div className="rounded-xl border border-border bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Paso {currentIndex + 1} de {steps.length}
+          </p>
+          <h3 className="mt-1 text-base font-semibold text-foreground">
+            {current.title}
+          </h3>
+          <p className="mt-1 text-sm text-muted">{current.description}</p>
+          {current.href && current.linkLabel ? (
+            <div className="mt-4">
+              <StepAction
+                href={current.href}
+                label={current.linkLabel}
+                primary
+              />
+            </div>
+          ) : null}
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-muted/40 p-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Paso {Math.max(currentIndex, 0) + 1} de {steps.length}
-            </p>
-            <p className="font-medium">{current.title}</p>
-          </div>
+          <p className="text-sm text-muted">
+            {current.status === "done"
+              ? "Este paso está listo. Puede avanzar o revisarlo."
+              : "Complete solo este paso antes de pasar al siguiente."}
+          </p>
           <div className="flex flex-wrap gap-2">
             {prev?.href ? (
               <Link href={prev.href}>

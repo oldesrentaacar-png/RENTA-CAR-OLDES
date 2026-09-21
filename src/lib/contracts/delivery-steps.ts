@@ -1,6 +1,5 @@
 import type { DeliveryStep } from "@/components/contracts/delivery-checklist";
 import { formatMoney } from "@/lib/money";
-import { contractPdfHref } from "@/lib/pdf/contract-pdf-meta";
 
 export type DeliveryStepsInput = {
   contractId: string;
@@ -35,7 +34,7 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
       title: "Cliente, vehículo y cobros",
       description: `${customerName} · ${vehicleLabel}. Revise tarifas y extras (silla, entrega, etc.) aquí.`,
       status: "done",
-      href: `/dashboard/contratos/${contractId}#seccion-1`,
+      href: `/dashboard/contratos/${contractId}?paso=cliente-vehiculo`,
       linkLabel: "Ver / Editar cobros",
     },
     {
@@ -46,7 +45,7 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
         : "Registre la inspección de salida antes de entregar.",
       status: checkOutId ? "done" : "pending",
       href: checkOutId
-        ? `/dashboard/inspecciones/${checkOutId}`
+        ? `/dashboard/inspecciones/${checkOutId}?paso=inspeccion-salida`
         : `/dashboard/inspecciones/nuevo?reservation_id=${reservationId}&type=CHECK_OUT`,
       linkLabel: checkOutId ? "Ver / Editar inspección" : "Crear inspección",
     },
@@ -64,7 +63,7 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
           ? "done"
           : "partial",
       href: checkOutId
-        ? `/dashboard/inspecciones/${checkOutId}#accesorios`
+        ? `/dashboard/inspecciones/${checkOutId}?paso=accesorios`
         : `/dashboard/inspecciones/nuevo?reservation_id=${reservationId}&type=CHECK_OUT`,
       linkLabel: checkOutId ? "Ver / Editar accesorios" : "Crear inspección",
     },
@@ -86,7 +85,7 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
           ? `Abonado: ${formatMoney(amountPaid)}`
           : "Registre el abono en la sección de recibos.",
       status: amountPaid > 0 ? "done" : "pending",
-      href: `/dashboard/contratos/${contractId}#abonos`,
+      href: `/dashboard/contratos/${contractId}?paso=facturacion`,
       linkLabel: amountPaid > 0 ? "Ver / Editar abonos" : "Ir a abonos",
     },
     {
@@ -96,7 +95,7 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
         ? "Firmado por el cliente — listo para ver y compartir."
         : "Vista interna disponible. Comparta solo después de la firma del cliente.",
       status: hasClientSignature ? "done" : "partial",
-      href: contractPdfHref(contractId, updatedAt),
+      href: `/dashboard/contratos/${contractId}?paso=pdf`,
       linkLabel: hasClientSignature
         ? "Ver / Compartir PDF"
         : "Ver PDF (vista interna)",
@@ -109,12 +108,31 @@ export function resolveDeliveryStepId(input: {
   inspectionType?: "CHECK_OUT" | "CHECK_IN";
   checkOutChecklistCount?: number;
   onSignPage?: boolean;
+  paso?: string | null;
 }): string | undefined {
   if (input.onSignPage) return "firma";
+  const paso = input.paso?.trim();
+  if (
+    paso === "cliente-vehiculo" ||
+    paso === "inspeccion-salida" ||
+    paso === "accesorios" ||
+    paso === "firma" ||
+    paso === "facturacion" ||
+    paso === "pdf"
+  ) {
+    return paso;
+  }
   if (input.inspectionType === "CHECK_OUT") {
     return (input.checkOutChecklistCount ?? 0) > 0
       ? "accesorios"
       : "inspeccion-salida";
   }
   return undefined;
+}
+
+export function firstIncompleteDeliveryStepId(
+  steps: Array<{ id: string; status: string }>,
+): string {
+  const pending = steps.find((step) => step.status !== "done");
+  return pending?.id ?? steps[0]?.id ?? "cliente-vehiculo";
 }

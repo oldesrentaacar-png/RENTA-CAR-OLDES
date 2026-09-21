@@ -22,10 +22,13 @@ import { isSupabaseConfigured } from "@/lib/env";
 
 export default async function InspeccionDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ paso?: string }>;
 }) {
   const { id } = await params;
+  const { paso } = await searchParams;
   const configured = isSupabaseConfigured();
   const result = configured ? await getInspection(id) : null;
 
@@ -47,9 +50,19 @@ export default async function InspeccionDetailPage({
           currentStepId: resolveDeliveryStepId({
             inspectionType: inspection.type,
             checkOutChecklistCount: inspection.checklist.length,
+            paso,
           }),
         })
       : null;
+
+  const focusPaso =
+    deliveryFlow?.success && deliveryFlow.data
+      ? deliveryFlow.data.currentStepId
+      : null;
+  const accessoriesOnly = focusPaso === "accesorios";
+  const inspectionOnly = focusPaso === "inspeccion-salida";
+  const showAccessories = !focusPaso || accessoriesOnly;
+  const showPhotos = !focusPaso || inspectionOnly;
 
   return (
     <PermissionGuard permission="inspections.view">
@@ -143,6 +156,7 @@ export default async function InspeccionDetailPage({
               </CardContent>
             </Card>
 
+            {showAccessories ? (
             <Card id="accesorios">
               <CardHeader>
                 <CardTitle className="text-base">
@@ -165,7 +179,9 @@ export default async function InspeccionDetailPage({
                 />
               </CardContent>
             </Card>
+            ) : null}
 
+            {showPhotos ? (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Fotos</CardTitle>
@@ -178,6 +194,7 @@ export default async function InspeccionDetailPage({
                 />
               </CardContent>
             </Card>
+            ) : null}
           </>
         ) : null}
       </div>

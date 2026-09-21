@@ -13,6 +13,8 @@ import { ContractReceiptsSection } from "@/components/contracts/contract-receipt
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
 import {
   buildDeliverySteps,
+  firstIncompleteDeliveryStepId,
+  resolveDeliveryStepId,
 } from "@/lib/contracts/delivery-steps";
 import { createClient } from "@/lib/supabase/server";
 import { PermissionGuard } from "@/components/auth/permission-guard";
@@ -27,13 +29,17 @@ import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
 import { closeActPdfHref } from "@/lib/pdf/pdf-cache";
 import { loadBillingCatalogItems } from "@/lib/billing/load-catalog";
+import { contractPdfHref } from "@/lib/pdf/contract-pdf-meta";
 
 export default async function ContratoDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ paso?: string }>;
 }) {
   const { id } = await params;
+  const { paso } = await searchParams;
   const configured = isSupabaseConfigured();
   const result = configured ? await getContract(id) : null;
 
@@ -106,6 +112,27 @@ export default async function ContratoDetailPage({
         })
       : null;
 
+  const deliveryActive =
+    Boolean(deliverySteps) &&
+    contract &&
+    contract.status !== "CANCELLED" &&
+    contract.status !== "COMPLETED" &&
+    !contract.closed_at;
+
+  const focusedPaso =
+    deliveryActive && deliverySteps
+      ? resolveDeliveryStepId({ paso }) ??
+        firstIncompleteDeliveryStepId(deliverySteps)
+      : null;
+
+  const showCobros =
+    !focusedPaso || focusedPaso === "cliente-vehiculo";
+  const showAbonos = !focusedPaso || focusedPaso === "facturacion";
+  const showPdfStep = focusedPaso === "pdf";
+  const showFirmasCard =
+    !focusedPaso && contract && contract.signatures.length > 0;
+  const showActions = !focusedPaso || focusedPaso === "cliente-vehiculo";
+
   const canDeliver =
     contract &&
     contract.status !== "CANCELLED" &&
@@ -128,12 +155,16 @@ export default async function ContratoDetailPage({
             contract ? (
               <div className="flex flex-wrap gap-2">
                 {canDeliver ? (
-                  <a
-                    href="#entrega"
+                  <Link
+                    href={`/dashboard/contratos/${id}?paso=${
+                      deliverySteps
+                        ? firstIncompleteDeliveryStepId(deliverySteps)
+                        : "cliente-vehiculo"
+                    }`}
                     className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
                   >
                     Entregar / continuar entrega
-                  </a>
+                  </Link>
                 ) : null}
                 {canClose && canEdit ? (
                   <Link
@@ -298,9 +329,11 @@ export default async function ContratoDetailPage({
               <ContractDeliveryNavigator
                 contractId={contract.id}
                 steps={deliverySteps}
+                currentStepId={focusedPaso ?? undefined}
               />
             ) : null}
 
+            {showCobros ? (
             <Card id="seccion-1">
               <CardHeader>
                 <CardTitle className="text-base">
@@ -351,8 +384,9 @@ export default async function ContratoDetailPage({
                 />
               </CardContent>
             </Card>
+            ) : null}
 
-            {contract.signatures.length > 0 ? (
+            {showFirmasCard ? (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Firmas registradas</CardTitle>
@@ -378,7 +412,7 @@ export default async function ContratoDetailPage({
               </Card>
             ) : null}
 
-            {canFinanceView ? (
+            {showAbonos && canFinanceView ? (
               <div id="abonos">
                 <ContractReceiptsSection
                   contractId={contract.id}
@@ -393,6 +427,31 @@ export default async function ContratoDetailPage({
               </div>
             ) : null}
 
+            {showPdfStep ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">PDF del contrato</CardTitle>
+                  <p className="text-sm text-muted">
+                    Abra o comparta el PDF desde aquí. Este paso no mezcla abonos
+                    ni firmas.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <ContractPdfLink
+                    contractId={id}
+                    updatedAt={contract.updated_at}
+                    clientSigned={Boolean(
+                      contract.signatures.some((s) => s.signer_type === "CLIENT"),
+                    )}
+                    className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+                  >
+                    Abrir PDF
+                  </ContractPdfLink>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {showActions ? (
             <ContractDetailActions
               contract={contract}
               canEdit={canEdit}
@@ -401,6 +460,7 @@ export default async function ContratoDetailPage({
               operatorName={operatorName}
               operatorHasSignature={operatorHasSignature}
             />
+            ) : null}
           </>
         ) : null}
       </div>
