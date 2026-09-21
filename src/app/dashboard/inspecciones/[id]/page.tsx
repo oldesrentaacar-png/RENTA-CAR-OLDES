@@ -136,7 +136,8 @@ export default async function InspeccionDetailPage({
                 </p>
                 {inspection.notes ? (
                   <p className="sm:col-span-2">
-                    <span className="text-muted">Notas:</span> {inspection.notes}
+                    <span className="text-muted">Observaciones generales:</span>{" "}
+                    {inspection.notes}
                   </p>
                 ) : null}
               </CardContent>
@@ -153,6 +154,7 @@ export default async function InspeccionDetailPage({
                   inspectionId={inspection.id}
                   checklistItems={inspection.checklist}
                   damageMarks={inspection.damageMarks}
+                  generalNotes={inspection.notes}
                   readOnly={!canEdit}
                   vehiclePhotoUrl={inspection.vehiclePhotoUrl}
                   viewPhotos={inspection.viewPhotos}

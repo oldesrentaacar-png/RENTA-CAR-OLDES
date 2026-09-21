@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 import { saveChecklistItems } from "@/app/dashboard/inspecciones/actions";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { CHECKLIST_STATUS_LABELS } from "@/lib/inspections/defaults";
 import { cn } from "@/lib/utils";
 import type { ChecklistItemStatus, InspectionChecklistItem } from "@/types/database";
@@ -63,10 +62,9 @@ function toDraft(item: InspectionChecklistItem | ChecklistItemDraft): ChecklistI
       itemKey: item.item_name.toLowerCase().replace(/\s+/g, "_"),
       label: item.item_name,
       status: item.status,
-      notes: item.notes ?? undefined,
     };
   }
-  return item;
+  return { itemKey: item.itemKey, label: item.label, status: item.status };
 }
 
 export function ChecklistForm({
@@ -110,7 +108,7 @@ export function ChecklistForm({
           itemKey: item.itemKey,
           label: item.label,
           status: item.status,
-          notes: item.notes,
+          notes: "",
         })),
       ),
     );
@@ -138,7 +136,7 @@ export function ChecklistForm({
 
       <p className="text-sm text-muted">
         Toque el chequeo: está / no está / averiado. Pensado para entrega rápida
-        en aeropuerto.
+        en aeropuerto. Las observaciones van solo al final (cuadro general).
       </p>
 
       <div className="space-y-2">
@@ -188,26 +186,6 @@ export function ChecklistForm({
                 </div>
               )}
             </div>
-            {!readOnly ? (
-              <div className="mt-2">
-                <Textarea
-                  label="Notas (opcional)"
-                  rows={1}
-                  value={item.notes ?? ""}
-                  onChange={(event) =>
-                    updateDrafts((current) =>
-                      current.map((row, rowIndex) =>
-                        rowIndex === index
-                          ? { ...row, notes: event.target.value }
-                          : row,
-                      ),
-                    )
-                  }
-                />
-              </div>
-            ) : item.notes ? (
-              <p className="mt-2 text-sm text-muted">{item.notes}</p>
-            ) : null}
           </div>
         ))}
       </div>

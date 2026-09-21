@@ -624,6 +624,49 @@ export async function deleteInspection(
   }
 }
 
+export async function saveInspectionGeneralNotes(
+  inspectionId: string,
+  notes: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { user } = await assertPermission("inspections.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("inspections")
+      .select("id")
+      .eq("id", inspectionId)
+      .maybeSingle();
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Inspección no encontrada.");
+
+    const { error } = await supabase
+      .from("inspections")
+      .update({
+        notes: notes.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", inspectionId);
+    if (error) throw mapPostgresError(error);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "inspection.notes",
+      entityType: "inspection",
+      entityId: inspectionId,
+    });
+
+    revalidatePath(`/dashboard/inspecciones/${inspectionId}`);
+    await revalidateContractsLinkedToInspection(inspectionId);
+    return actionSuccess({ id: inspectionId });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
 export async function saveChecklistItems(
   inspectionId: string,
   itemsJson: string,
@@ -666,7 +709,8 @@ export async function saveChecklistItems(
       inspection_id: inspectionId,
       item_name: item.label,
       status: item.status,
-      notes: item.notes ?? null,
+      // Per-item notes removed from UI; only general inspection notes are used.
+      notes: null,
       sort_order: index,
     }));
 

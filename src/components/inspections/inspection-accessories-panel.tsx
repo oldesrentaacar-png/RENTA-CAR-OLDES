@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   saveChecklistItems,
   saveDamageMarks,
+  saveInspectionGeneralNotes,
 } from "@/app/dashboard/inspecciones/actions";
 import {
   ChecklistForm,
@@ -18,6 +19,7 @@ import {
 } from "@/components/inspections/damage-map-2d";
 import { DamageMapView } from "@/components/inspections/damage-map-view";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import type {
   InspectionChecklistItem,
   InspectionDamageMark,
@@ -27,6 +29,7 @@ type InspectionAccessoriesPanelProps = {
   inspectionId: string;
   checklistItems: InspectionChecklistItem[];
   damageMarks: InspectionDamageMark[];
+  generalNotes?: string | null;
   readOnly?: boolean;
   vehiclePhotoUrl?: string | null;
   viewPhotos?: Partial<
@@ -39,12 +42,13 @@ type InspectionAccessoriesPanelProps = {
 };
 
 /**
- * Accesorios (checklist) + mapa de daños en una sola hoja con un solo Guardar.
+ * Accesorios (checklist) + mapa de daños + observaciones generales.
  */
 export function InspectionAccessoriesPanel({
   inspectionId,
   checklistItems,
   damageMarks,
+  generalNotes = "",
   readOnly,
   vehiclePhotoUrl,
   viewPhotos,
@@ -59,12 +63,12 @@ export function InspectionAccessoriesPanel({
       itemKey: item.item_name.toLowerCase().replace(/\s+/g, "_"),
       label: item.item_name,
       status: item.status,
-      notes: item.notes ?? undefined,
     })),
   );
   const [marks, setMarks] = useState<DamageMarkDraft[]>(() =>
     damageMarksToDrafts(damageMarks),
   );
+  const [notes, setNotes] = useState(generalNotes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -81,7 +85,7 @@ export function InspectionAccessoriesPanel({
           itemKey: item.itemKey,
           label: item.label,
           status: item.status,
-          notes: item.notes,
+          notes: "",
         })),
       ),
     );
@@ -89,6 +93,13 @@ export function InspectionAccessoriesPanel({
     if (!checklistResult.success) {
       setSaving(false);
       setError(checklistResult.error);
+      return;
+    }
+
+    const notesResult = await saveInspectionGeneralNotes(inspectionId, notes);
+    if (!notesResult.success) {
+      setSaving(false);
+      setError(`Checklist guardado, pero las observaciones fallaron: ${notesResult.error}`);
       return;
     }
 
@@ -100,7 +111,7 @@ export function InspectionAccessoriesPanel({
     setSaving(false);
     if (!damageResult.success) {
       setError(
-        `Checklist guardado, pero el mapa de daños falló: ${damageResult.error}`,
+        `Checklist y observaciones guardados, pero el mapa de daños falló: ${damageResult.error}`,
       );
       return;
     }
@@ -118,7 +129,7 @@ export function InspectionAccessoriesPanel({
       ) : null}
       {saved ? (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          Checklist y mapa de daños guardados.
+          Checklist, mapa de daños y observaciones guardados.
         </div>
       ) : null}
 
@@ -155,14 +166,37 @@ export function InspectionAccessoriesPanel({
         />
       </div>
 
+      <div className="space-y-2 rounded-xl border border-border bg-surface-muted/40 p-4">
+        <h3 className="text-sm font-semibold text-foreground">
+          4. Observaciones generales
+        </h3>
+        <p className="text-xs text-muted">
+          Un solo cuadro al final, igual que en el contrato PDF. No hay notas
+          por cada accesorio.
+        </p>
+        {readOnly ? (
+          <p className="min-h-[3rem] whitespace-pre-wrap text-sm">
+            {notes.trim() || "—"}
+          </p>
+        ) : (
+          <Textarea
+            label="Observaciones"
+            rows={4}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Escriba aquí cualquier observación general de la inspección…"
+          />
+        )}
+      </div>
+
       {!readOnly ? (
         <div className="sticky bottom-3 z-10 rounded-xl border border-border bg-white/95 p-3 shadow-lg backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted">
-              Guarda accesorios y mapa de daños en un solo paso.
+              Guarda accesorios, mapa de daños y observaciones en un solo paso.
             </p>
             <Button type="button" onClick={() => void handleSaveAll()} loading={saving}>
-              Guardar checklist y mapa de daños
+              Guardar todo
             </Button>
           </div>
         </div>

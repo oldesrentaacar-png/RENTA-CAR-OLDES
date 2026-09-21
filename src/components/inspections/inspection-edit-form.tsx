@@ -121,9 +121,10 @@ export function InspectionEditForm({
       />
       <Textarea
         name="notes"
-        label="Notas"
+        label="Observaciones generales"
         rows={4}
         defaultValue={notes ?? ""}
+        placeholder="Un solo cuadro de observaciones (igual que en el contrato PDF)"
       />
 
       <div className="flex flex-wrap gap-3">

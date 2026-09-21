@@ -130,7 +130,12 @@ export function InspectionCreateForm({
         label="Conductor adicional (solo en entrega/devolución)"
         placeholder="Opcional — para empresas con distintos conductores"
       />
-      <Textarea name="notes" label="Notas" rows={4} />
+      <Textarea
+        name="notes"
+        label="Observaciones generales"
+        rows={4}
+        placeholder="Un solo cuadro de observaciones (igual que en el contrato PDF)"
+      />
 
       <div className="flex flex-wrap gap-3">
         <SubmitButton>Crear inspección</SubmitButton>
