@@ -182,7 +182,9 @@ export async function listCustomers(
       .from("customers")
       .select("*", { count: "exact" })
       .is("deleted_at", null)
-      .order("last_name", { ascending: true });
+      .order("last_name", { ascending: true })
+      .order("first_name", { ascending: true })
+      .order("company_name", { ascending: true });
 
     if (filters.query) {
       const term = `%${filters.query}%`;

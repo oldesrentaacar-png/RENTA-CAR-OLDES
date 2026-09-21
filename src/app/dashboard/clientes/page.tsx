@@ -6,6 +6,7 @@ import { CustomerListActions } from "@/components/dashboard/customer-list-action
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { DataTable } from "@/components/shared/data-table";
+import { Pagination } from "@/components/shared/pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,7 +23,8 @@ export default async function ClientesPage({
   const params = await searchParams;
   const configured = isSupabaseConfigured();
   const result = configured ? await listCustomers(params) : null;
-  const data = result?.success ? result.data.items : [];
+  const pageData = result?.success ? result.data : null;
+  const data = pageData?.items ?? [];
   const error = result && !result.success ? result.error : null;
 
   return (
@@ -32,8 +34,8 @@ export default async function ClientesPage({
       permission="customers.view"
       configured={configured}
       error={error}
-      count={data.length}
-      countLabel="clientes mostrados"
+      count={pageData?.total ?? data.length}
+      countLabel="clientes"
       actions={
         <PermissionGuard permission="customers.create" fallback={null}>
           <Link
@@ -46,7 +48,10 @@ export default async function ClientesPage({
       }
     >
       <form method="get" className="mb-4">
-        <ListFilters q={String(params.q ?? "")} />
+        <ListFilters
+          q={String(params.q ?? "")}
+          searchPlaceholder="Nombre, teléfono, correo, NIT…"
+        />
       </form>
 
       <DataTable
@@ -97,6 +102,17 @@ export default async function ClientesPage({
           },
         ]}
       />
+
+      {pageData ? (
+        <Pagination
+          page={pageData.page}
+          totalPages={pageData.totalPages}
+          basePath="/dashboard/clientes"
+          searchParams={{
+            q: String(params.q ?? "") || undefined,
+          }}
+        />
+      ) : null}
     </ModuleListShell>
   );
 }

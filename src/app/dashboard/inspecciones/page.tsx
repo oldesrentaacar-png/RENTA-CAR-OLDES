@@ -3,7 +3,9 @@ import Link from "next/link";
 import { listInspections } from "@/app/dashboard/inspecciones/actions";
 import { InspectionListActions } from "@/components/dashboard/inspection-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
+import { ListFilters } from "@/components/dashboard/list-filters";
 import { DataTable } from "@/components/shared/data-table";
+import { Pagination } from "@/components/shared/pagination";
 import { FUEL_LEVEL_LABELS, INSPECTION_TYPE_LABELS } from "@/lib/inspections/defaults";
 import { formatAppDate } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -16,8 +18,13 @@ export default async function InspeccionesPage({
   const params = await searchParams;
   const configured = isSupabaseConfigured();
   const result = configured ? await listInspections(params) : null;
-  const data = result?.success ? result.data.items : [];
+  const pageData = result?.success ? result.data : null;
+  const data = pageData?.items ?? [];
   const error = result && !result.success ? result.error : null;
+
+  const typeOptions = Object.entries(INSPECTION_TYPE_LABELS).map(
+    ([value, label]) => ({ value, label }),
+  );
 
   return (
     <ModuleListShell
@@ -26,8 +33,8 @@ export default async function InspeccionesPage({
       permission="inspections.view"
       configured={configured}
       error={error}
-      count={data.length}
-      countLabel="inspecciones mostradas"
+      count={pageData?.total ?? data.length}
+      countLabel="inspecciones"
       actions={
         <Link
           href="/dashboard/inspecciones/nuevo"
@@ -37,6 +44,15 @@ export default async function InspeccionesPage({
         </Link>
       }
     >
+      <form method="get" className="mb-4">
+        <ListFilters
+          q={String(params.q ?? "")}
+          status={String(params.status ?? params.type ?? "")}
+          statusOptions={typeOptions}
+          searchPlaceholder="Código, placa, marca o cliente…"
+        />
+      </form>
+
       <DataTable
         data={data}
         getRowKey={(row) => row.id}
@@ -94,6 +110,18 @@ export default async function InspeccionesPage({
           },
         ]}
       />
+
+      {pageData ? (
+        <Pagination
+          page={pageData.page}
+          totalPages={pageData.totalPages}
+          basePath="/dashboard/inspecciones"
+          searchParams={{
+            q: String(params.q ?? "") || undefined,
+            status: String(params.status ?? params.type ?? "") || undefined,
+          }}
+        />
+      ) : null}
     </ModuleListShell>
   );
 }

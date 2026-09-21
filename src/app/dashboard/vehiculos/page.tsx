@@ -5,6 +5,7 @@ import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { VehicleListActions } from "@/components/dashboard/vehicle-list-actions";
 import { DataTable } from "@/components/shared/data-table";
+import { Pagination } from "@/components/shared/pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { VEHICLE_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney } from "@/lib/money";
@@ -22,7 +23,8 @@ export default async function VehiculosPage({
     publishedOnWeb: params.published,
   };
   const result = configured ? await listVehicles(filterParams) : null;
-  const data = result?.success ? result.data.items : [];
+  const pageData = result?.success ? result.data : null;
+  const data = pageData?.items ?? [];
   const error = result && !result.success ? result.error : null;
 
   const statusOptions = Object.entries(VEHICLE_STATUS_LABELS).map(
@@ -36,8 +38,8 @@ export default async function VehiculosPage({
       permission="vehicles.view"
       configured={configured}
       error={error}
-      count={data.length}
-      countLabel="vehículos mostrados"
+      count={pageData?.total ?? data.length}
+      countLabel="vehículos"
       actions={
         <Link
           href="/dashboard/vehiculos/nuevo"
@@ -54,6 +56,7 @@ export default async function VehiculosPage({
           published={String(params.published ?? "")}
           statusOptions={statusOptions}
           showPublished
+          searchPlaceholder="Marca, modelo o placa…"
         />
       </form>
 
@@ -98,6 +101,19 @@ export default async function VehiculosPage({
           },
         ]}
       />
+
+      {pageData ? (
+        <Pagination
+          page={pageData.page}
+          totalPages={pageData.totalPages}
+          basePath="/dashboard/vehiculos"
+          searchParams={{
+            q: String(params.q ?? "") || undefined,
+            status: String(params.status ?? "") || undefined,
+            published: String(params.published ?? "") || undefined,
+          }}
+        />
+      ) : null}
     </ModuleListShell>
   );
 }

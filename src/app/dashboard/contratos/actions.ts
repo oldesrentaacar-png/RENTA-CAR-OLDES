@@ -30,6 +30,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
+import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import {
@@ -1878,7 +1879,7 @@ export async function saveCloseCheckInVitals(
     const supabase = await createClient();
     const { data: contract, error: contractError } = await supabase
       .from("contracts")
-      .select("id, reservation_id, status, closed_at")
+      .select("id, reservation_id, vehicle_id, status, closed_at")
       .eq("id", contractId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -1887,6 +1888,7 @@ export async function saveCloseCheckInVitals(
 
     const row = contract as {
       reservation_id: string;
+      vehicle_id: string;
       status: string;
       closed_at: string | null;
     };
@@ -1920,6 +1922,16 @@ export async function saveCloseCheckInVitals(
       .eq("id", checkInId);
     if (updateError) throw mapPostgresError(updateError);
 
+    await applyVehicleMileage(supabase, {
+      vehicleId: row.vehicle_id,
+      mileage,
+      source: "CHECK_IN",
+      userId: user.id,
+      inspectionId: checkInId,
+      contractId,
+      notes: "Vitals de cierre (CHECK_IN)",
+    });
+
     await ensureCheckInChecklist(supabase, checkInId);
 
     const { count } = await supabase
@@ -1938,6 +1950,9 @@ export async function saveCloseCheckInVitals(
     revalidatePath(`/dashboard/contratos/${contractId}`);
     revalidatePath(`/dashboard/contratos/${contractId}/cerrar`);
     revalidatePath(`/dashboard/inspecciones/${checkInId}`);
+    revalidatePath(`/dashboard/vehiculos/${row.vehicle_id}`);
+    revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/dashboard/alertas");
     revalidatePath("/dashboard/calendario");
 
     return actionSuccess({
@@ -2259,18 +2274,25 @@ export async function closeContract(
     const checkInRow = checkIn as { id: string; mileage: number | null } | null;
     const mileage = checkInRow?.mileage ?? null;
 
-    const vehicleUpdate: Record<string, unknown> = { status: "AVAILABLE" };
-    if (mileage != null && mileage >= 0) {
-      vehicleUpdate.current_mileage = mileage;
-    }
-
     const { error: vehicleError } = await supabase
       .from("vehicles")
-      .update(vehicleUpdate)
+      .update({ status: "AVAILABLE" })
       .eq("id", contract.vehicle_id);
 
     if (vehicleError && !isMissingRelationOrColumn(vehicleError)) {
-      console.error("[closeContract] vehicle update", vehicleError.message);
+      throw mapPostgresError(vehicleError);
+    }
+
+    if (mileage != null && mileage >= 0) {
+      await applyVehicleMileage(supabase, {
+        vehicleId: contract.vehicle_id,
+        mileage,
+        source: "CHECK_IN",
+        userId: user.id,
+        inspectionId: checkInRow?.id ?? null,
+        contractId,
+        notes: "Cierre de contrato",
+      });
     }
 
     await syncReservationFromContract(supabase, {
@@ -2286,30 +2308,6 @@ export async function closeContract(
       vehicleId: contract.vehicle_id,
       status: "COMPLETED",
     });
-
-    if (mileage != null && mileage >= 0) {
-      try {
-        const { error: historyError } = await supabase
-          .from("vehicle_mileage_history")
-          .insert({
-            vehicle_id: contract.vehicle_id,
-            mileage,
-            source: "CHECK_IN",
-            inspection_id: checkInRow?.id ?? null,
-            contract_id: contractId,
-            notes: "Cierre de contrato",
-            created_by: user.id,
-          });
-        if (historyError && !isMissingRelationOrColumn(historyError)) {
-          console.error(
-            "[closeContract] mileage history",
-            historyError.message,
-          );
-        }
-      } catch {
-        // Table may not exist yet — ignore.
-      }
-    }
 
     await writeAuditLog({
       userId: user.id,
@@ -2331,6 +2329,8 @@ export async function closeContract(
     revalidatePath("/dashboard/contratos");
     revalidatePath(`/dashboard/contratos/${contractId}`);
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath(`/dashboard/vehiculos/${contract.vehicle_id}`);
+    revalidatePath("/dashboard/alertas");
     revalidatePath("/dashboard/reservas");
     if (contract.reservation_id) {
       revalidatePath(`/dashboard/reservas/${contract.reservation_id}`);

@@ -128,6 +128,10 @@ export type DamageMarkInput = z.infer<typeof damageMarkSchema>;
 export type InspectionPhotoInput = z.infer<typeof inspectionPhotoSchema>;
 
 export const inspectionSearchSchema = z.object({
+  query: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : value),
+    z.string().trim().max(100).optional(),
+  ),
   reservationId: optionalUuid(),
   vehicleId: optionalUuid(),
   type: optionalEnum(z.enum(["CHECK_OUT", "CHECK_IN"])),

@@ -33,6 +33,7 @@ import {
 import type { InspectionWireframeType } from "@/lib/inspections/inspection-wireframe-public";
 import { generateVehicleAssetsFromPhoto } from "@/lib/vehicles/generate-views-from-photo";
 import { isGeneratedVehicleImage } from "@/lib/vehicles/generated-image";
+import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import {
   vehicleSchema,
   vehicleSearchSchema,
@@ -287,7 +288,9 @@ export async function listVehicles(
       .from("vehicles")
       .select("*", { count: "exact" })
       .is("deleted_at", null)
-      .order("brand", { ascending: true });
+      .order("brand", { ascending: true })
+      .order("model", { ascending: true })
+      .order("plate", { ascending: true });
 
     if (filters.query) {
       const term = `%${filters.query}%`;
@@ -471,6 +474,19 @@ export async function createVehicle(
       await syncPublicVehicleTypeFromUnit(supabase, id, true);
     }
 
+    if (
+      parsed.data.currentMileage != null &&
+      Number.isFinite(parsed.data.currentMileage)
+    ) {
+      await applyVehicleMileage(supabase, {
+        vehicleId: id,
+        mileage: Number(parsed.data.currentMileage),
+        source: "MANUAL",
+        userId: user.id,
+        notes: "Alta de vehículo",
+      });
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "vehicle.create",
@@ -479,6 +495,7 @@ export async function createVehicle(
     });
 
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/dashboard/alertas");
     if (parsed.data.publishedOnWeb) {
       revalidatePath("/dashboard/configuracion/tipos-vehiculo");
     }
@@ -618,6 +635,19 @@ export async function updateVehicle(
       );
     }
 
+    if (
+      parsed.data.currentMileage != null &&
+      Number.isFinite(parsed.data.currentMileage)
+    ) {
+      await applyVehicleMileage(supabase, {
+        vehicleId: id,
+        mileage: Number(parsed.data.currentMileage),
+        source: "MANUAL",
+        userId: user.id,
+        notes: "Edición de vehículo",
+      });
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "vehicle.update",
@@ -627,6 +657,7 @@ export async function updateVehicle(
 
     revalidatePath("/dashboard/vehiculos");
     revalidatePath(`/dashboard/vehiculos/${id}`);
+    revalidatePath("/dashboard/alertas");
     if (parsed.data.publishedOnWeb !== undefined) {
       revalidatePath("/dashboard/configuracion/tipos-vehiculo");
     }

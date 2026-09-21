@@ -97,7 +97,7 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         )
         .neq("status", "CANCELLED")
         .is("deleted_at", null)
-        .not("next_date", "is", null),
+        .or("next_date.not.is.null,next_mileage.not.is.null"),
       supabase
         .from("web_requests")
         .select(
@@ -201,7 +201,7 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         id: string;
         vehicle_id: string;
         type: string;
-        next_date: string;
+        next_date: string | null;
         next_mileage: number | null;
         vehicles:
           | {
@@ -224,21 +224,28 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         ? `${vehicle.brand} ${vehicle.model} (${vehicle.plate})`
         : "Vehículo";
 
-      const nextDate = new Date(`${record.next_date}T00:00:00`);
-      if (nextDate >= now && nextDate <= maintenanceCutoff) {
-        const dedupeKey = `maintenance:date:${record.id}`;
-        activeDedupeKeys.add(dedupeKey);
-        const inserted = await upsertAlert(supabase, {
-          alert_type: "maintenance_due_date",
-          title: `Mantenimiento programado — ${vehicleLabel}`,
-          message: `Próximo servicio (${record.type}) el ${record.next_date}.`,
-          entity_type: "maintenance",
-          entity_id: record.id,
-          severity: "info",
-          dedupe_key: dedupeKey,
-          due_at: `${record.next_date}T08:00:00`,
-        });
-        if (inserted) created += 1;
+      if (record.next_date) {
+        const nextDate = new Date(`${record.next_date}T00:00:00`);
+        if (!Number.isNaN(nextDate.getTime()) && nextDate <= maintenanceCutoff) {
+          const isOverdue = nextDate < now;
+          const dedupeKey = `maintenance:date:${record.id}`;
+          activeDedupeKeys.add(dedupeKey);
+          const inserted = await upsertAlert(supabase, {
+            alert_type: "maintenance_due_date",
+            title: isOverdue
+              ? `Mantenimiento vencido — ${vehicleLabel}`
+              : `Mantenimiento programado — ${vehicleLabel}`,
+            message: isOverdue
+              ? `Servicio (${record.type}) vencido desde el ${record.next_date}.`
+              : `Próximo servicio (${record.type}) el ${record.next_date}.`,
+            entity_type: "maintenance",
+            entity_id: record.id,
+            severity: isOverdue ? "warning" : "info",
+            dedupe_key: dedupeKey,
+            due_at: `${record.next_date}T08:00:00`,
+          });
+          if (inserted) created += 1;
+        }
       }
 
       if (
@@ -246,15 +253,20 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
         vehicle?.current_mileage != null &&
         vehicle.current_mileage >= record.next_mileage - 500
       ) {
+        const isOverdue = vehicle.current_mileage >= record.next_mileage;
         const dedupeKey = `maintenance:mileage:${record.id}`;
         activeDedupeKeys.add(dedupeKey);
         const inserted = await upsertAlert(supabase, {
           alert_type: "maintenance_due_mileage",
-          title: `Mantenimiento por kilometraje — ${vehicleLabel}`,
-          message: `Kilometraje actual ${vehicle.current_mileage} km; próximo servicio a ${record.next_mileage} km.`,
+          title: isOverdue
+            ? `Mantenimiento por km vencido — ${vehicleLabel}`
+            : `Mantenimiento por kilometraje — ${vehicleLabel}`,
+          message: isOverdue
+            ? `Kilometraje actual ${vehicle.current_mileage} km ya alcanzó o superó el servicio a ${record.next_mileage} km.`
+            : `Kilometraje actual ${vehicle.current_mileage} km; próximo servicio a ${record.next_mileage} km.`,
           entity_type: "maintenance",
           entity_id: record.id,
-          severity: "info",
+          severity: isOverdue ? "warning" : "info",
           dedupe_key: dedupeKey,
           due_at: null,
         });

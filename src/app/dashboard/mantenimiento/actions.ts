@@ -9,6 +9,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { vehicleSelectParts } from "@/lib/vehicles/label";
+import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import {
   maintenanceSchema,
   maintenanceSearchSchema,
@@ -252,6 +253,19 @@ export async function createMaintenanceRecord(
       );
     }
 
+    if (
+      parsed.data.mileage != null &&
+      Number.isFinite(parsed.data.mileage)
+    ) {
+      await applyVehicleMileage(supabase, {
+        vehicleId: parsed.data.vehicleId,
+        mileage: Number(parsed.data.mileage),
+        source: "MAINTENANCE",
+        userId: user.id,
+        notes: `Mantenimiento ${parsed.data.type}`,
+      });
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "maintenance.create",
@@ -262,6 +276,8 @@ export async function createMaintenanceRecord(
 
     revalidatePath("/dashboard/mantenimiento");
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath(`/dashboard/vehiculos/${parsed.data.vehicleId}`);
+    revalidatePath("/dashboard/alertas");
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -356,6 +372,19 @@ export async function updateMaintenanceRecord(
       );
     }
 
+    if (
+      parsed.data.mileage != null &&
+      Number.isFinite(parsed.data.mileage)
+    ) {
+      await applyVehicleMileage(supabase, {
+        vehicleId,
+        mileage: Number(parsed.data.mileage),
+        source: "MAINTENANCE",
+        userId: user.id,
+        notes: `Actualización mantenimiento`,
+      });
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "maintenance.update",
@@ -367,6 +396,8 @@ export async function updateMaintenanceRecord(
     revalidatePath("/dashboard/mantenimiento");
     revalidatePath(`/dashboard/mantenimiento/${id}`);
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath(`/dashboard/vehiculos/${vehicleId}`);
+    revalidatePath("/dashboard/alertas");
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));

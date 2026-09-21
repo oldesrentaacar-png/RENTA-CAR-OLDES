@@ -18,6 +18,7 @@ import {
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
+import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getDefaultChecklistFromCatalog } from "@/lib/inspections/accessory-catalog";
 import {
@@ -44,7 +45,6 @@ import type {
   InspectionType,
 } from "@/types/database";
 import type { PaginatedResult } from "@/types/api";
-
 async function revalidateContractsLinkedToInspection(
   inspectionId: string,
 ): Promise<void> {
@@ -122,9 +122,10 @@ export async function listInspections(
     }
 
     const filters = inspectionSearchSchema.parse({
+      query: params.q,
       reservationId: params.reservationId,
       vehicleId: params.vehicleId,
-      type: params.type,
+      type: params.type ?? params.status,
       page: params.page,
       pageSize: params.pageSize,
     });
@@ -140,6 +141,44 @@ export async function listInspections(
     }
     if (filters.vehicleId) query = query.eq("vehicle_id", filters.vehicleId);
     if (filters.type) query = query.eq("type", filters.type);
+
+    if (filters.query) {
+      const term = filters.query.trim().replace(/[,()]/g, " ").replace(/\s+/g, " ").trim();
+      if (term) {
+        const like = `%${term}%`;
+        const [{ data: matchingVehicles }, { data: matchingCustomers }] =
+          await Promise.all([
+            supabase
+              .from("vehicles")
+              .select("id")
+              .or(`plate.ilike.${like},brand.ilike.${like},model.ilike.${like}`)
+              .limit(80),
+            supabase
+              .from("customers")
+              .select("id")
+              .or(
+                `first_name.ilike.${like},last_name.ilike.${like},company_name.ilike.${like},phone.ilike.${like}`,
+              )
+              .limit(80),
+          ]);
+
+        const vehicleIds = (matchingVehicles ?? []).map(
+          (row) => (row as { id: string }).id,
+        );
+        const customerIds = (matchingCustomers ?? []).map(
+          (row) => (row as { id: string }).id,
+        );
+
+        const orParts = [`code.ilike.${like}`];
+        if (vehicleIds.length > 0) {
+          orParts.push(`vehicle_id.in.(${vehicleIds.join(",")})`);
+        }
+        if (customerIds.length > 0) {
+          orParts.push(`customer_id.in.(${customerIds.join(",")})`);
+        }
+        query = query.or(orParts.join(","));
+      }
+    }
 
     const from = (filters.page - 1) * filters.pageSize;
     const to = from + filters.pageSize - 1;
@@ -451,6 +490,17 @@ export async function createInspection(
         .is("deleted_at", null);
     }
 
+    if (parsed.data.mileage != null) {
+      await applyVehicleMileage(supabase, {
+        vehicleId: parsed.data.vehicleId,
+        mileage: parsed.data.mileage,
+        source: parsed.data.type,
+        userId: user.id,
+        inspectionId: id,
+        notes: `Inspección ${parsed.data.type}`,
+      });
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "inspection.create",
@@ -460,6 +510,9 @@ export async function createInspection(
     });
 
     revalidatePath("/dashboard/inspecciones");
+    revalidatePath(`/dashboard/vehiculos/${parsed.data.vehicleId}`);
+    revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/dashboard/alertas");
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -544,16 +597,31 @@ export async function updateInspection(
     const supabase = await createClient();
     const { data: existing, error: existingError } = await supabase
       .from("inspections")
-      .select("id")
+      .select("id, vehicle_id, type")
       .eq("id", id)
       .maybeSingle();
 
     if (existingError) throw mapPostgresError(existingError);
     if (!existing) return actionError("Inspección no encontrada.");
 
+    const existingRow = existing as {
+      id: string;
+      vehicle_id: string;
+      type: InspectionType;
+    };
+
     const { error } = await supabase.from("inspections").update(row).eq("id", id);
 
     if (error) throw mapPostgresError(error);
+
+    await applyVehicleMileage(supabase, {
+      vehicleId: existingRow.vehicle_id,
+      mileage,
+      source: existingRow.type,
+      userId: user.id,
+      inspectionId: id,
+      notes: `Actualización inspección ${existingRow.type}`,
+    });
 
     await writeAuditLog({
       userId: user.id,
@@ -565,6 +633,9 @@ export async function updateInspection(
     revalidatePath("/dashboard/inspecciones");
     revalidatePath(`/dashboard/inspecciones/${id}`);
     revalidatePath(`/dashboard/inspecciones/${id}/edit`);
+    revalidatePath(`/dashboard/vehiculos/${existingRow.vehicle_id}`);
+    revalidatePath("/dashboard/vehiculos");
+    revalidatePath("/dashboard/alertas");
     await revalidateContractsLinkedToInspection(id);
     return actionSuccess({ id });
   } catch (error) {
