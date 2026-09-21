@@ -51,11 +51,11 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     },
     {
       id: "accesorios",
-      title: "Accesorios y mapa de daños",
+      title: "Accesorios, daños y observaciones",
       description: checkOutId
         ? checkOutChecklistCount > 0
-          ? `${checkOutChecklistCount} ítems · puede revisar y corregir`
-          : "Complete checklist y mapa de daños."
+          ? `${checkOutChecklistCount} ítems · aquí se llena 4. OBSERVACIONES del PDF`
+          : "Complete checklist, mapa de daños y observaciones del PDF."
         : "Disponible tras la inspección de salida.",
       status: !checkOutId
         ? "pending"

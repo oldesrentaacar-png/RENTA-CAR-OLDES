@@ -19,6 +19,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
+import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getDefaultChecklistFromCatalog } from "@/lib/inspections/accessory-catalog";
 import {
@@ -779,20 +780,52 @@ export async function saveInspectionGeneralNotes(
     const supabase = await createClient();
     const { data: existing, error: existingError } = await supabase
       .from("inspections")
-      .select("id")
+      .select("id, type, reservation_id")
       .eq("id", inspectionId)
       .maybeSingle();
     if (existingError) throw mapPostgresError(existingError);
     if (!existing) return actionError("Inspección no encontrada.");
 
+    const existingRow = existing as {
+      id: string;
+      type: string;
+      reservation_id: string;
+    };
+    const trimmedNotes = notes.trim() || null;
+
     const { error } = await supabase
       .from("inspections")
       .update({
-        notes: notes.trim() || null,
+        notes: trimmedNotes,
         updated_at: new Date().toISOString(),
       })
       .eq("id", inspectionId);
     if (error) throw mapPostgresError(error);
+
+    // Las observaciones de salida alimentan la sección 4 del PDF del contrato.
+    if (existingRow.type === "CHECK_OUT" && existingRow.reservation_id) {
+      const { data: contracts } = await supabase
+        .from("contracts")
+        .select("id, notes")
+        .eq("reservation_id", existingRow.reservation_id)
+        .is("deleted_at", null);
+
+      for (const contract of (contracts ?? []) as Array<{
+        id: string;
+        notes: string | null;
+      }>) {
+        const merged = mergeObservationTexts(contract.notes, trimmedNotes);
+        await supabase
+          .from("contracts")
+          .update({
+            notes: merged || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", contract.id);
+        revalidatePath(`/dashboard/contratos/${contract.id}`);
+        revalidatePath(`/dashboard/contratos/${contract.id}/pdf`);
+      }
+    }
 
     await writeAuditLog({
       userId: user.id,

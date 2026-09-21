@@ -93,6 +93,9 @@ export type ContractPdfProps = {
   startTimeLabel: string;
   endDateLabel: string;
   endTimeLabel: string;
+  /** Fecha/hora real de entrega del vehículo (inspección de salida). */
+  deliveryDateLabel?: string | null;
+  deliveryTimeLabel?: string | null;
   rentalDays: number;
   dailyRate: number;
   otherCharges?: number;
@@ -589,7 +592,9 @@ export function ContractPdfDocument(props: ContractPdfProps) {
 
   const issuedWhen =
     props.issuedDateLabel ||
-    `${props.startDateLabel} · ${props.startTimeLabel}`;
+    (props.deliveryDateLabel && props.deliveryTimeLabel
+      ? `${props.deliveryDateLabel} · ${props.deliveryTimeLabel}`
+      : `${props.startDateLabel} · ${props.startTimeLabel}`);
 
   return (
     <Document
@@ -624,7 +629,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             </Text>
             <Text style={styles.contractNo}>No. {props.contractCode}</Text>
             <Text style={[styles.meta, { marginTop: 4, textAlign: "right" }]}>
-              Fecha: {issuedWhen}
+              Fecha de entrega: {issuedWhen}
             </Text>
           </View>
         </View>
@@ -682,6 +687,15 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               label="Combustible (salida)"
               value={props.fuelOutLabel ? `Registrado: ${props.fuelOutLabel}` : null}
               width="half"
+            />
+            <MachoteField
+              label="Fecha y hora de entrega"
+              value={
+                props.deliveryDateLabel && props.deliveryTimeLabel
+                  ? `${props.deliveryDateLabel} · ${props.deliveryTimeLabel}`
+                  : `${props.startDateLabel} · ${props.startTimeLabel}`
+              }
+              width="full"
             />
             <MachoteField
               label="Devolución pactada"
@@ -882,9 +896,10 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </MachoteSection>
 
         <MachoteSection title="4. Observaciones">
-          <View style={{ paddingHorizontal: 5, paddingVertical: 3 }}>
-            <Text style={{ fontSize: 7.5, minHeight: 12 }}>
-              {props.observations || props.notes || "—"}
+          <View style={{ paddingHorizontal: 5, paddingVertical: 3, minHeight: 28 }}>
+            <Text style={{ fontSize: 7.5, lineHeight: 1.35 }}>
+              {(props.observations || props.notes || "").trim() ||
+                "Sin observaciones registradas."}
             </Text>
           </View>
         </MachoteSection>

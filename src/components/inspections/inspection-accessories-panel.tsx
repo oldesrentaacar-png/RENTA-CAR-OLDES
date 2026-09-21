@@ -166,13 +166,13 @@ export function InspectionAccessoriesPanel({
         />
       </div>
 
-      <div className="space-y-2 rounded-xl border border-border bg-surface-muted/40 p-4">
+      <div className="space-y-2 rounded-xl border-2 border-brand/40 bg-brand/5 p-4">
         <h3 className="text-sm font-semibold text-foreground">
-          4. Observaciones generales
+          4. Observaciones (van al PDF del contrato)
         </h3>
         <p className="text-xs text-muted">
-          Un solo cuadro al final, igual que en el contrato PDF. No hay notas
-          por cada accesorio.
+          Este cuadro es el de <strong>4. OBSERVACIONES</strong> del contrato
+          PDF. Escríbalo aquí y pulse Guardar todo.
         </p>
         {readOnly ? (
           <p className="min-h-[3rem] whitespace-pre-wrap text-sm">
@@ -180,11 +180,11 @@ export function InspectionAccessoriesPanel({
           </p>
         ) : (
           <Textarea
-            label="Observaciones"
+            label="Observaciones del contrato"
             rows={4}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Escriba aquí cualquier observación general de la inspección…"
+            placeholder="Ej.: combustible casi lleno (7/8), rayón en puerta, acuerdo con el cliente…"
           />
         )}
       </div>

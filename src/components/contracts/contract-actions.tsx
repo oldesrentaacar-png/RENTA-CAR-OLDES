@@ -300,15 +300,14 @@ export function ContractDetailActions({
           )}
           <Textarea
             name="notes"
-            label="Notas / observaciones operativas"
+            label="4. Observaciones (aparecen en el PDF del contrato)"
             rows={3}
             defaultValue={contract.notes ?? ""}
             placeholder="Ej.: combustible casi lleno (7/8), golpes observados, acuerdos con el cliente…"
           />
           <p className="text-xs text-muted">
-            Las notas se ven en el resumen del contrato y en el PDF. El código
-            del contrato solo ordena el archivo; use estas notas para el detalle
-            operativo.
+            Este texto llena la sección <strong>4. OBSERVACIONES</strong> del
+            PDF. El código del contrato solo ordena el archivo.
           </p>
           <SubmitButton>Guardar cambios</SubmitButton>
         </form>

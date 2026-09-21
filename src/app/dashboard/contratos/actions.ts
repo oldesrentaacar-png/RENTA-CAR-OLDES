@@ -26,6 +26,7 @@ import {
   rentalDaysBetween,
 } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
+import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
@@ -2558,7 +2559,7 @@ export async function getContractPdfData(contractId: string) {
     supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, handover_person_name, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description, severity, mark_number, path_points), inspection_photos(storage_path, category, caption)",
+        "id, type, inspection_date, mileage, fuel_level, notes, handover_person_name, additional_driver_name, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description, severity, mark_number, path_points), inspection_photos(storage_path, category, caption)",
       )
       .eq("reservation_id", row.reservation_id)
       .order("inspection_date", { ascending: true }),
@@ -2589,8 +2590,10 @@ export async function getContractPdfData(contractId: string) {
   type InspectionBundle = {
     id: string;
     type: "CHECK_OUT" | "CHECK_IN";
+    inspection_date?: string | null;
     mileage: number | null;
     fuel_level: string | null;
+    notes?: string | null;
     handover_person_name?: string | null;
     additional_driver_name?: string | null;
     inspection_checklist_items:
@@ -2941,6 +2944,12 @@ export async function getContractPdfData(contractId: string) {
     startTimeLabel: formatAppTime(mapped.start_at),
     endDateLabel: formatAppDate(mapped.end_at),
     endTimeLabel: formatAppTime(mapped.end_at),
+    deliveryDateLabel: formatAppDate(
+      checkOut?.inspection_date ?? mapped.start_at,
+    ),
+    deliveryTimeLabel: formatAppTime(
+      checkOut?.inspection_date ?? mapped.start_at,
+    ),
     rentalDays,
     dailyRate: mapped.agreed_rate,
     otherCharges: 0,
@@ -2961,10 +2970,10 @@ export async function getContractPdfData(contractId: string) {
     damageMarks,
     viewPhotos,
     primaryPhotoUrl,
-    observations: mapped.notes,
+    observations: mergeObservationTexts(mapped.notes, checkOut?.notes),
     terms: mapped.terms,
     clauses: mapped.clauses || OLDES_CONTRACT_CLAUSES.join("\n\n"),
-    notes: mapped.notes,
+    notes: mergeObservationTexts(mapped.notes, checkOut?.notes),
     clientSignedAt: clientSig
       ? formatAppDateTime(clientSig.signed_at)
       : null,
@@ -2997,7 +3006,7 @@ export async function getContractPdfData(contractId: string) {
       : null,
     annexPhotos,
     issuedPlace: "San Salvador",
-    issuedDateLabel: `${formatAppDate(mapped.start_at)} - ${formatAppTime(mapped.start_at)}`,
+    issuedDateLabel: `${formatAppDate(checkOut?.inspection_date ?? mapped.start_at)} - ${formatAppTime(checkOut?.inspection_date ?? mapped.start_at)}`,
   };
 }
 

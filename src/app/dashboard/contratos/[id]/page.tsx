@@ -321,9 +321,9 @@ export default async function ContratoDetailPage({
                     {formatAppDateTime(contract.closed_at)}
                   </p>
                 ) : null}
-                <div className="sm:col-span-2 rounded-lg border border-border bg-surface-muted/40 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    Notas / observaciones
+                <div className="sm:col-span-2 rounded-xl border-2 border-brand/30 bg-brand/5 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand">
+                    4. Observaciones (PDF del contrato)
                   </p>
                   {contract.notes?.trim() ? (
                     <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
@@ -331,7 +331,8 @@ export default async function ContratoDetailPage({
                     </p>
                   ) : (
                     <p className="mt-1 text-sm text-muted">
-                      Sin notas registradas en este contrato.
+                      Vacío. Llénele en Accesorios y mapa de daños → Observaciones,
+                      o en Editar términos / notas abajo.
                     </p>
                   )}
                 </div>
