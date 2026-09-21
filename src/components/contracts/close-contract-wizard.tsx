@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
   closeContract,
+  saveCloseCheckInVitals,
   type ContractCloseContext,
 } from "@/app/dashboard/contratos/actions";
 import { SignaturePad } from "@/components/contracts/signature-pad";
@@ -20,6 +21,7 @@ import { formatAppDateTime, toDatetimeLocalValue } from "@/lib/dates";
 import {
   CHECKLIST_STATUS_LABELS,
   FUEL_LEVEL_LABELS,
+  FUEL_LEVEL_ORDER,
 } from "@/lib/inspections/defaults";
 import { formatMoney, parseMoneyInput } from "@/lib/money";
 import { closeActPdfHref } from "@/lib/pdf/pdf-cache";
@@ -101,6 +103,23 @@ export function CloseContractWizard({
   const [conformitySignatureDataUrl, setConformitySignatureDataUrl] = useState<
     string | null
   >(null);
+  const [mileageInput, setMileageInput] = useState(
+    checkIn?.mileage != null ? String(checkIn.mileage) : "",
+  );
+  const [fuelLevelInput, setFuelLevelInput] = useState(
+    checkIn?.fuel_level ?? "",
+  );
+  const [savedMileage, setSavedMileage] = useState<number | null>(
+    checkIn?.mileage ?? null,
+  );
+  const [savedFuelLevel, setSavedFuelLevel] = useState<string | null>(
+    checkIn?.fuel_level ?? null,
+  );
+  const [savingVitals, setSavingVitals] = useState(false);
+  const [vitalsOk, setVitalsOk] = useState<string | null>(null);
+  const [checklistReady, setChecklistReady] = useState(
+    Boolean(checkIn && checkIn.checklist.length > 0),
+  );
 
   const amountPaidBase = Number(contract.amount_paid ?? 0);
 
@@ -171,10 +190,23 @@ export function CloseContractWizard({
     closeConformitySigned || Boolean(conformitySignatureDataUrl);
 
   const hasCheckIn = Boolean(checkIn);
+  const effectiveMileage =
+    savedMileage != null
+      ? savedMileage
+      : mileageInput.trim() !== ""
+        ? Number(mileageInput)
+        : null;
+  const effectiveFuel =
+    savedFuelLevel || (fuelLevelInput.trim() ? fuelLevelInput.trim() : null);
   const hasFuelAndMileage = Boolean(
-    checkIn?.mileage != null && checkIn?.fuel_level != null,
+    effectiveMileage != null &&
+      Number.isFinite(effectiveMileage) &&
+      effectiveMileage >= 0 &&
+      effectiveFuel,
   );
-  const hasAccessories = Boolean(checkIn && checkIn.checklist.length > 0);
+  const hasAccessories = Boolean(
+    checklistReady || (checkIn && checkIn.checklist.length > 0),
+  );
   const returnReviewed = Boolean(actualReturnAt);
 
   const canClose =
@@ -195,9 +227,11 @@ export function CloseContractWizard({
       id: "checkin",
       title: "Inspección de entrada",
       description: hasCheckIn
-        ? "Inspección registrada"
+        ? hasFuelAndMileage
+          ? "Inspección lista con km y combustible"
+          : "Inspección creada — complete km y combustible en el siguiente paso"
         : "Crear CHECK_IN del vehículo",
-      done: hasCheckIn,
+      done: hasCheckIn && hasFuelAndMileage,
       required: true,
     },
     {
@@ -205,7 +239,7 @@ export function CloseContractWizard({
       title: "Combustible y km",
       description: hasFuelAndMileage
         ? "Datos de entrada listos"
-        : "Completar en la inspección",
+        : "Regístrelos aquí (no hace falta salir)",
       done: hasFuelAndMileage,
       required: true,
     },
@@ -253,17 +287,91 @@ export function CloseContractWizard({
   function missingRequirements(): string[] {
     const missing: string[] = [];
     if (!hasCheckIn) missing.push("crear la inspección de entrada (CHECK_IN)");
-    if (hasCheckIn && !hasFuelAndMileage) {
-      missing.push("registrar combustible y kilometraje en la inspección");
+    if (hasCheckIn && effectiveMileage == null) {
+      missing.push("registrar el kilometraje en el paso Combustible y km");
+    }
+    if (hasCheckIn && !effectiveFuel) {
+      missing.push("registrar el combustible en el paso Combustible y km");
     }
     if (hasCheckIn && !hasAccessories) {
       missing.push("completar el checklist de accesorios en la inspección");
     }
     if (!returnReviewed) missing.push("indicar la hora real de devolución");
     if (!hasConformitySignature) {
-      missing.push("obtener la firma de conformidad del cliente");
+      missing.push(
+        "obtener la firma de conformidad del cliente (paso final — distinta de la firma del contrato)",
+      );
     }
     return missing;
+  }
+
+  async function saveVitals() {
+    if (!checkIn) {
+      setError("Primero cree la inspección de entrada.");
+      return false;
+    }
+    const mileage = Number(mileageInput);
+    if (!Number.isInteger(mileage) || mileage < 0) {
+      setError("Indique un kilometraje válido (número entero).");
+      return false;
+    }
+    if (!fuelLevelInput.trim()) {
+      setError("Seleccione el nivel de combustible.");
+      return false;
+    }
+    setSavingVitals(true);
+    setError(null);
+    setVitalsOk(null);
+    const result = await saveCloseCheckInVitals(contract.id, {
+      mileage,
+      fuelLevel: fuelLevelInput.trim(),
+    });
+    setSavingVitals(false);
+    if (!result.success) {
+      setError(result.error);
+      return false;
+    }
+    setSavedMileage(result.data.mileage);
+    setSavedFuelLevel(result.data.fuelLevel);
+    if (result.data.hasChecklist) setChecklistReady(true);
+    setVitalsOk("Kilometraje y combustible guardados. Puede continuar.");
+    router.refresh();
+    return true;
+  }
+
+  async function goNext() {
+    setError(null);
+    if (current.id === "fuel" && hasCheckIn) {
+      const needsSave =
+        savedMileage == null ||
+        !savedFuelLevel ||
+        String(savedMileage) !== mileageInput.trim() ||
+        savedFuelLevel !== fuelLevelInput.trim();
+      if (needsSave || !hasFuelAndMileage) {
+        const ok = await saveVitals();
+        if (!ok) return;
+      }
+      if (isLast) {
+        openConfirm();
+        return;
+      }
+      setStepIndex((value) => Math.min(value + 1, steps.length - 1));
+      return;
+    }
+    if (isLast) {
+      openConfirm();
+      return;
+    }
+    if (current.required && !current.done) {
+      const missing = missingRequirements();
+      setError(
+        missing.length > 0
+          ? `Complete este paso antes de continuar: ${missing[0]}.`
+          : "Complete este paso antes de continuar.",
+      );
+      return;
+    }
+    setStepIndex((value) => Math.min(value + 1, steps.length - 1));
   }
 
   function openConfirm() {
@@ -300,6 +408,10 @@ export function CloseContractWizard({
     formData.set("chargeConcept", chargeConcept);
     formData.set("depositReturned", depositReturned ? "true" : "false");
     formData.set("confirmClose", "true");
+    if (effectiveMileage != null && effectiveFuel) {
+      formData.set("checkInMileage", String(effectiveMileage));
+      formData.set("checkInFuelLevel", effectiveFuel);
+    }
     if (conformitySignatureDataUrl) {
       formData.set("conformitySignatureDataUrl", conformitySignatureDataUrl);
       formData.set(
@@ -326,24 +438,6 @@ export function CloseContractWizard({
     router.refresh();
   }
 
-  function goNext() {
-    setError(null);
-    if (isLast) {
-      openConfirm();
-      return;
-    }
-    if (current.required && !current.done) {
-      const missing = missingRequirements();
-      setError(
-        missing.length > 0
-          ? `Complete este paso antes de continuar: ${missing[0]}.`
-          : "Complete este paso antes de continuar.",
-      );
-      return;
-    }
-    setStepIndex((value) => Math.min(value + 1, steps.length - 1));
-  }
-
   function goPrev() {
     setError(null);
     setStepIndex((value) => Math.max(value - 1, 0));
@@ -359,7 +453,7 @@ export function CloseContractWizard({
           <p className="mt-1">
             Esto <strong>no se resuelve anulando</strong> el contrato. Anular
             cancela el documento y ya no podrá completar el cierre ni generar el
-            acta. Complete lo pendiente:
+            acta. Complete lo pendiente <strong>en esta misma pantalla</strong>:
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {!hasCheckIn ? (
@@ -373,15 +467,16 @@ export function CloseContractWizard({
                 </Link>
               </li>
             ) : null}
-            {hasCheckIn && !hasFuelAndMileage ? (
+            {hasCheckIn && effectiveMileage == null ? (
               <li>
-                Registrar combustible y km en la inspección{" "}
-                <Link
-                  href={`/dashboard/inspecciones/${checkIn!.id}`}
-                  className="font-medium underline"
-                >
-                  Abrir inspección
-                </Link>
+                Registrar <strong>kilometraje</strong> en el paso «Combustible y
+                km» (abajo en este wizard)
+              </li>
+            ) : null}
+            {hasCheckIn && !effectiveFuel ? (
+              <li>
+                Registrar <strong>combustible</strong> en el paso «Combustible y
+                km» (abajo en este wizard)
               </li>
             ) : null}
             {hasCheckIn && !hasAccessories ? (
@@ -400,7 +495,8 @@ export function CloseContractWizard({
             ) : null}
             {!hasConformitySignature ? (
               <li>
-                Capturar la firma de conformidad del cliente en el último paso
+                Capturar la <strong>firma de conformidad al devolver</strong> en
+                el último paso (es distinta de la firma del contrato al entregar)
               </li>
             ) : null}
           </ul>
@@ -528,32 +624,85 @@ export function CloseContractWizard({
             ) : null}
 
             {current.id === "fuel" ? (
-              <div className="grid gap-3 text-sm sm:grid-cols-2">
-                <div className="rounded-lg border border-border p-3">
-                  <p className="text-muted">Kilometraje entrada</p>
-                  <p className="font-medium">
-                    {checkIn?.mileage != null
-                      ? `${checkIn.mileage.toLocaleString("es-SV")} km`
-                      : "Sin registrar"}
+              <div className="space-y-4 text-sm">
+                {!checkIn ? (
+                  <p className="text-amber-900">
+                    Primero cree la inspección de entrada en el paso anterior.
                   </p>
-                </div>
-                <div className="rounded-lg border border-border p-3">
-                  <p className="text-muted">Combustible entrada</p>
-                  <p className="font-medium">
-                    {checkIn?.fuel_level
-                      ? FUEL_LEVEL_LABELS[checkIn.fuel_level] ??
-                        checkIn.fuel_level
-                      : "Sin registrar"}
-                  </p>
-                </div>
-                {checkIn && !hasFuelAndMileage ? (
-                  <Link
-                    href={`/dashboard/inspecciones/${checkIn.id}`}
-                    className="font-medium text-brand hover:underline sm:col-span-2"
-                  >
-                    Abrir inspección y completar km / combustible
-                  </Link>
-                ) : null}
+                ) : (
+                  <>
+                    <p className="text-muted">
+                      Registre aquí el kilometraje y combustible de entrada. No
+                      necesita salir a otra pantalla.
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Input
+                        label="Kilometraje entrada *"
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        value={mileageInput}
+                        onChange={(e) => {
+                          setMileageInput(e.target.value);
+                          setVitalsOk(null);
+                        }}
+                        placeholder="Ej. 45230"
+                      />
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-zinc-700">
+                          Combustible entrada *
+                        </label>
+                        <select
+                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                          value={fuelLevelInput}
+                          onChange={(e) => {
+                            setFuelLevelInput(e.target.value);
+                            setVitalsOk(null);
+                          }}
+                        >
+                          <option value="">Seleccionar…</option>
+                          {FUEL_LEVEL_ORDER.map((level) => (
+                            <option key={level} value={level}>
+                              {FUEL_LEVEL_LABELS[level] ?? level}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    {checkOut ? (
+                      <p className="text-xs text-muted">
+                        Referencia salida:{" "}
+                        {checkOut.mileage != null
+                          ? `${checkOut.mileage.toLocaleString("es-SV")} km`
+                          : "sin km"}
+                        {" · "}
+                        {checkOut.fuel_level
+                          ? FUEL_LEVEL_LABELS[checkOut.fuel_level] ??
+                            checkOut.fuel_level
+                          : "sin combustible"}
+                      </p>
+                    ) : null}
+                    {vitalsOk ? (
+                      <p className="text-sm text-emerald-700">{vitalsOk}</p>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        onClick={() => void saveVitals()}
+                        loading={savingVitals}
+                        disabled={savingVitals}
+                      >
+                        Guardar km y combustible
+                      </Button>
+                      {hasFuelAndMileage ? (
+                        <Badge variant="success">Listo para continuar</Badge>
+                      ) : (
+                        <Badge variant="warning">Pendiente</Badge>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             ) : null}
 
@@ -897,7 +1046,9 @@ export function CloseContractWizard({
 
                 {!canClose ? (
                   <p className="text-amber-900">
-                    Aún faltan pasos requeridos (inspección, cargos o firma).
+                    Aún faltan pasos:{" "}
+                    {missingRequirements().join("; ") ||
+                      "revise la lista de arriba"}.
                   </p>
                 ) : (
                   <p className="text-green-800">
@@ -933,7 +1084,7 @@ export function CloseContractWizard({
               <Button
                 type="button"
                 size="sm"
-                onClick={goNext}
+                onClick={() => void goNext()}
                 disabled={
                   (!isLast && current.required && !current.done) || closing
                 }

@@ -92,14 +92,16 @@ export function InspectionEditForm({
       />
       <Input
         name="mileage"
-        label="Kilometraje"
+        label="Kilometraje *"
         type="number"
         min="0"
         defaultValue={mileage ?? ""}
+        required
       />
       <FuelLevelPicker
         name="fuelLevel"
         defaultValue={fuelLevel ?? ""}
+        label="Nivel de combustible (tanque) *"
       />
       <Input
         name="handoverPersonName"

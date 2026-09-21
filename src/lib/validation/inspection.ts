@@ -15,40 +15,58 @@ const optionalText = (max: number) =>
     .transform((value) => (value === "" ? undefined : value));
 
 
-export const inspectionSchema = z.object({
-  reservationId: z.string().uuid("Reserva inválida."),
-  vehicleId: z.string().uuid("Vehículo inválido."),
-  customerId: z.string().uuid("Cliente inválido."),
-  type: z.enum(["CHECK_OUT", "CHECK_IN"]),
-  inspectionDate: z
-    .string()
-    .min(1, "Fecha de inspección requerida.")
-    .refine((value) => !Number.isNaN(Date.parse(value)), {
-      message: "Fecha de inspección inválida.",
-    }),
-  mileage: z.preprocess(
-    (value) => (value === "" || value === null || value === undefined ? undefined : value),
-    z.coerce.number().int().min(0).max(9_999_999).optional(),
-  ),
-  fuelLevel: z
-    .enum([
-      "EMPTY",
-      "ONE_EIGHTH",
-      "QUARTER",
-      "THREE_EIGHTHS",
-      "HALF",
-      "FIVE_EIGHTHS",
-      "THREE_QUARTERS",
-      "SEVEN_EIGHTHS",
-      "FULL",
-    ])
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value)),
-  handoverPersonName: optionalText(200),
-  additionalDriverName: optionalText(200),
-  notes: optionalText(2000),
-});
+export const inspectionSchema = z
+  .object({
+    reservationId: z.string().uuid("Reserva inválida."),
+    vehicleId: z.string().uuid("Vehículo inválido."),
+    customerId: z.string().uuid("Cliente inválido."),
+    type: z.enum(["CHECK_OUT", "CHECK_IN"]),
+    inspectionDate: z
+      .string()
+      .min(1, "Fecha de inspección requerida.")
+      .refine((value) => !Number.isNaN(Date.parse(value)), {
+        message: "Fecha de inspección inválida.",
+      }),
+    mileage: z.preprocess(
+      (value) =>
+        value === "" || value === null || value === undefined ? undefined : value,
+      z.coerce.number().int().min(0).max(9_999_999).optional(),
+    ),
+    fuelLevel: z
+      .enum([
+        "EMPTY",
+        "ONE_EIGHTH",
+        "QUARTER",
+        "THREE_EIGHTHS",
+        "HALF",
+        "FIVE_EIGHTHS",
+        "THREE_QUARTERS",
+        "SEVEN_EIGHTHS",
+        "FULL",
+      ])
+      .optional()
+      .or(z.literal(""))
+      .transform((value) => (value === "" ? undefined : value)),
+    handoverPersonName: optionalText(200),
+    additionalDriverName: optionalText(200),
+    notes: optionalText(2000),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mileage == null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["mileage"],
+        message: "El kilometraje es obligatorio en la inspección.",
+      });
+    }
+    if (!data.fuelLevel) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["fuelLevel"],
+        message: "El nivel de combustible es obligatorio en la inspección.",
+      });
+    }
+  });
 
 export const inspectionUpdateSchema = inspectionSchema.partial();
 

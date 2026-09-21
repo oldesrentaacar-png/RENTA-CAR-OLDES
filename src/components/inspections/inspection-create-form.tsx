@@ -105,8 +105,17 @@ export function InspectionCreateForm({
         defaultValue={toDatetimeLocalValue(new Date())}
         required
       />
-      <Input name="mileage" label="Kilometraje" type="number" min="0" />
-      <FuelLevelPicker name="fuelLevel" />
+      <Input
+        name="mileage"
+        label="Kilometraje *"
+        type="number"
+        min="0"
+        required
+      />
+      <FuelLevelPicker
+        name="fuelLevel"
+        label="Nivel de combustible (tanque) *"
+      />
       <Input
         name="handoverPersonName"
         label={

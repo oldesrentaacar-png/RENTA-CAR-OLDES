@@ -521,6 +521,13 @@ export async function updateInspection(
       mileage = n;
     }
 
+    if (mileage == null) {
+      return actionError("El kilometraje es obligatorio.");
+    }
+    if (!fuel_level) {
+      return actionError("El nivel de combustible es obligatorio.");
+    }
+
     const row = {
       inspection_date: normalizeFormDateTimeToIso(inspectionDateRaw),
       mileage,

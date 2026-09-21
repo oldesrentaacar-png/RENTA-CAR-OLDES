@@ -51,8 +51,16 @@ import {
   resolvePdfBusinessContact,
   shouldIncludePagare,
 } from "@/lib/contracts/oldes-terms";
-import { listAccessoryCatalog } from "@/lib/inspections/accessory-catalog";
-import { FUEL_LEVEL_LABELS, PHOTO_CATEGORY_LABELS, DAMAGE_TYPE_LABELS } from "@/lib/inspections/defaults";
+import {
+  getDefaultChecklistFromCatalog,
+  listAccessoryCatalog,
+} from "@/lib/inspections/accessory-catalog";
+import {
+  DEFAULT_CHECKLIST_ITEMS,
+  FUEL_LEVEL_LABELS,
+  PHOTO_CATEGORY_LABELS,
+  DAMAGE_TYPE_LABELS,
+} from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
 import {
   buildContractBillingBreakdown,
@@ -1799,6 +1807,150 @@ export async function getContractCloseContext(
   }
 }
 
+const CLOSE_FUEL_LEVELS = new Set([
+  "EMPTY",
+  "ONE_EIGHTH",
+  "QUARTER",
+  "THREE_EIGHTHS",
+  "HALF",
+  "FIVE_EIGHTHS",
+  "THREE_QUARTERS",
+  "SEVEN_EIGHTHS",
+  "FULL",
+]);
+
+async function ensureCheckInChecklist(
+  supabase: SupabaseServer,
+  checkInId: string,
+): Promise<void> {
+  const { data: existing, error } = await supabase
+    .from("inspection_checklist_items")
+    .select("id")
+    .eq("inspection_id", checkInId)
+    .limit(1);
+  if (error) throw mapPostgresError(error);
+  if (existing && existing.length > 0) return;
+
+  const defaults =
+    (await getDefaultChecklistFromCatalog()) ?? DEFAULT_CHECKLIST_ITEMS;
+  const rows = defaults.map((item, index) => ({
+    inspection_id: checkInId,
+    item_name: item.label,
+    status: item.status,
+    sort_order: index,
+  }));
+  const { error: insertError } = await supabase
+    .from("inspection_checklist_items")
+    .insert(rows);
+  if (insertError) throw mapPostgresError(insertError);
+}
+
+/**
+ * Guarda km + combustible en la inspección de entrada desde el wizard de cierre
+ * (sin salir de la pantalla). También siembra checklist si faltaba.
+ */
+export async function saveCloseCheckInVitals(
+  contractId: string,
+  input: { mileage: number; fuelLevel: string },
+): Promise<
+  ActionResult<{
+    mileage: number;
+    fuelLevel: string;
+    checkInId: string;
+    hasChecklist: boolean;
+  }>
+> {
+  try {
+    const { user } = await assertPermission("contracts.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const mileage = Number(input.mileage);
+    if (!Number.isInteger(mileage) || mileage < 0 || mileage > 9_999_999) {
+      return actionError("Kilometraje inválido.");
+    }
+    const fuelLevel = String(input.fuelLevel ?? "").trim();
+    if (!CLOSE_FUEL_LEVELS.has(fuelLevel)) {
+      return actionError("Seleccione el nivel de combustible.");
+    }
+
+    const supabase = await createClient();
+    const { data: contract, error: contractError } = await supabase
+      .from("contracts")
+      .select("id, reservation_id, status, closed_at")
+      .eq("id", contractId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (contractError) throw mapPostgresError(contractError);
+    if (!contract) return actionError("Contrato no encontrado.");
+
+    const row = contract as {
+      reservation_id: string;
+      status: string;
+      closed_at: string | null;
+    };
+    if (row.status === "CANCELLED" || row.closed_at) {
+      return actionError("No se puede editar la inspección de un contrato cerrado o anulado.");
+    }
+
+    const { data: checkIn, error: checkInError } = await supabase
+      .from("inspections")
+      .select("id")
+      .eq("reservation_id", row.reservation_id)
+      .eq("type", "CHECK_IN")
+      .order("inspection_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (checkInError) throw mapPostgresError(checkInError);
+    if (!checkIn) {
+      return actionError(
+        "Primero cree la inspección de entrada (CHECK_IN) y luego registre km y combustible aquí.",
+      );
+    }
+
+    const checkInId = (checkIn as { id: string }).id;
+    const { error: updateError } = await supabase
+      .from("inspections")
+      .update({
+        mileage,
+        fuel_level: fuelLevel,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", checkInId);
+    if (updateError) throw mapPostgresError(updateError);
+
+    await ensureCheckInChecklist(supabase, checkInId);
+
+    const { count } = await supabase
+      .from("inspection_checklist_items")
+      .select("id", { count: "exact", head: true })
+      .eq("inspection_id", checkInId);
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "contract.close_checkin_vitals",
+      entityType: "inspection",
+      entityId: checkInId,
+      metadata: { contractId, mileage, fuelLevel },
+    });
+
+    revalidatePath(`/dashboard/contratos/${contractId}`);
+    revalidatePath(`/dashboard/contratos/${contractId}/cerrar`);
+    revalidatePath(`/dashboard/inspecciones/${checkInId}`);
+    revalidatePath("/dashboard/calendario");
+
+    return actionSuccess({
+      mileage,
+      fuelLevel,
+      checkInId,
+      hasChecklist: (count ?? 0) > 0,
+    });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
 export async function closeContract(
   contractId: string,
   formData: FormData,
@@ -1892,6 +2044,38 @@ export async function closeContract(
     }
 
     const checkInId = (checkInInspection as { id: string }).id;
+
+    // Permite completar km/combustible desde el wizard de cierre (mismo envío).
+    const vitalsMileageRaw = formData.get("checkInMileage");
+    const vitalsFuelRaw = formData.get("checkInFuelLevel");
+    if (
+      vitalsMileageRaw != null &&
+      String(vitalsMileageRaw).trim() !== "" &&
+      vitalsFuelRaw != null &&
+      String(vitalsFuelRaw).trim() !== ""
+    ) {
+      const vitalsMileage = Number(vitalsMileageRaw);
+      const vitalsFuel = String(vitalsFuelRaw).trim();
+      if (
+        Number.isInteger(vitalsMileage) &&
+        vitalsMileage >= 0 &&
+        vitalsMileage <= 9_999_999 &&
+        CLOSE_FUEL_LEVELS.has(vitalsFuel)
+      ) {
+        const { error: vitalsError } = await supabase
+          .from("inspections")
+          .update({
+            mileage: vitalsMileage,
+            fuel_level: vitalsFuel,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", checkInId);
+        if (vitalsError) throw mapPostgresError(vitalsError);
+      }
+    }
+
+    await ensureCheckInChecklist(supabase, checkInId);
+
     const [{ data: checkInDetail }, { data: checklistRows }] = await Promise.all([
       supabase
         .from("inspections")
@@ -1912,7 +2096,7 @@ export async function closeContract(
 
     if (checkInInfo?.mileage == null || !checkInInfo.fuel_level) {
       return actionError(
-        "Complete kilometraje y combustible en la inspección de entrada antes de cerrar.",
+        "Complete kilometraje y combustible en el paso «Combustible y km» antes de cerrar.",
       );
     }
     if (!checklistRows || checklistRows.length === 0) {
