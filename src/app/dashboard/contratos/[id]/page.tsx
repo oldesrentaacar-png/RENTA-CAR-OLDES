@@ -29,7 +29,6 @@ import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
 import { closeActPdfHref } from "@/lib/pdf/pdf-cache";
 import { loadBillingCatalogItems } from "@/lib/billing/load-catalog";
-import { contractPdfHref } from "@/lib/pdf/contract-pdf-meta";
 
 export default async function ContratoDetailPage({
   params,
