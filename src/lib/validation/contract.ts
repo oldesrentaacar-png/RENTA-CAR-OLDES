@@ -72,7 +72,20 @@ export type ContractSignInput = z.infer<typeof contractSignSchema>;
 
 export const contractSearchSchema = z.object({
   query: optionalQueryText(100),
-  status: optionalEnum(contractSchema.shape.status),
+  status: optionalEnum(
+    z.enum([
+      "PENDING",
+      "CLIENT_SIGNED",
+      "REPRESENTATIVE_SIGNED",
+      "COMPLETED",
+      "CANCELLED",
+      // Display phases (list filters)
+      "EN_CURSO",
+      "FINALIZADO",
+      "ANULADO",
+      "SIN_RESOLVER",
+    ]),
+  ),
   customerId: optionalUuid(),
   vehicleId: optionalUuid(),
   page: z.coerce.number().int().min(1).default(1),

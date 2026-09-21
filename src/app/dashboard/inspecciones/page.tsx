@@ -43,7 +43,7 @@ export default async function InspeccionesPage({
   return (
     <ModuleListShell
       title="Inspecciones"
-      description="Registro de salidas y entradas por vehículo (km, combustible y estado)."
+      description="Registro de salidas (código …A) y entradas (…B) por vehículo. Misma secuencia = mismo alquiler."
       permission="inspections.view"
       configured={configured}
       error={error}

@@ -26,6 +26,11 @@ import {
   rentalDaysBetween,
 } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
+import {
+  CONTRACT_DISPLAY_PHASE_LABELS,
+  deriveContractDisplayPhase,
+  type ContractDisplayPhase,
+} from "@/lib/contracts/display-phase";
 import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -156,6 +161,8 @@ export type ContractListItem = Contract & {
   customerName: string;
   vehicleLabel: string;
   plate: string;
+  displayPhase: import("@/lib/contracts/display-phase").ContractDisplayPhase;
+  displayPhaseLabel: string;
 };
 
 function nextStatusAfterSign(
@@ -370,7 +377,25 @@ export async function listContracts(
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
-    if (filters.status) query = query.eq("status", filters.status);
+    const phaseFilter = filters.status as ContractDisplayPhase | undefined;
+    const nowIso = new Date().toISOString();
+    if (phaseFilter === "ANULADO") {
+      query = query.eq("status", "CANCELLED");
+    } else if (phaseFilter === "FINALIZADO") {
+      query = query.eq("status", "COMPLETED");
+    } else if (phaseFilter === "SIN_RESOLVER") {
+      query = query
+        .not("status", "in", '("COMPLETED","CANCELLED")')
+        .is("closed_at", null)
+        .lt("end_at", nowIso);
+    } else if (phaseFilter === "EN_CURSO") {
+      query = query
+        .not("status", "in", '("COMPLETED","CANCELLED")')
+        .is("closed_at", null)
+        .gte("end_at", nowIso);
+    } else if (filters.status) {
+      query = query.eq("status", filters.status);
+    }
     if (filters.customerId) query = query.eq("customer_id", filters.customerId);
     if (filters.vehicleId) query = query.eq("vehicle_id", filters.vehicleId);
     if (filters.query) {
@@ -441,12 +466,19 @@ export async function listContracts(
 
       const vehicleLabel = formatVehicleLabel(vehicle);
       const plate = vehicle?.plate?.trim() || "";
+      const displayPhase = deriveContractDisplayPhase({
+        status: contract.status,
+        closedAt: contract.closed_at,
+        endAt: contract.end_at,
+      });
 
       return {
         ...contract,
         customerName,
         vehicleLabel,
         plate: plate || "—",
+        displayPhase,
+        displayPhaseLabel: CONTRACT_DISPLAY_PHASE_LABELS[displayPhase],
       };
     });
 

@@ -190,14 +190,14 @@ export function CloseContractWizard({
     closeConformitySigned || Boolean(conformitySignatureDataUrl);
 
   const hasCheckIn = Boolean(checkIn);
+  const liveMileage =
+    mileageInput.trim() !== "" ? Number(mileageInput) : null;
+  const liveFuel = fuelLevelInput.trim() ? fuelLevelInput.trim() : null;
   const effectiveMileage =
-    savedMileage != null
-      ? savedMileage
-      : mileageInput.trim() !== ""
-        ? Number(mileageInput)
-        : null;
-  const effectiveFuel =
-    savedFuelLevel || (fuelLevelInput.trim() ? fuelLevelInput.trim() : null);
+    liveMileage != null && Number.isFinite(liveMileage) && liveMileage >= 0
+      ? liveMileage
+      : savedMileage;
+  const effectiveFuel = liveFuel || savedFuelLevel;
   const hasFuelAndMileage = Boolean(
     effectiveMileage != null &&
       Number.isFinite(effectiveMileage) &&
@@ -645,6 +645,7 @@ export function CloseContractWizard({
                         value={mileageInput}
                         onChange={(e) => {
                           setMileageInput(e.target.value);
+                          setSavedMileage(null);
                           setVitalsOk(null);
                         }}
                         placeholder="Ej. 45230"
@@ -658,6 +659,7 @@ export function CloseContractWizard({
                           value={fuelLevelInput}
                           onChange={(e) => {
                             setFuelLevelInput(e.target.value);
+                            setSavedFuelLevel(null);
                             setVitalsOk(null);
                           }}
                         >
@@ -683,6 +685,10 @@ export function CloseContractWizard({
                           : "sin combustible"}
                       </p>
                     ) : null}
+                    <p className="text-xs text-muted">
+                      Puede corregir km o combustible en cualquier momento y
+                      volver a guardar antes de continuar.
+                    </p>
                     {vitalsOk ? (
                       <p className="text-sm text-emerald-700">{vitalsOk}</p>
                     ) : null}
@@ -693,7 +699,9 @@ export function CloseContractWizard({
                         loading={savingVitals}
                         disabled={savingVitals}
                       >
-                        Guardar km y combustible
+                        {hasFuelAndMileage
+                          ? "Actualizar km y combustible"
+                          : "Guardar km y combustible"}
                       </Button>
                       {hasFuelAndMileage ? (
                         <Badge variant="success">Listo para continuar</Badge>
@@ -1096,9 +1104,7 @@ export function CloseContractWizard({
                 type="button"
                 size="sm"
                 onClick={() => void goNext()}
-                disabled={
-                  (!isLast && current.required && !current.done) || closing
-                }
+                disabled={closing || savingVitals}
               >
                 {isLast ? "Confirmar cierre" : "Siguiente"}
                 {!isLast ? <ChevronRight className="ml-1 h-4 w-4" /> : null}

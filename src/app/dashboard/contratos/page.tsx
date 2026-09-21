@@ -4,23 +4,15 @@ import { listContracts } from "@/app/dashboard/contratos/actions";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { DataTable } from "@/components/shared/data-table";
-import { StatusBadge, getStatusLabel } from "@/components/shared/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Pagination } from "@/components/shared/pagination";
+import {
+  CONTRACT_DISPLAY_PHASE_OPTIONS,
+  contractDisplayPhaseBadgeVariant,
+} from "@/lib/contracts/display-phase";
 import { formatAppDate } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
-import type { ContractStatus } from "@/types/database";
-
-const CONTRACT_STATUS_OPTIONS: Array<{ value: ContractStatus; label: string }> =
-  [
-    { value: "PENDING", label: getStatusLabel("PENDING") },
-    { value: "CLIENT_SIGNED", label: getStatusLabel("CLIENT_SIGNED") },
-    {
-      value: "REPRESENTATIVE_SIGNED",
-      label: getStatusLabel("REPRESENTATIVE_SIGNED"),
-    },
-    { value: "COMPLETED", label: getStatusLabel("COMPLETED") },
-    { value: "CANCELLED", label: "Anulado" },
-  ];
 
 export default async function ContratosPage({
   searchParams,
@@ -30,18 +22,19 @@ export default async function ContratosPage({
   const params = await searchParams;
   const configured = isSupabaseConfigured();
   const result = configured ? await listContracts(params) : null;
-  const data = result?.success ? result.data.items : [];
+  const pageData = result?.success ? result.data : null;
+  const data = pageData?.items ?? [];
   const error = result && !result.success ? result.error : null;
 
   return (
     <ModuleListShell
       title="Contratos"
-      description="Contratos de arrendamiento. Busque por nombre del cliente o código."
+      description="Contratos de arrendamiento. Estado operativo: En curso, Sin resolver, Finalizado o Anulado."
       permission="contracts.view"
       configured={configured}
       error={error}
-      count={data.length}
-      countLabel="contratos mostrados"
+      count={pageData?.total ?? data.length}
+      countLabel="contratos"
       actions={
         <Link
           href="/dashboard/contratos/nuevo"
@@ -55,7 +48,7 @@ export default async function ContratosPage({
         <ListFilters
           q={String(params.q ?? "")}
           status={String(params.status ?? "")}
-          statusOptions={CONTRACT_STATUS_OPTIONS}
+          statusOptions={CONTRACT_DISPLAY_PHASE_OPTIONS}
           searchPlaceholder="Nombre del cliente o código…"
         />
       </form>
@@ -108,14 +101,27 @@ export default async function ContratosPage({
             key: "status",
             header: "Estado",
             cell: (row) => (
-              <StatusBadge
-                status={row.status}
-                label={row.status === "CANCELLED" ? "Anulado" : undefined}
-              />
+              <Badge
+                variant={contractDisplayPhaseBadgeVariant(row.displayPhase)}
+              >
+                {row.displayPhaseLabel}
+              </Badge>
             ),
           },
         ]}
       />
+
+      {pageData ? (
+        <Pagination
+          page={pageData.page}
+          totalPages={pageData.totalPages}
+          basePath="/dashboard/contratos"
+          searchParams={{
+            q: String(params.q ?? "") || undefined,
+            status: String(params.status ?? "") || undefined,
+          }}
+        />
+      ) : null}
     </ModuleListShell>
   );
 }

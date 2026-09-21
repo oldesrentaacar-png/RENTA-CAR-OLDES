@@ -512,27 +512,56 @@ export async function createInspection(
       );
     }
 
+    // Pareja A/B: misma secuencia — A = salida (CHECK_OUT), B = entrada (CHECK_IN).
+    let presetCode: string | null = null;
+    if (parsed.data.type === "CHECK_IN") {
+      const { data: checkOut } = await supabase
+        .from("inspections")
+        .select("code")
+        .eq("reservation_id", parsed.data.reservationId)
+        .eq("type", "CHECK_OUT")
+        .maybeSingle();
+      const checkOutCode = (checkOut as { code?: string } | null)?.code?.trim();
+      if (checkOutCode) {
+        const base = checkOutCode.replace(/[AB]$/i, "");
+        presetCode = `${base}B`;
+      }
+    }
+
+    const insertRow: Record<string, unknown> = {
+      reservation_id: parsed.data.reservationId,
+      vehicle_id: parsed.data.vehicleId,
+      customer_id: parsed.data.customerId,
+      type: parsed.data.type,
+      inspection_date: parsed.data.inspectionDate,
+      mileage: parsed.data.mileage ?? null,
+      fuel_level: parsed.data.fuelLevel ?? null,
+      handover_person_name: parsed.data.handoverPersonName ?? null,
+      additional_driver_name: parsed.data.additionalDriverName ?? null,
+      notes: parsed.data.notes ?? null,
+      created_by: user.id,
+    };
+    if (presetCode) insertRow.code = presetCode;
+
     const { data, error } = await supabase
       .from("inspections")
-      .insert({
-        reservation_id: parsed.data.reservationId,
-        vehicle_id: parsed.data.vehicleId,
-        customer_id: parsed.data.customerId,
-        type: parsed.data.type,
-        inspection_date: parsed.data.inspectionDate,
-        mileage: parsed.data.mileage ?? null,
-        fuel_level: parsed.data.fuelLevel ?? null,
-        handover_person_name: parsed.data.handoverPersonName ?? null,
-        additional_driver_name: parsed.data.additionalDriverName ?? null,
-        notes: parsed.data.notes ?? null,
-        created_by: user.id,
-      })
-      .select("id")
+      .insert(insertRow)
+      .select("id, code")
       .single();
 
     if (error) throw mapPostgresError(error);
 
-    const id = (data as { id: string }).id;
+    const id = (data as { id: string; code: string }).id;
+    let code = (data as { code: string }).code;
+
+    if (parsed.data.type === "CHECK_OUT" && code && !/[AB]$/i.test(code)) {
+      const withA = `${code}A`;
+      const { error: codeError } = await supabase
+        .from("inspections")
+        .update({ code: withA })
+        .eq("id", id);
+      if (!codeError) code = withA;
+    }
 
     const checklistDefaults =
       (await getDefaultChecklistFromCatalog()) ?? DEFAULT_CHECKLIST_ITEMS;
