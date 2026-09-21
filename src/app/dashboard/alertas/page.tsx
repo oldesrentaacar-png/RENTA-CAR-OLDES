@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { listAlerts } from "@/app/dashboard/alertas/actions";
 import { AlertActions } from "@/app/dashboard/alertas/alert-actions";
+import { AlertRowActions } from "@/app/dashboard/alertas/alert-row-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -45,19 +46,19 @@ export default async function AlertasPage() {
   return (
     <ModuleListShell
       title="Alertas"
-      description="Entregas, devoluciones, mantenimientos y solicitudes web (alertas de solicitud vigentes 72 h; se marca si el mismo teléfono vuelve a pedir)."
+      description="Avisos del sistema por tu perfil: si quitas uno, solo desaparece para ti; otros usuarios siguen viéndolo."
       permission="dashboard.view"
       configured={configured}
       error={error}
       count={data.length}
-      countLabel="alertas activas"
+      countLabel="avisos en tu perfil"
       actions={<AlertActions />}
     >
       <DataTable
         data={data}
         getRowKey={(row) => row.id}
         emptyTitle="Sin alertas"
-        emptyDescription="No hay alertas activas en este momento."
+        emptyDescription="No tienes avisos pendientes en tu perfil."
         columns={[
           {
             key: "type",
@@ -107,6 +108,14 @@ export default async function AlertasPage() {
             key: "read",
             header: "Leída",
             cell: (row) => (row.is_read ? "Sí" : "No"),
+          },
+          {
+            key: "actions",
+            header: "Acciones",
+            cell: (row) => (
+              <AlertRowActions alertId={row.id} isRead={row.is_read} />
+            ),
+            className: "text-right",
           },
         ]}
       />
