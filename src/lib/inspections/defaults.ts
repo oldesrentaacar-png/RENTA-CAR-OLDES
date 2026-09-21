@@ -27,7 +27,7 @@ export const FUEL_LEVEL_LABELS: Record<string, string> = {
   HALF: "1/2",
   FIVE_EIGHTHS: "5/8",
   THREE_QUARTERS: "3/4",
-  SEVEN_EIGHTHS: "7/8",
+  SEVEN_EIGHTHS: "7/8 (casi lleno)",
   FULL: "Lleno (F)",
 };
 
@@ -136,7 +136,7 @@ export const DAMAGE_MARK_TOOLS: Array<{
     value: "OTHER",
     label: "Libre",
     symbol: "✎",
-    hint: "Marcado libre: dibuje a mano alzada sobre el diagrama",
+    hint: "Marcado libre: dibuje el daño; no pide tipo ni severidad",
   },
 ];
 

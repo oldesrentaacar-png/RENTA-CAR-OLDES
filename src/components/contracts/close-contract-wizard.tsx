@@ -961,11 +961,22 @@ export function CloseContractWizard({
                     </span>
                   </label>
                 ) : null}
+                {contract.notes?.trim() ? (
+                  <div className="rounded-lg border border-border bg-surface-muted/40 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                      Notas del contrato
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm">
+                      {contract.notes.trim()}
+                    </p>
+                  </div>
+                ) : null}
                 <Textarea
-                  label="Notas de cierre"
+                  label="Notas de cierre (adicionales)"
                   rows={3}
                   value={closeNotes}
                   onChange={(e) => setCloseNotes(e.target.value)}
+                  placeholder="Se agregan a las notas del contrato al cerrar"
                 />
                 <div className="grid gap-2 rounded-lg border border-border bg-surface-muted/40 p-4 sm:grid-cols-3">
                   <div>

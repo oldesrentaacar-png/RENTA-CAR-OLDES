@@ -4,6 +4,8 @@ import { ChevronDown } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { DamageMarkPanel } from "@/components/inspections/damage-mark-panel";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   CHECKLIST_STATUS_LABELS,
   DAMAGE_MARK_TOOLS,
@@ -197,7 +199,8 @@ export function DamageMap2D({
         pathPoints: stroke,
       };
       onChange([...marks, next]);
-      setSelectedIndex(marks.length);
+      // Trazo libre: no abrir panel de tipo/severidad; basta el dibujo.
+      setSelectedIndex(null);
       return null;
     });
   }
@@ -304,7 +307,7 @@ export function DamageMap2D({
           })}
           <span className="ml-1 text-xs text-slate-500">
             {isFreehand
-              ? "Libre: arrastre el dedo/mouse para dibujar el trazo."
+              ? "Libre: dibuje el trazo. No pide tipo ni severidad."
               : "Color = severidad: Leve · Media · Grave. Clic para colocar pin."}
           </span>
         </div>
@@ -493,14 +496,17 @@ export function DamageMap2D({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="font-medium text-foreground">
-                        #{mark.markNumber} · {typeLabel} · {severity}
                         {mark.pathPoints && mark.pathPoints.length >= 2
-                          ? " · trazo libre"
-                          : ""}
+                          ? `#${mark.markNumber} · Trazo libre`
+                          : `#${mark.markNumber} · ${typeLabel} · ${severity}`}
                       </span>
                       {mark.description?.trim() ? (
                         <span className="mt-0.5 block text-xs text-muted">
                           {mark.description.trim()}
+                        </span>
+                      ) : mark.pathPoints && mark.pathPoints.length >= 2 ? (
+                        <span className="mt-0.5 block text-xs text-muted">
+                          Sin detalle adicional (opcional)
                         </span>
                       ) : (
                         <span className="mt-0.5 block text-xs text-muted">
@@ -517,11 +523,48 @@ export function DamageMap2D({
       ) : null}
 
       {selected && !readOnly ? (
-        <DamageMarkPanel
-          mark={selected}
-          onChange={updateSelected}
-          onRemove={removeSelected}
-        />
+        selected.pathPoints && selected.pathPoints.length >= 2 ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-muted/30 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">
+                Trazo libre #{selected.markNumber}
+              </p>
+              <p className="text-xs text-muted">
+                No requiere tipo ni severidad. Puede añadir una nota opcional o
+                eliminar el trazo.
+              </p>
+              <Input
+                className="mt-2 max-w-md"
+                label="Nota opcional"
+                value={selected.description ?? ""}
+                placeholder="Detalle adicional (opcional)"
+                onChange={(event) =>
+                  updateSelected({ description: event.target.value })
+                }
+              />
+            </div>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={() => {
+                const ok = window.confirm(
+                  `¿Eliminar el trazo libre #${selected.markNumber}?\n\nDeberá guardar el mapa de daños para confirmar el cambio.`,
+                );
+                if (!ok) return;
+                removeSelected();
+              }}
+            >
+              Eliminar trazo
+            </Button>
+          </div>
+        ) : (
+          <DamageMarkPanel
+            mark={selected}
+            onChange={updateSelected}
+            onRemove={removeSelected}
+          />
+        )
       ) : null}
     </div>
   );

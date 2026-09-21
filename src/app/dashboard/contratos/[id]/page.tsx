@@ -321,6 +321,20 @@ export default async function ContratoDetailPage({
                     {formatAppDateTime(contract.closed_at)}
                   </p>
                 ) : null}
+                <div className="sm:col-span-2 rounded-lg border border-border bg-surface-muted/40 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Notas / observaciones
+                  </p>
+                  {contract.notes?.trim() ? (
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                      {contract.notes.trim()}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted">
+                      Sin notas registradas en este contrato.
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
 

@@ -291,7 +291,6 @@ export function ContractDetailActions({
             <>
               <Textarea name="terms" label="Términos" rows={5} defaultValue={contract.terms ?? ""} />
               <Textarea name="clauses" label="Cláusulas" rows={4} defaultValue={contract.clauses ?? ""} />
-              <Textarea name="notes" label="Notas" rows={3} defaultValue={contract.notes ?? ""} />
             </>
           ) : (
             <p className="text-xs text-amber-900">
@@ -299,6 +298,18 @@ export function ContractDetailActions({
               de la sección 1. Los textos legales no se editan tras firmar.
             </p>
           )}
+          <Textarea
+            name="notes"
+            label="Notas / observaciones operativas"
+            rows={3}
+            defaultValue={contract.notes ?? ""}
+            placeholder="Ej.: combustible casi lleno (7/8), golpes observados, acuerdos con el cliente…"
+          />
+          <p className="text-xs text-muted">
+            Las notas se ven en el resumen del contrato y en el PDF. El código
+            del contrato solo ordena el archivo; use estas notas para el detalle
+            operativo.
+          </p>
           <SubmitButton>Guardar cambios</SubmitButton>
         </form>
       ) : null}

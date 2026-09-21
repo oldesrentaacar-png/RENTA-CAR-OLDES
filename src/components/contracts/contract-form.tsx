@@ -350,7 +350,17 @@ export function ContractForm({
         defaultValue={defaultTerms ?? ""}
       />
       <Textarea name="clauses" label="Cláusulas adicionales" rows={4} />
-      <Textarea name="notes" label="Notas" rows={3} />
+      <Textarea
+        name="notes"
+        label="Notas / observaciones operativas"
+        rows={3}
+        defaultValue={reservation.notes ?? ""}
+        placeholder="Ej.: combustible casi lleno (7/8), detalles de entrega, acuerdos…"
+      />
+      <p className="text-xs text-muted">
+        Estas notas quedan en el contrato (resumen y PDF). El número de contrato
+        solo ayuda a ordenar el archivo; el detalle va aquí.
+      </p>
 
       <div className="flex flex-wrap gap-3">
         <SubmitButton>Crear contrato</SubmitButton>
