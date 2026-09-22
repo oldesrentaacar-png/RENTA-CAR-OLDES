@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OLDES Sistema</string>
+    <string name="ssl_error_title">Conexión no segura</string>
+    <string name="ssl_error_message">No se pudo verificar el certificado SSL del sitio. Por seguridad, la carga se canceló.</string>
+    <string name="ssl_error_ok">Entendido</string>
+    <string name="no_internet_message">Sin conexión a Internet. Desliza hacia abajo para reintentar.</string>
+    <string name="notification_channel_alerts">Alertas OLDES</string>
+    <string name="notification_channel_alerts_desc">Entregas, devoluciones, contratos vencidos y mantenimiento.</string>
+    <string name="notification_channel_monitor">Monitoreo OLDES</string>
+    <string name="notification_channel_monitor_desc">Consulta alertas en segundo plano mientras la app está minimizada.</string>
+    <string name="monitor_notification_title">OLDES Sistema activo</string>
+    <string name="monitor_notification_body">Monitoreando alertas en segundo plano</string>
+    <string name="notification_permission_denied">Sin permiso de notificaciones. Actívelo en Ajustes para recibir alertas.</string>
+    <string name="download_started">Descarga iniciada</string>
+</resources>
