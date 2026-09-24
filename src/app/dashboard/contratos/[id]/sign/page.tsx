@@ -7,6 +7,7 @@ import {
 } from "@/app/dashboard/contratos/actions";
 import { ContractDetailActions } from "@/components/contracts/contract-actions";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
+import { ScrollHint } from "@/components/contracts/flow-coach";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
@@ -86,6 +87,7 @@ export default async function ContratoSignPage({
             <p className="text-sm text-muted">
               Cliente: {contract.customerName} · Vehículo: {contract.vehicleLabel}
             </p>
+            <ScrollHint message="Deslice hacia abajo hasta el recuadro de la firma." />
             <ContractDetailActions
               contract={contract}
               canEdit={false}
@@ -93,6 +95,7 @@ export default async function ContratoSignPage({
               canCancel={false}
               operatorName={operatorName}
               operatorHasSignature={operatorHasSignature}
+              hideCommercialOptions
             />
             <Link
               href={`/dashboard/contratos/${id}`}

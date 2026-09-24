@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { getInspection } from "@/app/dashboard/inspecciones/actions";
 import { PermissionGuard } from "@/components/auth/permission-guard";
+import { ScrollHint } from "@/components/contracts/flow-coach";
 import { InspectionEditForm } from "@/components/inspections/inspection-edit-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
@@ -22,6 +23,7 @@ export default async function EditarInspeccionPage({
   return (
     <PermissionGuard permission="inspections.edit">
       <div className="space-y-6">
+        <ScrollHint message="Deslice hacia abajo para kilometraje, combustible y notas." />
         <PageHeader
           title={
             inspection

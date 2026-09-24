@@ -10,8 +10,14 @@ import {
   saveCloseCheckInVitals,
   type ContractCloseContext,
 } from "@/app/dashboard/contratos/actions";
+import {
+  FlowToast,
+  MissingFieldsBanner,
+  ScrollHint,
+} from "@/components/contracts/flow-coach";
 import { SignaturePad } from "@/components/contracts/signature-pad";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -122,6 +128,10 @@ export function CloseContractWizard({
   );
   const [savingVitals, setSavingVitals] = useState(false);
   const [vitalsOk, setVitalsOk] = useState<string | null>(null);
+  const [coachToast, setCoachToast] = useState<{
+    text: string;
+    tick: number;
+  } | null>(null);
   const [, setChecklistReady] = useState(
     Boolean(checkIn && checkIn.checklist.length > 0),
   );
@@ -328,6 +338,10 @@ export function CloseContractWizard({
       setVitalsOk(
         "Kilometraje y combustible guardados. Siguiente: la firma del cliente.",
       );
+      setCoachToast({
+        text: "Kilometraje y combustible guardados.",
+        tick: Date.now(),
+      });
       return true;
     } catch (err) {
       setError(
@@ -497,8 +511,19 @@ export function CloseContractWizard({
     setStepIndex((value) => Math.max(value - 1, 0));
   }
 
+  const nextBlocked =
+    (current.id === "checkin" && !hasCheckIn) ||
+    (current.id === "fuel" && !hasFuelAndMileage) ||
+    (current.id === "close" && !canClose);
+  const nextBlockedReason = missingRequirements()[0] ?? "Complete este paso.";
+
   return (
     <div className="space-y-4">
+      <FlowToast
+        message={coachToast?.text ?? null}
+        tick={coachToast?.tick ?? 0}
+      />
+      <ScrollHint message="Deslice hacia abajo para el kilometraje, la firma y el saldo." />
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/40 px-3 py-2 text-sm">
         <p className="text-muted">
           Cierre de <strong>{contract.code}</strong>
@@ -1096,9 +1121,15 @@ export function CloseContractWizard({
                         onConfirm={(dataUrl) =>
                           setConformitySignatureDataUrl(dataUrl)
                         }
-                        onDraftChange={(dataUrl) =>
-                          setConformitySignatureDataUrl(dataUrl)
-                        }
+                        onDraftChange={(dataUrl) => {
+                          setConformitySignatureDataUrl(dataUrl);
+                          if (dataUrl) {
+                            setCoachToast({
+                              text: "Firma del cliente capturada.",
+                              tick: Date.now(),
+                            });
+                          }
+                        }}
                         disabled={closing}
                       />
                     )}
@@ -1112,30 +1143,31 @@ export function CloseContractWizard({
                   <p className="mt-2 leading-relaxed">{CLOSE_CONFORMITY_TEXT}</p>
                 </details>
 
-                {!hasFuelAndMileage || !hasCheckIn ? (
-                  <p className="text-amber-900">
-                    Antes de firmar:{" "}
-                    {missingRequirements()
-                      .filter((item) => !item.includes("firma del cliente"))
-                      .join("; ") || "complete el kilometraje"}.
-                  </p>
-                ) : !hasConformitySignature ? (
-                  <p className="text-muted">
-                    El cliente firma en el recuadro. Al levantar el dedo, el
-                    botón de cierre se habilita.
-                  </p>
+                {!canClose ? (
+                  <MissingFieldsBanner items={missingRequirements()} />
                 ) : (
                   <p className="text-green-800">
-                    Conformidad lista. Confirme el cierre cuando esté seguro.
+                    Kilometraje, combustible y firma listos. Ya puede cerrar.
                   </p>
                 )}
-                <Button
-                  type="button"
-                  onClick={openConfirm}
-                  disabled={!canClose || closing}
+                <Tooltip
+                  content={
+                    canClose
+                      ? "Cierra la renta con el km y la firma ya capturados."
+                      : nextBlockedReason
+                  }
+                  className="max-w-xs whitespace-normal"
                 >
-                  Revisar y cerrar contrato
-                </Button>
+                  <span className="inline-flex">
+                    <Button
+                      type="button"
+                      onClick={openConfirm}
+                      disabled={!canClose || closing}
+                    >
+                      Revisar y cerrar contrato
+                    </Button>
+                  </span>
+                </Tooltip>
                 <button
                   type="button"
                   className="text-left text-sm font-medium text-brand underline"
@@ -1164,16 +1196,29 @@ export function CloseContractWizard({
                 <ChevronLeft className="mr-1 h-4 w-4" />
                 {isFirst ? "Salir" : "Anterior"}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void goNext()}
-                disabled={closing}
-                loading={savingVitals}
+              <Tooltip
+                content={
+                  nextBlocked
+                    ? nextBlockedReason
+                    : isLast
+                      ? "Confirma el cierre."
+                      : "Pasa al siguiente paso."
+                }
+                className="max-w-xs whitespace-normal"
               >
-                {isLast ? "Confirmar cierre" : "Siguiente"}
-                {!isLast ? <ChevronRight className="ml-1 h-4 w-4" /> : null}
-              </Button>
+                <span className="inline-flex">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void goNext()}
+                    disabled={closing || nextBlocked}
+                    loading={savingVitals}
+                  >
+                    {isLast ? "Confirmar cierre" : "Siguiente"}
+                    {!isLast ? <ChevronRight className="ml-1 h-4 w-4" /> : null}
+                  </Button>
+                </span>
+              </Tooltip>
             </div>
           </div>
         </CardContent>
@@ -1207,9 +1252,9 @@ export function CloseContractWizard({
               <li>
                 Abonado: <strong>{formatMoney(billing.paid)}</strong>
               </li>
-              <li className="pt-1 text-base">
-                Saldo:{" "}
-                <strong className="text-xl">
+              <li className="pt-1">
+                Saldo pendiente:{" "}
+                <strong className="text-3xl tracking-tight">
                   {formatMoney(billing.balance)}
                 </strong>
               </li>

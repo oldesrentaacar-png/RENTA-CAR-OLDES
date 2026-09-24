@@ -153,6 +153,13 @@ export function ContractDeliveryNavigator({
               />
             </div>
           ) : null}
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            {current.linkLabel?.startsWith("Ver / Editar")
+              ? "Al abrir Ver / Editar, deslice hacia abajo. El kilometraje, las fotos y la firma están más abajo en esa pantalla."
+              : next
+                ? "Complete este paso y pulse Siguiente. El flujo no vuelve al paso 1."
+                : "Último paso de la entrega. Cerrar renta abre el cierre (kilometraje y firma). No reinicia el contrato."}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-muted/40 p-3">

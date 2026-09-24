@@ -5,6 +5,7 @@ import { getDeliveryFlowForReservation } from "@/app/dashboard/contratos/actions
 import { InspectionAccessoriesPanel } from "@/components/inspections/inspection-accessories-panel";
 import { PhotoUploader } from "@/components/inspections/photo-uploader";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
+import { ScrollHint } from "@/components/contracts/flow-coach";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { InspectionDetailHeaderActions } from "@/components/dashboard/inspection-detail-header-actions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -111,6 +112,7 @@ export default async function InspeccionDetailPage({
                 currentStepId={deliveryFlow.data.currentStepId}
               />
             ) : null}
+            <ScrollHint message="Deslice hacia abajo para fotos, kilometraje y observaciones." />
 
             <Card>
               <CardHeader>

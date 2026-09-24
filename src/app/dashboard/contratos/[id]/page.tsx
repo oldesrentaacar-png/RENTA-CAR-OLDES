@@ -12,6 +12,7 @@ import { ContractExtraLinesEditor } from "@/components/contracts/contract-extra-
 import { ContractPdfLink } from "@/components/contracts/contract-pdf-link";
 import { ContractReceiptsSection } from "@/components/contracts/contract-receipts";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
+import { ScrollHint } from "@/components/contracts/flow-coach";
 import {
   buildDeliverySteps,
   firstIncompleteDeliveryStepId,
@@ -362,6 +363,9 @@ export default async function ContratoDetailPage({
                 steps={deliverySteps}
                 currentStepId={focusedPaso ?? undefined}
               />
+            ) : null}
+            {deliveryActive ? (
+              <ScrollHint message="Deslice hacia abajo para editar cobros, observaciones o abonos." />
             ) : null}
 
             {showCobros ? (
