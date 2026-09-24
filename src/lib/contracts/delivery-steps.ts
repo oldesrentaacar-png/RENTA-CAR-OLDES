@@ -134,5 +134,7 @@ export function firstIncompleteDeliveryStepId(
   steps: Array<{ id: string; status: string }>,
 ): string {
   const pending = steps.find((step) => step.status !== "done");
-  return pending?.id ?? steps[0]?.id ?? "cliente-vehiculo";
+  if (pending) return pending.id;
+  // Entrega completa: quedarse en el PDF. Volver al paso 1 parecía un bucle.
+  return steps[steps.length - 1]?.id ?? "pdf";
 }

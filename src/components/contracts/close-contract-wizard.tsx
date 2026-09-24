@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
@@ -17,7 +17,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateSuggestedExtraDayCharge } from "@/lib/calculations/rental-close";
-import { formatAppDateTime, toDatetimeLocalValue } from "@/lib/dates";
+import {
+  formatAppDateTime,
+  normalizeFormDateTimeToIso,
+  toDatetimeLocalValue,
+} from "@/lib/dates";
 import {
   CHECKLIST_STATUS_LABELS,
   FUEL_LEVEL_LABELS,
@@ -57,11 +61,12 @@ export function CloseContractWizard({
   const [closing, setClosing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const landedOnSignature = useRef(false);
 
   const [actualReturnAt, setActualReturnAt] = useState(
-    checkIn
-      ? toDatetimeLocalValue(new Date())
-      : toDatetimeLocalValue(contract.end_at),
+    toDatetimeLocalValue(
+      checkIn?.inspection_date ?? contract.end_at ?? new Date(),
+    ),
   );
   const [courtesyHours, setCourtesyHours] = useState("0");
   const [courtesyDays, setCourtesyDays] = useState("0");
@@ -249,6 +254,16 @@ export function CloseContractWizard({
   const current = steps[stepIndex] ?? steps[0];
   const isFirst = stepIndex <= 0;
   const isLast = stepIndex >= steps.length - 1;
+
+  useEffect(() => {
+    if (landedOnSignature.current) return;
+    landedOnSignature.current = true;
+    if (checkIn?.mileage == null || !checkIn.fuel_level) return;
+    const closeIndex = steps.findIndex((step) => step.id === "close");
+    if (closeIndex >= 0) setStepIndex(closeIndex);
+    // Solo al abrir la pantalla: si el km ya estaba guardado, se entra directo a la firma.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (stepIndex > steps.length - 1) {
@@ -498,46 +513,32 @@ export function CloseContractWizard({
       </div>
 
       {!canClose ? (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <p className="font-semibold">
-            Aún no se puede cerrar esta renta
-          </p>
-          <p className="mt-1">
-            Esto <strong>no se resuelve anulando</strong> el contrato. Anular
-            cancela el documento y ya no podrá completar el cierre ni generar el
-            acta. Complete lo pendiente <strong>en esta misma pantalla</strong>:
-          </p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {!hasCheckIn ? (
-              <li>
-                Crear inspección de entrada (CHECK_IN){" "}
-                <Link
-                  href={`/dashboard/inspecciones/nuevo?reservation_id=${contract.reservation_id}&type=CHECK_IN`}
-                  className="font-medium underline"
-                >
-                  Ir a crear inspección
-                </Link>
-              </li>
-            ) : null}
-            {hasCheckIn && effectiveMileage == null ? (
-              <li>
-                Registrar <strong>kilometraje</strong> en el paso «Combustible y
-                km» (abajo en este wizard)
-              </li>
-            ) : null}
-            {hasCheckIn && !effectiveFuel ? (
-              <li>
-                Registrar <strong>combustible</strong> en el paso «Combustible y
-                km» (abajo en este wizard)
-              </li>
-            ) : null}
-            {!hasConformitySignature ? (
-              <li>
-                <strong>Firma del cliente</strong> en el paso siguiente al
-                kilometraje (queda en esta misma pantalla, no hay que buscarla)
-              </li>
-            ) : null}
-          </ul>
+        <div className="rounded-xl border border-border bg-surface-muted/40 px-4 py-3 text-sm">
+          {hasCheckIn && hasFuelAndMileage && !hasConformitySignature ? (
+            <p>
+              Kilometraje listo (
+              <strong>
+                {effectiveMileage?.toLocaleString("es-SV")} km
+                {effectiveFuel
+                  ? ` · ${FUEL_LEVEL_LABELS[effectiveFuel] ?? effectiveFuel}`
+                  : ""}
+              </strong>
+              ).{" "}
+              {current.id === "close"
+                ? "El cliente firma en el recuadro de esta pantalla. Es la firma de devolución, distinta de la de entrega."
+                : "Pulse Siguiente: la firma del cliente está en el paso de al lado."}
+            </p>
+          ) : (
+            <ul className="list-disc space-y-1 pl-5">
+              {!hasCheckIn ? <li>Primero cree la inspección de entrada.</li> : null}
+              {hasCheckIn && effectiveMileage == null ? (
+                <li>Escriba el kilometraje de entrada.</li>
+              ) : null}
+              {hasCheckIn && !effectiveFuel ? (
+                <li>Seleccione el combustible de entrada.</li>
+              ) : null}
+            </ul>
+          )}
         </div>
       ) : null}
 
@@ -844,12 +845,6 @@ export function CloseContractWizard({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
-                    label="Hora real de devolución *"
-                    type="datetime-local"
-                    value={actualReturnAt}
-                    onChange={(e) => setActualReturnAt(e.target.value)}
-                  />
-                  <Input
                     label="Horas de cortesía"
                     type="number"
                     min="0"
@@ -1026,13 +1021,10 @@ export function CloseContractWizard({
                     </p>
                   </div>
                 ) : null}
-                <Textarea
-                  label="Notas de cierre (adicionales)"
-                  rows={3}
-                  value={closeNotes}
-                  onChange={(e) => setCloseNotes(e.target.value)}
-                  placeholder="Se agregan a las notas del contrato al cerrar"
-                />
+                <p className="text-xs text-muted">
+                  Las observaciones del contrato son un solo cuadro (sección 4).
+                  No se escribe otra nota aquí.
+                </p>
                 <div className="grid gap-2 rounded-lg border border-border bg-surface-muted/40 p-4 sm:grid-cols-3">
                   <div>
                     <p className="text-muted">Total renta</p>
@@ -1047,8 +1039,8 @@ export function CloseContractWizard({
                     <p className="font-medium">{formatMoney(billing.paid)}</p>
                   </div>
                   <div className="sm:col-span-3">
-                    <p className="text-muted">Saldo pendiente</p>
-                    <p className="text-lg font-semibold">
+                    <p className="text-sm font-medium text-muted">Saldo pendiente</p>
+                    <p className="text-3xl font-semibold tracking-tight text-foreground">
                       {formatMoney(billing.balance)}
                     </p>
                   </div>
@@ -1058,13 +1050,29 @@ export function CloseContractWizard({
 
             {current.id === "close" ? (
               <div className="space-y-4 text-sm">
+                <div className="rounded-xl border-2 border-border bg-white px-4 py-3">
+                  <p className="text-sm font-medium text-muted">Saldo pendiente</p>
+                  <p className="text-3xl font-semibold tracking-tight text-foreground">
+                    {formatMoney(billing.balance)}
+                  </p>
+                </div>
+                <Input
+                  label="Hora real de devolución"
+                  type="datetime-local"
+                  value={actualReturnAt}
+                  onChange={(e) => setActualReturnAt(e.target.value)}
+                />
+                <p className="text-xs text-muted">
+                  Esta hora es la que queda en el acta. Cámbiela si la
+                  devolución fue a otra hora.
+                </p>
                 <div className="rounded-lg border-2 border-brand/40 bg-brand/5 p-4">
                   <p className="text-base font-semibold text-foreground">
-                    Firma del cliente
+                    Firma de devolución
                   </p>
                   <p className="mt-1 text-sm text-muted">
-                    El cliente firma en el recuadro y luego pulsa{" "}
-                    <strong>Confirmar firma</strong>.
+                    Es distinta de la firma de entrega. El cliente firma aquí,
+                    a su nombre, y al levantar el dedo queda capturada.
                   </p>
                 </div>
 
@@ -1200,7 +1208,7 @@ export function CloseContractWizard({
                 Devolución:{" "}
                 <strong>
                   {actualReturnAt
-                    ? formatAppDateTime(new Date(actualReturnAt).toISOString())
+                    ? formatAppDateTime(normalizeFormDateTimeToIso(actualReturnAt))
                     : "—"}
                 </strong>
               </li>
@@ -1210,8 +1218,11 @@ export function CloseContractWizard({
               <li>
                 Abonado: <strong>{formatMoney(billing.paid)}</strong>
               </li>
-              <li>
-                Saldo: <strong>{formatMoney(billing.balance)}</strong>
+              <li className="pt-1 text-base">
+                Saldo:{" "}
+                <strong className="text-xl">
+                  {formatMoney(billing.balance)}
+                </strong>
               </li>
             </ul>
             <div className="mt-5 flex flex-wrap justify-end gap-2">

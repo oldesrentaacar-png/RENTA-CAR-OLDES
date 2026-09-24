@@ -140,9 +140,13 @@ export function ContractReceiptsSection({
               </p>
             ) : null}
             {balanceDue !== undefined ? (
-              <p>
-                <span className="text-muted">Saldo:</span>{" "}
-                {formatMoney(balanceDue)}
+              <p className="sm:col-span-3 rounded-xl border-2 border-border bg-white px-4 py-3">
+                <span className="block text-sm font-medium text-muted">
+                  Saldo pendiente
+                </span>
+                <span className="text-3xl font-semibold tracking-tight text-foreground">
+                  {formatMoney(balanceDue)}
+                </span>
               </p>
             ) : null}
           </div>

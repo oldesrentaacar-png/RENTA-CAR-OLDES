@@ -1712,6 +1712,7 @@ export type ContractCloseContext = {
     id: string;
     mileage: number | null;
     fuel_level: string | null;
+    inspection_date: string | null;
     checklist: Array<{ item_name: string; status: string }>;
     hasDashboardPhoto: boolean;
   } | null;
@@ -1741,7 +1742,7 @@ export async function getContractCloseContext(
     const withPhotos = await supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, inspection_checklist_items(item_name, status), inspection_photos(category)",
+        "id, type, mileage, fuel_level, inspection_date, inspection_checklist_items(item_name, status), inspection_photos(category)",
       )
       .eq("reservation_id", detail.data.reservation_id)
       .order("inspection_date", { ascending: true });
@@ -1750,7 +1751,7 @@ export async function getContractCloseContext(
       const fallback = await supabase
         .from("inspections")
         .select(
-          "id, type, mileage, fuel_level, inspection_checklist_items(item_name, status)",
+          "id, type, mileage, fuel_level, inspection_date, inspection_checklist_items(item_name, status)",
         )
         .eq("reservation_id", detail.data.reservation_id)
         .order("inspection_date", { ascending: true });
@@ -1765,6 +1766,7 @@ export async function getContractCloseContext(
       type: "CHECK_OUT" | "CHECK_IN";
       mileage: number | null;
       fuel_level: string | null;
+      inspection_date: string | null;
       inspection_checklist_items:
         | Array<{ item_name: string; status: string }>
         | null;
@@ -1789,6 +1791,7 @@ export async function getContractCloseContext(
           id: checkInRow.id,
           mileage: checkInRow.mileage,
           fuel_level: checkInRow.fuel_level,
+          inspection_date: checkInRow.inspection_date ?? null,
           checklist: checkInRow.inspection_checklist_items ?? [],
           hasDashboardPhoto: (checkInRow.inspection_photos ?? []).some(
             (p) => p.category === "DASHBOARD",
@@ -2111,11 +2114,16 @@ export async function closeContract(
         vitalsMileage <= 9_999_999 &&
         CLOSE_FUEL_LEVELS.has(vitalsFuel)
       ) {
+        const returnIso =
+          actualReturnRaw && String(actualReturnRaw).trim() !== ""
+            ? normalizeFormDateTimeToIso(actualReturnRaw)
+            : null;
         const { error: vitalsError } = await supabase
           .from("inspections")
           .update({
             mileage: vitalsMileage,
             fuel_level: vitalsFuel,
+            ...(returnIso ? { inspection_date: returnIso } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq("id", checkInId);

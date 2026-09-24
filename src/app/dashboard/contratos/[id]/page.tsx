@@ -328,9 +328,13 @@ export default async function ContratoDetailPage({
                   </p>
                 ) : null}
                 {contract.balance_due !== undefined ? (
-                  <p>
-                    <span className="text-muted">Saldo:</span>{" "}
-                    {formatMoney(contract.balance_due)}
+                  <p className="rounded-xl border-2 border-border bg-white px-4 py-3 sm:col-span-2">
+                    <span className="block text-sm font-medium text-muted">
+                      Saldo pendiente
+                    </span>
+                    <span className="text-3xl font-semibold tracking-tight text-foreground">
+                      {formatMoney(contract.balance_due)}
+                    </span>
                   </p>
                 ) : null}
                 {contract.closed_at ? (
@@ -459,21 +463,29 @@ export default async function ContratoDetailPage({
                 <CardHeader>
                   <CardTitle className="text-base">PDF del contrato</CardTitle>
                   <p className="text-sm text-muted">
-                    Abra o comparta el PDF desde aquí. Este paso no mezcla abonos
-                    ni firmas.
+                    El PDF no cierra la renta. Para terminar el contrato use
+                    Cerrar renta: kilometraje, firma de devolución y confirmar.
                   </p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-wrap gap-2">
                   <ContractPdfLink
                     contractId={id}
                     updatedAt={contract.updated_at}
                     clientSigned={Boolean(
                       contract.signatures.some((s) => s.signer_type === "CLIENT"),
                     )}
-                    className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+                    className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted"
                   >
                     Abrir PDF
                   </ContractPdfLink>
+                  {canClose && canEdit ? (
+                    <Link
+                      href={`/dashboard/contratos/${id}/cerrar`}
+                      className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+                    >
+                      Cerrar renta
+                    </Link>
+                  ) : null}
                 </CardContent>
               </Card>
             ) : null}

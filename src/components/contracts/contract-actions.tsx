@@ -298,16 +298,9 @@ export function ContractDetailActions({
               de la sección 1. Los textos legales no se editan tras firmar.
             </p>
           )}
-          <Textarea
-            name="notes"
-            label="4. Observaciones del contrato (un solo cuadro)"
-            rows={3}
-            defaultValue={contract.notes ?? ""}
-            placeholder="Ej.: combustible casi lleno (7/8), golpes observados, acuerdos con el cliente…"
-          />
           <p className="text-xs text-muted">
-            Mismo cuadro <strong>4. OBSERVACIONES</strong> del PDF y del
-            contrato físico: un solo texto general, no por accesorio.
+            Las observaciones van en el cuadro <strong>4. OBSERVACIONES</strong>{" "}
+            del resumen (arriba). Es el único texto que sale en el PDF.
           </p>
           <SubmitButton>Guardar cambios</SubmitButton>
         </form>
@@ -458,7 +451,7 @@ export function ContractDetailActions({
             </>
           ) : null}
 
-          {editable || canSign ? (
+          {!clientSigned && (editable || canSign) ? (
             <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
               <input
                 type="checkbox"
@@ -472,8 +465,8 @@ export function ContractDetailActions({
               <span>
                 <strong>Aplicar IVA (13%) en el contrato / PDF</strong>
                 <span className="mt-1 block text-xs text-muted">
-                  Opcional. Si está marcado, el total incluye IVA y el PDF
-                  muestra Subtotal + IVA + Total.
+                  Se define antes de la firma. Después de firmar ya no se
+                  cambia aquí.
                   {savingIvaOption ? " Guardando…" : ""}
                   {applyIva
                     ? ` IVA actual: ${formatMoney(contract.taxAmount ?? 0)} · Total: ${formatMoney(contract.total)}`
@@ -483,7 +476,7 @@ export function ContractDetailActions({
             </label>
           ) : null}
 
-          {editable || canSign ? (
+          {!clientSigned && (editable || canSign) ? (
             <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
               <input
                 type="checkbox"
@@ -497,8 +490,8 @@ export function ContractDetailActions({
               <span>
                 <strong>Incluir pagaré mercantil en el PDF del contrato</strong>
                 <span className="mt-1 block text-xs text-muted">
-                  Márquelo para incluirlo; desmárquelo para no incluirlo. Por
-                  defecto se sugiere según documentos del cliente (DUI/local).
+                  Se define antes de la firma. Después de firmar ya no se
+                  cambia aquí.
                   {savingPagareOption ? " Guardando…" : ""}
                 </span>
               </span>
