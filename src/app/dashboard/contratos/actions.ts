@@ -2124,18 +2124,11 @@ export async function closeContract(
 
     await ensureCheckInChecklist(supabase, checkInId);
 
-    const [{ data: checkInDetail }, { data: checklistRows }] = await Promise.all([
-      supabase
-        .from("inspections")
-        .select("id, mileage, fuel_level")
-        .eq("id", checkInId)
-        .maybeSingle(),
-      supabase
-        .from("inspection_checklist_items")
-        .select("id")
-        .eq("inspection_id", checkInId)
-        .limit(1),
-    ]);
+    const { data: checkInDetail } = await supabase
+      .from("inspections")
+      .select("id, mileage, fuel_level")
+      .eq("id", checkInId)
+      .maybeSingle();
 
     const checkInInfo = checkInDetail as {
       mileage: number | null;
@@ -2144,12 +2137,7 @@ export async function closeContract(
 
     if (checkInInfo?.mileage == null || !checkInInfo.fuel_level) {
       return actionError(
-        "Kilometraje y combustible son obligatorios. Vuelva al paso «Combustible y km», complete los datos (siguen editables) y cierre de nuevo. Puede usar Anterior o Salir si necesita salir.",
-      );
-    }
-    if (!checklistRows || checklistRows.length === 0) {
-      return actionError(
-        "Complete el checklist de accesorios en la inspección de entrada antes de cerrar.",
+        "Kilometraje y combustible son obligatorios. Vuelva al paso del kilometraje, complete los datos y cierre de nuevo.",
       );
     }
 

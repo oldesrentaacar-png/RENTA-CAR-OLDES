@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
@@ -250,6 +250,12 @@ export function CloseContractWizard({
   const isFirst = stepIndex <= 0;
   const isLast = stepIndex >= steps.length - 1;
 
+  useEffect(() => {
+    if (stepIndex > steps.length - 1) {
+      setStepIndex(Math.max(0, steps.length - 1));
+    }
+  }, [stepIndex, steps.length]);
+
   function missingRequirements(): string[] {
     const missing: string[] = [];
     if (!hasCheckIn) missing.push("crear la inspección de entrada (CHECK_IN)");
@@ -305,9 +311,8 @@ export function CloseContractWizard({
       setSavedFuelLevel(result.data.fuelLevel);
       if (result.data.hasChecklist) setChecklistReady(true);
       setVitalsOk(
-        "Kilometraje y combustible guardados. Puede corregirlos de nuevo si hace falta.",
+        "Kilometraje y combustible guardados. Siguiente: la firma del cliente.",
       );
-      router.refresh();
       return true;
     } catch (err) {
       setError(
@@ -340,12 +345,11 @@ export function CloseContractWizard({
         const ok = await saveVitals();
         if (!ok) return;
       }
-      if (isLast) {
-        openConfirm();
+      const closeIndex = steps.findIndex((step) => step.id === "close");
+      if (closeIndex >= 0) {
+        setStepIndex(closeIndex);
         return;
       }
-      setStepIndex((value) => Math.min(value + 1, steps.length - 1));
-      return;
     }
     if (isLast) {
       openConfirm();
@@ -1054,12 +1058,13 @@ export function CloseContractWizard({
 
             {current.id === "close" ? (
               <div className="space-y-4 text-sm">
-                <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4 text-blue-950">
-                  <p className="font-semibold">Declaración de conformidad</p>
-                  <p className="mt-2 leading-relaxed">{CLOSE_CONFORMITY_TEXT}</p>
-                  <p className="mt-2 text-xs text-blue-900/80">
-                    En el cierre no se vuelven a aceptar términos y condiciones;
-                    solo esta declaración y la firma del cliente.
+                <div className="rounded-lg border-2 border-brand/40 bg-brand/5 p-4">
+                  <p className="text-base font-semibold text-foreground">
+                    Firma del cliente
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    El cliente firma en el recuadro y luego pulsa{" "}
+                    <strong>Confirmar firma</strong>.
                   </p>
                 </div>
 
@@ -1105,6 +1110,13 @@ export function CloseContractWizard({
                     )}
                   </div>
                 )}
+
+                <details className="rounded-lg border border-border bg-surface-muted/40 p-3 text-muted">
+                  <summary className="cursor-pointer font-medium text-foreground">
+                    Texto de la declaración (opcional de leer)
+                  </summary>
+                  <p className="mt-2 leading-relaxed">{CLOSE_CONFORMITY_TEXT}</p>
+                </details>
 
                 {!canClose ? (
                   <p className="text-amber-900">
