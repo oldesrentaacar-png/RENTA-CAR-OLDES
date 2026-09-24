@@ -7,6 +7,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import {
   CLOSE_ACT_PDF_VERSION,
 } from "@/lib/pdf/close-act-pdf";
+import { prepareReturnWireframe } from "@/lib/pdf/pdf-images";
 import { renderCloseActPdf } from "@/lib/pdf/render";
 
 export async function serveCloseActPdfResponse(
@@ -44,7 +45,14 @@ export async function serveCloseActPdfResponse(
   }
 
   try {
-    const buffer = await renderCloseActPdf(pdfData);
+    const returnDiagramUrl = await prepareReturnWireframe({
+      vehicleType: pdfData.vehicleType,
+      vehicleTypeSlug: pdfData.vehicleTypeSlug,
+      vehicleTypeName: pdfData.vehicleTypeName,
+      vehicleModel: pdfData.vehicleModel,
+      marks: pdfData.returnDamageMarks,
+    });
+    const buffer = await renderCloseActPdf({ ...pdfData, returnDiagramUrl });
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {

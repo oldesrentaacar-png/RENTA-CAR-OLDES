@@ -66,6 +66,7 @@ import {
   DEFAULT_CHECKLIST_ITEMS,
   FUEL_LEVEL_LABELS,
   PHOTO_CATEGORY_LABELS,
+  DAMAGE_SEVERITY_LABELS,
   DAMAGE_TYPE_LABELS,
 } from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
@@ -3052,7 +3053,7 @@ export async function getContractCloseActPdfData(contractId: string) {
   const withPhotos = await supabase
     .from("inspections")
     .select(
-      "id, type, mileage, fuel_level, notes, inspection_checklist_items(item_name, status), inspection_damage_marks(view, damage_type)",
+      "id, type, mileage, fuel_level, notes, inspection_checklist_items(item_name, status), inspection_damage_marks(view, x, y, damage_type, description, severity, mark_number, path_points)",
     )
     .eq("reservation_id", contract.reservation_id)
     .order("inspection_date", { ascending: true });
@@ -3072,7 +3073,16 @@ export async function getContractCloseActPdfData(contractId: string) {
       | Array<{ item_name: string; status: string }>
       | null;
     inspection_damage_marks:
-      | Array<{ view: string; damage_type: string }>
+      | Array<{
+          view: string;
+          x: number;
+          y: number;
+          damage_type: string;
+          description?: string | null;
+          severity?: string | null;
+          mark_number?: number | null;
+          path_points?: Array<{ x: number; y: number }> | null;
+        }>
       | null;
   };
   const bundles = (inspections ?? []) as InspBundle[];
@@ -3250,37 +3260,48 @@ export async function getContractCloseActPdfData(contractId: string) {
         `${row.itemName}: ${row.checkOutStatus ?? "—"} → ${row.checkInStatus ?? "—"}`,
     );
 
-  const checkInDamageNotes = (checkIn?.inspection_damage_marks ?? []).map(
-    (mark) =>
-      `${damageSymbol(mark.damage_type)} ${DAMAGE_TYPE_LABELS[mark.damage_type] ?? mark.damage_type} (${mark.view})`,
+  const returnDamageMarks = (checkIn?.inspection_damage_marks ?? []).map(
+    (mark, index) => {
+      const pathPoints = Array.isArray(mark.path_points)
+        ? mark.path_points
+            .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+            .filter(
+              (p) =>
+                Number.isFinite(p.x) &&
+                Number.isFinite(p.y) &&
+                p.x >= 0 &&
+                p.x <= 1 &&
+                p.y >= 0 &&
+                p.y <= 1,
+            )
+        : [];
+      return {
+        x: Number(mark.x),
+        y: Number(mark.y),
+        symbol: damageSymbol(mark.damage_type),
+        phase: "IN" as const,
+        severity: mark.severity ?? "LOW",
+        markNumber: Number(mark.mark_number ?? index + 1),
+        pathPoints: pathPoints.length >= 2 ? pathPoints : undefined,
+        damageType: mark.damage_type,
+        description: mark.description?.trim() || null,
+      };
+    },
   );
 
-  const bodyZoneMarks: Partial<
-    Record<"front" | "left" | "right" | "top" | "rear" | "glass", string>
-  > = {};
-  for (const mark of checkIn?.inspection_damage_marks ?? []) {
-    const view = String(mark.view || "").toUpperCase();
-    const key =
-      view === "FRONT"
-        ? "front"
-        : view === "LEFT"
-          ? "left"
-          : view === "RIGHT"
-            ? "right"
-            : view === "TOP"
-              ? "top"
-              : view === "REAR"
-                ? "rear"
-                : null;
-    if (!key) continue;
-    const symbol = damageSymbol(mark.damage_type);
-    bodyZoneMarks[key] = bodyZoneMarks[key]
-      ? `${bodyZoneMarks[key]} ${symbol}`
-      : symbol;
-  }
+  const returnMarkLines = returnDamageMarks.map((mark) => {
+    const typeLabel =
+      DAMAGE_TYPE_LABELS[mark.damageType] ?? mark.damageType ?? "Daño";
+    const severityLabel =
+      DAMAGE_SEVERITY_LABELS[mark.severity ?? "LOW"] ?? mark.severity ?? "Leve";
+    const note = mark.description?.trim();
+    return `#${mark.markNumber} ${mark.symbol} ${typeLabel} · ${severityLabel}${
+      note ? ` — ${note}` : ""
+    }`;
+  });
 
   const newDamageNotes =
-    [...checkInDamageNotes, ...accessoryChanges].join("; ") ||
+    [...returnMarkLines, ...accessoryChanges].join("; ") ||
     checkIn?.notes?.trim() ||
     null;
 
@@ -3333,6 +3354,23 @@ export async function getContractCloseActPdfData(contractId: string) {
       : null,
   ].filter(Boolean) as Array<{ label: string; amount: number }>;
 
+  const { data: vehicleRow } = await supabase
+    .from("vehicles")
+    .select("model, category, vehicle_types(slug, name)")
+    .eq("id", contract.vehicle_id)
+    .maybeSingle();
+  const vehicleRel = vehicleRow as {
+    model?: string | null;
+    category?: string | null;
+    vehicle_types?:
+      | { slug: string; name: string }
+      | Array<{ slug: string; name: string }>
+      | null;
+  } | null;
+  const vehicleTypeRel = Array.isArray(vehicleRel?.vehicle_types)
+    ? vehicleRel.vehicle_types[0]
+    : vehicleRel?.vehicle_types;
+
   const receiptCode = contract.code.replace(/^CTR/i, "REC");
   const actualReturn =
     contract.actual_return_at || contract.closed_at || contract.end_at;
@@ -3371,7 +3409,12 @@ export async function getContractCloseActPdfData(contractId: string) {
     missingAccessories,
     noNewDamage: !newDamageNotes,
     newDamageNotes,
-    bodyZoneMarks,
+    vehicleType: vehicleTypeRel?.name ?? vehicleRel?.category ?? null,
+    vehicleTypeSlug: vehicleTypeRel?.slug ?? null,
+    vehicleTypeName: vehicleTypeRel?.name ?? null,
+    vehicleModel: vehicleRel?.model ?? null,
+    returnDamageMarks,
+    returnMarkLines,
     extraCharges,
     damageCharges,
     fuelCharges,

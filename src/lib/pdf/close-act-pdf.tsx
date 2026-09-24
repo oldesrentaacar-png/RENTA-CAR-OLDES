@@ -19,7 +19,7 @@ import {
   machoteStyles,
 } from "@/lib/pdf/machote-box";
 
-export const CLOSE_ACT_PDF_VERSION = "2026-09-16-v3";
+export const CLOSE_ACT_PDF_VERSION = "2026-09-24-v4";
 
 export type CloseActAccessoryRow = {
   label: string;
@@ -57,18 +57,9 @@ export type CloseActPdfProps = {
   missingAccessories?: string[];
   noNewDamage: boolean;
   newDamageNotes?: string | null;
-  /** Marcas por zona (símbolos R/G/F) para la sección 4 */
-  bodyZoneMarks?: Partial<
-    Record<
-      | "front"
-      | "left"
-      | "right"
-      | "top"
-      | "rear"
-      | "glass",
-      string
-    >
-  >;
+  /** Carro con los rayones nuevos de la devolución ya dibujados. */
+  returnDiagramUrl?: string | null;
+  returnMarkLines?: string[];
   extraCharges: number;
   damageCharges: number;
   fuelCharges: number;
@@ -175,23 +166,10 @@ const styles = StyleSheet.create({
   },
   mark: { fontSize: 8, fontFamily: "Helvetica-Bold", color: NAVY, width: 12 },
   checkLabel: { flex: 1, fontSize: 7, lineHeight: 1.25 },
-  zoneGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    padding: 6,
-    gap: 4,
-  },
-  zoneBox: {
-    width: "32%",
-    borderWidth: 0.8,
-    borderColor: LINE,
-    minHeight: 34,
-    padding: 4,
-  },
-  zoneTitle: {
-    fontSize: 6.5,
-    fontFamily: "Helvetica-Bold",
-    color: MUTED,
+  returnDiagram: {
+    width: "100%",
+    objectFit: "contain",
+    marginTop: 2,
     marginBottom: 2,
   },
   declaration: {
@@ -443,27 +421,24 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
 
         <MachoteSection title="4. Inspección de carrocería e incidencias nuevas">
           <Text style={styles.note}>
-            Leyenda: R = Rayón · G = Golpe · F = Faltante
+            El carro marca los rayones nuevos de la devolución. Leyenda: R =
+            Rayón · G = Golpe · F = Faltante
           </Text>
-          <View style={styles.zoneGrid}>
-            {(
-              [
-                ["Frente / Bumper del.", "front"],
-                ["Lado izquierdo", "left"],
-                ["Lado derecho", "right"],
-                ["Parte superior / Techo", "top"],
-                ["Atrás / Bumper tras.", "rear"],
-                ["Vidrios / Parabrisas", "glass"],
-              ] as const
-            ).map(([zone, key]) => (
-              <View key={zone} style={styles.zoneBox}>
-                <Text style={styles.zoneTitle}>{zone}</Text>
-                <Text style={{ fontSize: 8, marginTop: 4 }}>
-                  {props.bodyZoneMarks?.[key]?.trim() || " "}
+          {props.returnDiagramUrl ? (
+            // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+            <Image src={props.returnDiagramUrl} style={styles.returnDiagram} />
+          ) : (
+            <Text style={styles.note}>Sin diagrama del vehículo.</Text>
+          )}
+          {(props.returnMarkLines?.length ?? 0) > 0 ? (
+            <View style={{ paddingHorizontal: 6, paddingBottom: 4 }}>
+              {props.returnMarkLines!.map((line, index) => (
+                <Text key={String(index)} style={styles.note}>
+                  {line}
                 </Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          ) : null}
           <Text style={[styles.note, { fontFamily: "Helvetica-Bold" }]}>
             {props.noNewDamage
               ? "[X] Sin nuevos daños o rayones."

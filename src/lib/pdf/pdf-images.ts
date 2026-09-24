@@ -269,3 +269,24 @@ export async function prepareContractPdfImages<
     inspectionWireframeUrl,
   };
 }
+
+/** Car diagram for the close act: only the new return marks, same wireframe as the contract. */
+export async function prepareReturnWireframe(input: {
+  vehicleType?: string | null;
+  vehicleTypeSlug?: string | null;
+  vehicleTypeName?: string | null;
+  vehicleModel?: string | null;
+  marks?: WireframeDamageMark[];
+}): Promise<string | null> {
+  const wireframeType = resolveInspectionWireframe({
+    category: input.vehicleType,
+    model: input.vehicleModel,
+    typeSlug: input.vehicleTypeSlug,
+    typeName: input.vehicleTypeName,
+  });
+  const base = await getInspectionWireframeDataUrl(wireframeType);
+  if (!base) return null;
+  const marks = (input.marks ?? []).filter((mark) => mark.phase !== "OUT");
+  if (marks.length === 0) return base;
+  return compositeDamageMarksOnWireframe(base, marks);
+}
