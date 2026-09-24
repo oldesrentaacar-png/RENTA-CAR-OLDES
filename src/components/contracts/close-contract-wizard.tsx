@@ -117,9 +117,10 @@ export function CloseContractWizard({
   );
   const [savingVitals, setSavingVitals] = useState(false);
   const [vitalsOk, setVitalsOk] = useState<string | null>(null);
-  const [checklistReady, setChecklistReady] = useState(
+  const [, setChecklistReady] = useState(
     Boolean(checkIn && checkIn.checklist.length > 0),
   );
+  const [showOptionalClose, setShowOptionalClose] = useState(false);
 
   const amountPaidBase = Number(contract.amount_paid ?? 0);
 
@@ -204,17 +205,8 @@ export function CloseContractWizard({
       effectiveMileage >= 0 &&
       effectiveFuel,
   );
-  const hasAccessories = Boolean(
-    checklistReady || (checkIn && checkIn.checklist.length > 0),
-  );
-  const returnReviewed = Boolean(actualReturnAt);
-
   const canClose =
-    hasCheckIn &&
-    hasFuelAndMileage &&
-    hasAccessories &&
-    returnReviewed &&
-    hasConformitySignature;
+    hasCheckIn && hasFuelAndMileage && hasConformitySignature;
 
   const steps: Array<{
     id: StepId;
@@ -223,59 +215,32 @@ export function CloseContractWizard({
     done: boolean;
     required: boolean;
   }> = [
-    {
-      id: "checkin",
-      title: "Inspección de entrada",
-      description: hasCheckIn
-        ? hasFuelAndMileage
-          ? "Inspección lista con km y combustible"
-          : "Inspección creada — complete km y combustible en el siguiente paso"
-        : "Crear CHECK_IN del vehículo",
-      // Km/combustible se validan en el paso "fuel", no aquí.
-      done: hasCheckIn,
-      required: true,
-    },
+    ...(!hasCheckIn
+      ? [
+          {
+            id: "checkin" as const,
+            title: "Inspección de entrada",
+            description: "Crear la revisión del vehículo al regresar",
+            done: false,
+            required: true,
+          },
+        ]
+      : []),
     {
       id: "fuel",
-      title: "Combustible y km",
+      title: "Kilometraje",
       description: hasFuelAndMileage
-        ? "Datos de entrada listos"
-        : "Regístrelos aquí (no hace falta salir)",
+        ? "Km y combustible listos. Siguiente: firma del cliente"
+        : "Escriba el km y el combustible. Después va la firma",
       done: hasFuelAndMileage,
       required: true,
     },
     {
-      id: "accessories",
-      title: "Accesorios",
-      description: hasAccessories
-        ? "Checklist comparado"
-        : "Completar checklist de entrada",
-      done: hasAccessories,
-      required: true,
-    },
-    {
-      id: "timing",
-      title: "Antes / después",
-      description: "Acuerdo de devolución y días extra",
-      done: returnReviewed,
-      required: true,
-    },
-    {
-      id: "charges",
-      title: "Saldo y pago",
-      description:
-        billing.balance <= 0
-          ? "Saldo en cero"
-          : `Saldo ${formatMoney(billing.balance)}`,
-      done: true,
-      required: true,
-    },
-    {
       id: "close",
-      title: "Conformidad y cierre",
+      title: "Firma del cliente",
       description: hasConformitySignature
-        ? "Firma de conformidad lista"
-        : "Declaración + firma del cliente",
+        ? "Firma lista. Ya puede cerrar"
+        : "El cliente firma aquí, en esta pantalla",
       done: hasConformitySignature,
       required: true,
     },
@@ -294,14 +259,8 @@ export function CloseContractWizard({
     if (hasCheckIn && !effectiveFuel) {
       missing.push("registrar el combustible en el paso Combustible y km");
     }
-    if (hasCheckIn && !hasAccessories) {
-      missing.push("completar el checklist de accesorios en la inspección");
-    }
-    if (!returnReviewed) missing.push("indicar la hora real de devolución");
     if (!hasConformitySignature) {
-      missing.push(
-        "obtener la firma de conformidad del cliente (paso final — distinta de la firma del contrato)",
-      );
+      missing.push("la firma del cliente en el paso «Firma del cliente»");
     }
     return missing;
   }
@@ -568,24 +527,10 @@ export function CloseContractWizard({
                 km» (abajo en este wizard)
               </li>
             ) : null}
-            {hasCheckIn && !hasAccessories ? (
-              <li>
-                Completar checklist de accesorios{" "}
-                <Link
-                  href={`/dashboard/inspecciones/${checkIn!.id}#accesorios`}
-                  className="font-medium underline"
-                >
-                  Abrir accesorios
-                </Link>
-              </li>
-            ) : null}
-            {!returnReviewed ? (
-              <li>Indicar fecha/hora real de devolución en el paso “Antes / después”</li>
-            ) : null}
             {!hasConformitySignature ? (
               <li>
-                Capturar la <strong>firma de conformidad al devolver</strong> en
-                el último paso (es distinta de la firma del contrato al entregar)
+                <strong>Firma del cliente</strong> en el paso siguiente al
+                kilometraje (queda en esta misma pantalla, no hay que buscarla)
               </li>
             ) : null}
           </ul>
@@ -645,7 +590,7 @@ export function CloseContractWizard({
             </div>
           ) : null}
 
-          <div className="rounded-xl border border-border bg-white p-4 sm:p-5">
+          <div className="flex flex-col rounded-xl border border-border bg-white p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -729,8 +674,9 @@ export function CloseContractWizard({
                       </p>
                     </div>
                     <p className="text-muted">
-                      Registre aquí el kilometraje y combustible de entrada. No
-                      necesita salir a otra pantalla.
+                      Registre el kilometraje y el combustible. Al pulsar{" "}
+                      <strong>Siguiente</strong> aparece la{" "}
+                      <strong>firma del cliente</strong> en esta misma pantalla.
                     </p>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Input
@@ -811,8 +757,8 @@ export function CloseContractWizard({
               </div>
             ) : null}
 
-            {current.id === "accessories" ? (
-              <div className="space-y-3 text-sm">
+            {showOptionalClose ? (
+              <div className="order-last space-y-3 border-t border-border pt-4 text-sm">
                 {accessoryComparison.length === 0 ? (
                   <p className="text-amber-800">
                     Complete el checklist de accesorios en la inspección de
@@ -870,8 +816,8 @@ export function CloseContractWizard({
               </div>
             ) : null}
 
-            {current.id === "timing" ? (
-              <div className="space-y-4 text-sm">
+            {showOptionalClose ? (
+              <div className="order-last space-y-4 border-t border-border pt-4 text-sm">
                 <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-blue-950">
                   <p className="font-medium">¿Se regresó antes o después?</p>
                   <p className="mt-1">
@@ -988,8 +934,8 @@ export function CloseContractWizard({
               </div>
             ) : null}
 
-            {current.id === "charges" ? (
-              <div className="space-y-4 text-sm">
+            {showOptionalClose ? (
+              <div className="order-last space-y-4 border-t border-border pt-4 text-sm">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
                     label="Cargos extra"
@@ -1178,6 +1124,15 @@ export function CloseContractWizard({
                 >
                   Revisar y cerrar contrato
                 </Button>
+                <button
+                  type="button"
+                  className="text-left text-sm font-medium text-brand underline"
+                  onClick={() => setShowOptionalClose((value) => !value)}
+                >
+                  {showOptionalClose
+                    ? "Ocultar ajustes opcionales"
+                    : "Ajustes opcionales (accesorios, días extra, cobros) — no hacen falta para firmar"}
+                </button>
               </div>
             ) : null}
           </div>

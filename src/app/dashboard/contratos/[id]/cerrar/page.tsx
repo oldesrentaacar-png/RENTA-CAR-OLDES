@@ -45,7 +45,7 @@ export default async function CerrarContratoPage({
               ? `Cerrar renta · ${context.contract.code}`
               : "Cerrar renta"
           }
-          description="Inspección de entrada, cargos, saldo y cierre del contrato."
+          description="Kilometraje obligatorio y, enseguida, la firma del cliente."
           breadcrumbs={[
             { label: "Contratos", href: "/dashboard/contratos" },
             {
