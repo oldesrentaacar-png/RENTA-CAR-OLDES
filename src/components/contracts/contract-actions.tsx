@@ -32,6 +32,8 @@ type ContractDetailActionsProps = {
   operatorName?: string | null;
   /** Current operator already has signature_url on profile. */
   operatorHasSignature?: boolean;
+  /** Paso de entrega: IVA y pagaré se definen al crear el contrato, no aquí. */
+  hideCommercialOptions?: boolean;
 };
 
 export function ContractDetailActions({
@@ -41,6 +43,7 @@ export function ContractDetailActions({
   canCancel,
   operatorName,
   operatorHasSignature = false,
+  hideCommercialOptions = false,
 }: ContractDetailActionsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -451,7 +454,7 @@ export function ContractDetailActions({
             </>
           ) : null}
 
-          {!clientSigned && (editable || canSign) ? (
+          {!hideCommercialOptions && !clientSigned && (editable || canSign) ? (
             <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
               <input
                 type="checkbox"
@@ -476,7 +479,7 @@ export function ContractDetailActions({
             </label>
           ) : null}
 
-          {!clientSigned && (editable || canSign) ? (
+          {!hideCommercialOptions && !clientSigned && (editable || canSign) ? (
             <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
               <input
                 type="checkbox"

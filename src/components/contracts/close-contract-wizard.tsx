@@ -275,10 +275,10 @@ export function CloseContractWizard({
     const missing: string[] = [];
     if (!hasCheckIn) missing.push("crear la inspección de entrada (CHECK_IN)");
     if (hasCheckIn && effectiveMileage == null) {
-      missing.push("registrar el kilometraje en el paso Combustible y km");
+      missing.push("registrar el kilometraje en el paso Kilometraje");
     }
     if (hasCheckIn && !effectiveFuel) {
-      missing.push("registrar el combustible en el paso Combustible y km");
+      missing.push("registrar el combustible en el paso Kilometraje");
     }
     if (!hasConformitySignature) {
       missing.push("la firma del cliente en el paso «Firma del cliente»");
@@ -512,33 +512,16 @@ export function CloseContractWizard({
         </Link>
       </div>
 
-      {!canClose ? (
+      {hasCheckIn && (!hasFuelAndMileage) ? (
         <div className="rounded-xl border border-border bg-surface-muted/40 px-4 py-3 text-sm">
-          {hasCheckIn && hasFuelAndMileage && !hasConformitySignature ? (
-            <p>
-              Kilometraje listo (
-              <strong>
-                {effectiveMileage?.toLocaleString("es-SV")} km
-                {effectiveFuel
-                  ? ` · ${FUEL_LEVEL_LABELS[effectiveFuel] ?? effectiveFuel}`
-                  : ""}
-              </strong>
-              ).{" "}
-              {current.id === "close"
-                ? "El cliente firma en el recuadro de esta pantalla. Es la firma de devolución, distinta de la de entrega."
-                : "Pulse Siguiente: la firma del cliente está en el paso de al lado."}
-            </p>
-          ) : (
-            <ul className="list-disc space-y-1 pl-5">
-              {!hasCheckIn ? <li>Primero cree la inspección de entrada.</li> : null}
-              {hasCheckIn && effectiveMileage == null ? (
-                <li>Escriba el kilometraje de entrada.</li>
-              ) : null}
-              {hasCheckIn && !effectiveFuel ? (
-                <li>Seleccione el combustible de entrada.</li>
-              ) : null}
-            </ul>
-          )}
+          <ul className="list-disc space-y-1 pl-5">
+            {effectiveMileage == null ? (
+              <li>Escriba el kilometraje de entrada.</li>
+            ) : null}
+            {!effectiveFuel ? (
+              <li>Seleccione el combustible de entrada.</li>
+            ) : null}
+          </ul>
         </div>
       ) : null}
 
@@ -1129,11 +1112,17 @@ export function CloseContractWizard({
                   <p className="mt-2 leading-relaxed">{CLOSE_CONFORMITY_TEXT}</p>
                 </details>
 
-                {!canClose ? (
+                {!hasFuelAndMileage || !hasCheckIn ? (
                   <p className="text-amber-900">
-                    Aún faltan pasos:{" "}
-                    {missingRequirements().join("; ") ||
-                      "revise la lista de arriba"}.
+                    Antes de firmar:{" "}
+                    {missingRequirements()
+                      .filter((item) => !item.includes("firma del cliente"))
+                      .join("; ") || "complete el kilometraje"}.
+                  </p>
+                ) : !hasConformitySignature ? (
+                  <p className="text-muted">
+                    El cliente firma en el recuadro. Al levantar el dedo, el
+                    botón de cierre se habilita.
                   </p>
                 ) : (
                   <p className="text-green-800">

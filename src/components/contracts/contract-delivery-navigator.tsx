@@ -62,7 +62,8 @@ export function ContractDeliveryNavigator({
   const currentIndex = useMemo(() => {
     if (!currentStepId) {
       const pending = steps.findIndex((step) => step.status !== "done");
-      return pending >= 0 ? pending : 0;
+      if (pending >= 0) return pending;
+      return Math.max(steps.length - 1, 0);
     }
     const idx = steps.findIndex((step) => step.id === currentStepId);
     return idx >= 0 ? idx : 0;
@@ -182,9 +183,9 @@ export function ContractDeliveryNavigator({
                 </Button>
               </Link>
             ) : (
-              <Link href={`/dashboard/contratos/${contractId}`}>
+              <Link href={`/dashboard/contratos/${contractId}/cerrar`}>
                 <Button type="button" size="sm">
-                  Finalizar en contrato
+                  Cerrar renta
                 </Button>
               </Link>
             )}

@@ -498,6 +498,7 @@ export default async function ContratoDetailPage({
               canCancel={canCancel}
               operatorName={operatorName}
               operatorHasSignature={operatorHasSignature}
+              hideCommercialOptions={focusedPaso === "cliente-vehiculo"}
             />
             ) : null}
           </>
