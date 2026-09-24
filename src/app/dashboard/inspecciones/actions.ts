@@ -19,7 +19,6 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
-import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getDefaultChecklistFromCatalog } from "@/lib/inspections/accessory-catalog";
 import {
@@ -844,11 +843,15 @@ export async function saveInspectionGeneralNotes(
         id: string;
         notes: string | null;
       }>) {
-        const merged = mergeObservationTexts(contract.notes, trimmedNotes);
+        const currentNotes = contract.notes?.trim() ?? "";
+        const closeMarker = currentNotes.indexOf("[Cierre]");
+        const closeBlock =
+          closeMarker >= 0 ? currentNotes.slice(closeMarker).trim() : "";
+        const nextNotes = [trimmedNotes, closeBlock].filter(Boolean).join("\n\n");
         await supabase
           .from("contracts")
           .update({
-            notes: merged || null,
+            notes: nextNotes || null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", contract.id);

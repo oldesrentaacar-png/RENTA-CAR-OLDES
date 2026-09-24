@@ -7,13 +7,21 @@ import { cn } from "@/lib/utils";
 
 export type SignaturePadProps = {
   onConfirm: (dataUrl: string) => void;
+  /** Se llama al soltar el dedo y al limpiar, para no depender de un botón extra. */
+  onDraftChange?: (dataUrl: string | null) => void;
   disabled?: boolean;
   className?: string;
 };
 
-export function SignaturePad({ onConfirm, disabled, className }: SignaturePadProps) {
+export function SignaturePad({
+  onConfirm,
+  onDraftChange,
+  disabled,
+  className,
+}: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
+  const hasStrokeRef = useRef(false);
   const [hasStroke, setHasStroke] = useState(false);
 
   const prepareCanvas = useCallback(() => {
@@ -69,6 +77,7 @@ export function SignaturePad({ onConfirm, disabled, className }: SignaturePadPro
       // Dot counts as a stroke so "Confirmar" enables after a tap.
       ctx.lineTo(point.x + 0.01, point.y + 0.01);
       ctx.stroke();
+      hasStrokeRef.current = true;
       setHasStroke(true);
     },
     [disabled, getPoint],
@@ -98,14 +107,20 @@ export function SignaturePad({ onConfirm, disabled, className }: SignaturePadPro
       } catch {
         // ignore
       }
+      const canvas = canvasRef.current;
+      if (canvas && hasStrokeRef.current && !disabled) {
+        onDraftChange?.(canvas.toDataURL("image/png"));
+      }
     },
-    [],
+    [disabled, onDraftChange],
   );
 
   const clear = useCallback(() => {
     prepareCanvas();
+    hasStrokeRef.current = false;
     setHasStroke(false);
-  }, [prepareCanvas]);
+    onDraftChange?.(null);
+  }, [onDraftChange, prepareCanvas]);
 
   const confirm = useCallback(() => {
     const canvas = canvasRef.current;
@@ -127,7 +142,8 @@ export function SignaturePad({ onConfirm, disabled, className }: SignaturePadPro
         />
       </div>
       <p className="text-xs text-muted">
-        Dibuje con el dedo o el mouse y luego pulse <strong>Confirmar firma</strong>.
+        Dibuje con el dedo. Al soltar, la firma queda lista. Si se equivoca,
+        pulse <strong>Limpiar</strong>.
       </p>
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={clear} disabled={disabled}>

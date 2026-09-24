@@ -1184,6 +1184,7 @@ export async function updateContract(
 
     revalidatePath("/dashboard/contratos");
     revalidatePath(`/dashboard/contratos/${id}`);
+    revalidatePath(`/dashboard/contratos/${id}/pdf`);
     revalidatePath("/dashboard/reservas");
     revalidatePath(`/dashboard/reservas/${current.reservation_id}`);
     revalidatePath("/dashboard/calendario");

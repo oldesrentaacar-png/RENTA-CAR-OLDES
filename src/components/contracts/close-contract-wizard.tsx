@@ -1105,6 +1105,9 @@ export function CloseContractWizard({
                         onConfirm={(dataUrl) =>
                           setConformitySignatureDataUrl(dataUrl)
                         }
+                        onDraftChange={(dataUrl) =>
+                          setConformitySignatureDataUrl(dataUrl)
+                        }
                         disabled={closing}
                       />
                     )}
