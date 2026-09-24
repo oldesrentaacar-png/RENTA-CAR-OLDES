@@ -6,6 +6,7 @@ import {
   getContractDeliveryProgress,
 } from "@/app/dashboard/contratos/actions";
 import { listPaymentReceipts } from "@/app/dashboard/recibos/actions";
+import { ContractObservationsBox } from "@/components/contracts/contract-observations-box";
 import { ContractDetailActions } from "@/components/contracts/contract-actions";
 import { ContractExtraLinesEditor } from "@/components/contracts/contract-extra-lines-editor";
 import { ContractPdfLink } from "@/components/contracts/contract-pdf-link";
@@ -24,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { formatAppDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -93,6 +95,22 @@ export default async function ContratoDetailPage({
       ? await getContractDeliveryProgress(id)
       : null;
   const progress = progressResult?.success ? progressResult.data : null;
+
+  let observationText = contract?.notes?.trim() ?? "";
+  if (configured && contract && !observationText) {
+    const supabase = await createClient();
+    const { data: checkOutNotes } = await supabase
+      .from("inspections")
+      .select("notes")
+      .eq("reservation_id", contract.reservation_id)
+      .eq("type", "CHECK_OUT")
+      .order("inspection_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    observationText = mergeObservationTexts(
+      (checkOutNotes as { notes?: string | null } | null)?.notes,
+    );
+  }
 
   const deliverySteps =
     contract && progress
@@ -321,22 +339,16 @@ export default async function ContratoDetailPage({
                     {formatAppDateTime(contract.closed_at)}
                   </p>
                 ) : null}
-                <div className="sm:col-span-2 rounded-xl border-2 border-brand/30 bg-brand/5 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-brand">
-                    4. Observaciones (PDF del contrato)
-                  </p>
-                  {contract.notes?.trim() ? (
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
-                      {contract.notes.trim()}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted">
-                      Vacío. Llénele en el paso «Accesorios + 1 cuadro de
-                      observaciones» (un solo texto general, no por ítem), o
-                      abajo en Editar términos / notas.
-                    </p>
-                  )}
-                </div>
+                <ContractObservationsBox
+                  contractId={contract.id}
+                  notes={observationText}
+                  canEdit={
+                    Boolean(canEdit) &&
+                    contract.status !== "CANCELLED" &&
+                    contract.status !== "COMPLETED" &&
+                    !contract.closed_at
+                  }
+                />
               </CardContent>
             </Card>
 

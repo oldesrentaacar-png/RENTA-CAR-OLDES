@@ -133,6 +133,29 @@ export function InspectionAccessoriesPanel({
         </div>
       ) : null}
 
+      <div className="space-y-2 rounded-xl border-2 border-brand bg-brand/5 p-4 shadow-sm">
+        <h3 className="text-base font-semibold text-foreground">
+          4. Observaciones — un solo cuadro (como el contrato físico)
+        </h3>
+        <p className="text-sm text-muted">
+          Este es el único espacio para escribir lo que usted menciona al
+          cliente. No hay una nota por cada accesorio.
+        </p>
+        {readOnly ? (
+          <p className="min-h-[3rem] whitespace-pre-wrap rounded-lg border border-border bg-white p-3 text-sm">
+            {notes.trim() || "—"}
+          </p>
+        ) : (
+          <Textarea
+            label="Escriba aquí las observaciones del contrato"
+            rows={5}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Ej.: combustible casi lleno (7/8), rayón leve en puerta derecha, cliente avisado de revisión a los 10,000 km…"
+          />
+        )}
+      </div>
+
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-foreground">
           Accesorios / inventario
@@ -164,31 +187,6 @@ export function InspectionAccessoriesPanel({
           vehicleTypeName={vehicleTypeName}
           defaultMode="2d"
         />
-      </div>
-
-      <div className="space-y-2 rounded-xl border-2 border-brand bg-brand/5 p-4 shadow-sm">
-        <h3 className="text-base font-semibold text-foreground">
-          4. Observaciones — un solo cuadro (como el contrato físico)
-        </h3>
-        <p className="text-sm text-muted">
-          Este es el <strong>único</strong> espacio para escribir lo que usted
-          menciona al cliente (combustible, acuerdos, detalles de la entrega,
-          etc.). No hay observaciones por accesorio: arriba solo se marca si
-          está / no está / averiado.
-        </p>
-        {readOnly ? (
-          <p className="min-h-[3rem] whitespace-pre-wrap rounded-lg border border-border bg-white p-3 text-sm">
-            {notes.trim() || "—"}
-          </p>
-        ) : (
-          <Textarea
-            label="Escriba aquí las observaciones del contrato"
-            rows={5}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Ej.: combustible casi lleno (7/8), rayón leve en puerta derecha, cliente avisado de revisión a los 10,000 km…"
-          />
-        )}
       </div>
 
       {!readOnly ? (
