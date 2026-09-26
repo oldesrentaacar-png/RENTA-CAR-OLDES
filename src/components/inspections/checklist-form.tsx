@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useEffect, useState } from "react";
 
 import { saveChecklistItems } from "@/app/dashboard/inspecciones/actions";
@@ -77,7 +79,11 @@ export function ChecklistForm({
   const [drafts, setDrafts] = useState<ChecklistItemDraft[]>(() =>
     items.map(toDraft),
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 

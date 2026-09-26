@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -34,7 +36,11 @@ const VIEW_OPTIONS: Array<{ value: DamageView | ""; label: string }> = [
 
 export function VehicleDetailActions({ vehicle }: { vehicle: VehicleWithImages }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [info, setInfo] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);

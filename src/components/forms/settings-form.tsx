@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -41,7 +43,11 @@ function policiesStringValue(
 
 export function SettingsForm({ settings }: SettingsFormProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
 
   async function handleSubmit(formData: FormData) {
     setError(null);

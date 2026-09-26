@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError, announceSuccess } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -46,7 +48,11 @@ export function ContractDetailActions({
   hideCommercialOptions = false,
 }: ContractDetailActionsProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [warning, setWarning] = useState<string | null>(null);
   const [signedBy, setSignedBy] = useState(contract.customerName);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
@@ -158,9 +164,21 @@ export function ContractDetailActions({
 
   async function handleUpdate(formData: FormData) {
     setError(null);
-    const result = await updateContract(contract.id, formData);
-    if (!result.success) setError(result.error);
-    else router.refresh();
+    try {
+      const result = await updateContract(contract.id, formData);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      announceSuccess("Cambios del contrato guardados.");
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar el contrato. Revise los datos e intente de nuevo.",
+      );
+    }
   }
 
   async function handleSign() {
@@ -207,6 +225,7 @@ export function ContractDetailActions({
     if (result.data.warning) setWarning(result.data.warning);
     setSignatureDataUrl(null);
     setOperatorSignatureDataUrl(null);
+    announceSuccess("Firma del cliente guardada.");
     router.refresh();
   }
 
@@ -228,6 +247,7 @@ export function ContractDetailActions({
       return;
     }
     setPagareSignatureDataUrl(null);
+    announceSuccess("Pagaré firmado.");
     router.refresh();
   }
 

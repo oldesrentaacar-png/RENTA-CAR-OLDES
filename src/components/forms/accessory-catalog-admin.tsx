@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -23,7 +25,11 @@ export function AccessoryCatalogAdmin({
   tableReady,
 }: AccessoryCatalogAdminProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function handleCreate(formData: FormData) {

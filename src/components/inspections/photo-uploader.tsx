@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
@@ -79,7 +81,11 @@ export function PhotoUploader({ inspectionId, photos, readOnly }: PhotoUploaderP
   const router = useRouter();
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [warning, setWarning] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);

@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError, announceSuccess } from "@/lib/ui/announce";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -43,7 +45,11 @@ export function InspectionEditForm({
   customerName,
 }: InspectionEditFormProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -52,6 +58,7 @@ export function InspectionEditForm({
       setError(result.error);
       return;
     }
+    announceSuccess("Inspección actualizada.");
     router.push(`/dashboard/inspecciones/${inspectionId}`);
     router.refresh();
   }

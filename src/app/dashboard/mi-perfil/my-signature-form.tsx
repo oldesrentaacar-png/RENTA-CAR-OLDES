@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -20,7 +22,11 @@ export function MySignatureForm({
   operatorName,
 }: MySignatureFormProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);

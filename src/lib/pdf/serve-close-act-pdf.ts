@@ -45,14 +45,29 @@ export async function serveCloseActPdfResponse(
   }
 
   try {
-    const returnDiagramUrl = await prepareReturnWireframe({
+    const vehicle = {
       vehicleType: pdfData.vehicleType,
       vehicleTypeSlug: pdfData.vehicleTypeSlug,
       vehicleTypeName: pdfData.vehicleTypeName,
       vehicleModel: pdfData.vehicleModel,
-      marks: pdfData.returnDamageMarks,
+    };
+    const [outDiagramUrl, returnDiagramUrl] = await Promise.all([
+      prepareReturnWireframe({
+        ...vehicle,
+        marks: pdfData.outDamageMarks,
+        phase: "OUT",
+      }),
+      prepareReturnWireframe({
+        ...vehicle,
+        marks: pdfData.returnDamageMarks,
+        phase: "IN",
+      }),
+    ]);
+    const buffer = await renderCloseActPdf({
+      ...pdfData,
+      outDiagramUrl,
+      returnDiagramUrl,
     });
-    const buffer = await renderCloseActPdf({ ...pdfData, returnDiagramUrl });
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {

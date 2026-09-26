@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -21,7 +23,11 @@ type FinanceDeleteButtonProps = {
 
 export function FinanceDeleteButton(props: FinanceDeleteButtonProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [pending, setPending] = useState(false);
 
   async function handleDelete() {

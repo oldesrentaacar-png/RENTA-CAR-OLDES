@@ -3260,33 +3260,45 @@ export async function getContractCloseActPdfData(contractId: string) {
         `${row.itemName}: ${row.checkOutStatus ?? "—"} → ${row.checkInStatus ?? "—"}`,
     );
 
-  const returnDamageMarks = (checkIn?.inspection_damage_marks ?? []).map(
-    (mark, index) => {
+  function toWireMarks(
+    rows: NonNullable<InspBundle["inspection_damage_marks"]>,
+    phase: "IN" | "OUT",
+  ) {
+    return rows.map((mark, index) => {
       const pathPoints = Array.isArray(mark.path_points)
         ? mark.path_points
-            .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+            .map((point) => ({ x: Number(point.x), y: Number(point.y) }))
             .filter(
-              (p) =>
-                Number.isFinite(p.x) &&
-                Number.isFinite(p.y) &&
-                p.x >= 0 &&
-                p.x <= 1 &&
-                p.y >= 0 &&
-                p.y <= 1,
+              (point) =>
+                Number.isFinite(point.x) &&
+                Number.isFinite(point.y) &&
+                point.x >= 0 &&
+                point.x <= 1 &&
+                point.y >= 0 &&
+                point.y <= 1,
             )
         : [];
       return {
         x: Number(mark.x),
         y: Number(mark.y),
         symbol: damageSymbol(mark.damage_type),
-        phase: "IN" as const,
+        phase,
         severity: mark.severity ?? "LOW",
         markNumber: Number(mark.mark_number ?? index + 1),
         pathPoints: pathPoints.length >= 2 ? pathPoints : undefined,
         damageType: mark.damage_type,
         description: mark.description?.trim() || null,
       };
-    },
+    });
+  }
+
+  const returnDamageMarks = toWireMarks(
+    checkIn?.inspection_damage_marks ?? [],
+    "IN",
+  );
+  const outDamageMarks = toWireMarks(
+    checkOut?.inspection_damage_marks ?? [],
+    "OUT",
   );
 
   const returnMarkLines = returnDamageMarks.map((mark) => {
@@ -3414,6 +3426,7 @@ export async function getContractCloseActPdfData(contractId: string) {
     vehicleTypeName: vehicleTypeRel?.name ?? null,
     vehicleModel: vehicleRel?.model ?? null,
     returnDamageMarks,
+    outDamageMarks,
     returnMarkLines,
     extraCharges,
     damageCharges,

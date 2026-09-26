@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -53,7 +55,11 @@ const DEPOSIT_STATUSES = Object.entries(DEPOSIT_STATUS_LABELS).map(
 
 export function IncomeForm({ income, options, redirectTo }: IncomeFormProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [type, setType] = useState<IncomeType>(income?.type ?? "RENTAL");
   const today = new Date().toISOString().slice(0, 10);
 

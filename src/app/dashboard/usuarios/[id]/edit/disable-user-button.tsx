@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -8,7 +10,11 @@ import { Button } from "@/components/ui/button";
 
 export function DisableUserButton({ userId }: { userId: string }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-3">

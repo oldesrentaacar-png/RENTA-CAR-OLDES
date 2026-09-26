@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { getInspection } from "@/app/dashboard/inspecciones/actions";
+import {
+  getCheckOutDamageMarksForReservation,
+  getInspection,
+} from "@/app/dashboard/inspecciones/actions";
 import { getDeliveryFlowForReservation } from "@/app/dashboard/contratos/actions";
 import { InspectionAccessoriesPanel } from "@/components/inspections/inspection-accessories-panel";
 import { PhotoUploader } from "@/components/inspections/photo-uploader";
@@ -35,6 +38,11 @@ export default async function InspeccionDetailPage({
 
   if (configured && result && !result.success) notFound();
   const inspection = result?.success ? result.data : null;
+
+  const priorDamageMarks =
+    configured && inspection?.type === "CHECK_IN"
+      ? await getCheckOutDamageMarksForReservation(inspection.reservation_id)
+      : [];
 
   const user = configured ? await getCurrentUser() : null;
   const canEdit = user
@@ -112,8 +120,15 @@ export default async function InspeccionDetailPage({
                 currentStepId={deliveryFlow.data.currentStepId}
               />
             ) : null}
-            <ScrollHint message="Deslice hacia abajo para fotos, kilometraje y observaciones." />
+            <ScrollHint
+              message={
+                accessoriesOnly
+                  ? "Verde es cómo salió. Marque en rojo solo el rayón nuevo."
+                  : "Deslice hacia abajo para las fotos de esta inspección."
+              }
+            />
 
+            {!accessoriesOnly ? (
             <Card>
               <CardHeader>
                 <CardTitle>Datos generales</CardTitle>
@@ -157,6 +172,7 @@ export default async function InspeccionDetailPage({
                 ) : null}
               </CardContent>
             </Card>
+            ) : null}
 
             {showAccessories ? (
             <Card id="accesorios">
@@ -178,6 +194,8 @@ export default async function InspeccionDetailPage({
                   vehicleModel={inspection.vehicleModel}
                   vehicleTypeSlug={inspection.vehicleTypeSlug}
                   vehicleTypeName={inspection.vehicleTypeName}
+                  priorDamageMarks={priorDamageMarks}
+                  newMarksInRed={inspection.type === "CHECK_IN"}
                 />
               </CardContent>
             </Card>

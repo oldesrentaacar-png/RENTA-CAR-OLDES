@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError, announceSuccess } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -20,7 +22,11 @@ export function ContractObservationsBox({
 }: ContractObservationsBoxProps) {
   const router = useRouter();
   const [value, setValue] = useState(notes);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -37,6 +43,7 @@ export function ContractObservationsBox({
       return;
     }
     setSaved(true);
+    announceSuccess("Observaciones guardadas.");
     router.refresh();
   }
 

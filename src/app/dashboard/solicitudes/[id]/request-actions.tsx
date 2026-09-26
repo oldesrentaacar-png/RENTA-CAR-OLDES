@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -51,7 +53,11 @@ function Step({
 
 export function RequestActions({ request }: { request: WebRequest }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [loading, setLoading] = useState<string | null>(null);
 
   const closed = ["REJECTED", "CONVERTED", "CANCELLED"].includes(request.status);

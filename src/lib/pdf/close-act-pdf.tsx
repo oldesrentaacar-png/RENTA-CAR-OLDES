@@ -19,7 +19,7 @@ import {
   machoteStyles,
 } from "@/lib/pdf/machote-box";
 
-export const CLOSE_ACT_PDF_VERSION = "2026-09-24-v4";
+export const CLOSE_ACT_PDF_VERSION = "2026-09-25-v5";
 
 export type CloseActAccessoryRow = {
   label: string;
@@ -57,7 +57,9 @@ export type CloseActPdfProps = {
   missingAccessories?: string[];
   noNewDamage: boolean;
   newDamageNotes?: string | null;
-  /** Carro con los rayones nuevos de la devolución ya dibujados. */
+  /** Carro de la salida, rayones anteriores en verde. */
+  outDiagramUrl?: string | null;
+  /** Carro al recibir, rayones nuevos en rojo. */
   returnDiagramUrl?: string | null;
   returnMarkLines?: string[];
   extraCharges: number;
@@ -166,11 +168,26 @@ const styles = StyleSheet.create({
   },
   mark: { fontSize: 8, fontFamily: "Helvetica-Bold", color: NAVY, width: 12 },
   checkLabel: { flex: 1, fontSize: 7, lineHeight: 1.25 },
+  pairRow: {
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 4,
+    paddingTop: 2,
+  },
+  pairCol: {
+    width: "49%",
+  },
+  diagramCaption: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+    textAlign: "center",
+    marginBottom: 2,
+  },
   returnDiagram: {
     width: "100%",
+    height: 340,
     objectFit: "contain",
-    marginTop: 2,
-    marginBottom: 2,
   },
   declaration: {
     fontSize: 7.5,
@@ -205,7 +222,9 @@ function FuelGauge({
   label: string;
   activeIndex: number;
 }) {
-  return <PdfFuelNeedleGauge label={label} activeIndex={activeIndex} width={200} />;
+  return (
+    <PdfFuelNeedleGauge label={label} activeIndex={activeIndex} width={250} />
+  );
 }
 
 function dash(value?: string | number | null): string {
@@ -356,20 +375,20 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
         </MachoteSection>
 
         <MachoteSection title="3. Nivel de combustible e inventario de accesorios">
-          <FuelGauge
-            label="NIVEL DE COMBUSTIBLE AL RECIBIR"
-            activeIndex={fuelLevelIndex(props.fuelInLabel)}
-          />
-          {props.fuelOutLabel ? (
-            <FuelGauge
-              label="NIVEL DE COMBUSTIBLE EN SALIDA"
-              activeIndex={fuelLevelIndex(props.fuelOutLabel)}
-            />
-          ) : null}
-          <Text style={styles.note}>
-            Combustible salida: {props.fuelOutLabel || "—"} · Combustible
-            retorno: {props.fuelInLabel || "—"}
-          </Text>
+          <View style={styles.pairRow}>
+            <View style={styles.pairCol}>
+              <FuelGauge
+                label="SALIDA — CÓMO SE ENTREGÓ"
+                activeIndex={fuelLevelIndex(props.fuelOutLabel)}
+              />
+            </View>
+            <View style={styles.pairCol}>
+              <FuelGauge
+                label="AL RECIBIR — CÓMO VUELVE"
+                activeIndex={fuelLevelIndex(props.fuelInLabel)}
+              />
+            </View>
+          </View>
           <Text style={styles.note}>
             Mismo nivel entregado en salida:{" "}
             {props.fuelSameLevel == null
@@ -421,15 +440,33 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
 
         <MachoteSection title="4. Inspección de carrocería e incidencias nuevas">
           <Text style={styles.note}>
-            El carro marca los rayones nuevos de la devolución. Leyenda: R =
+            Verde = cómo salió. Rojo = rayón o golpe nuevo al recibir. R =
             Rayón · G = Golpe · F = Faltante
           </Text>
-          {props.returnDiagramUrl ? (
-            // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
-            <Image src={props.returnDiagramUrl} style={styles.returnDiagram} />
-          ) : (
-            <Text style={styles.note}>Sin diagrama del vehículo.</Text>
-          )}
+          <View style={styles.pairRow}>
+            <View style={styles.pairCol}>
+              <Text style={[styles.diagramCaption, { color: "#15803d" }]}>
+                SALIDA
+              </Text>
+              {props.outDiagramUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+                <Image src={props.outDiagramUrl} style={styles.returnDiagram} />
+              ) : (
+                <Text style={styles.note}>Sin diagrama de salida.</Text>
+              )}
+            </View>
+            <View style={styles.pairCol}>
+              <Text style={[styles.diagramCaption, { color: "#dc2626" }]}>
+                AL RECIBIR
+              </Text>
+              {props.returnDiagramUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf
+                <Image src={props.returnDiagramUrl} style={styles.returnDiagram} />
+              ) : (
+                <Text style={styles.note}>Sin diagrama de recepción.</Text>
+              )}
+            </View>
+          </View>
           {(props.returnMarkLines?.length ?? 0) > 0 ? (
             <View style={{ paddingHorizontal: 6, paddingBottom: 4 }}>
               {props.returnMarkLines!.map((line, index) => (

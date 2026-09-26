@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError, announceSuccess } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -29,6 +31,8 @@ type InspectionAccessoriesPanelProps = {
   inspectionId: string;
   checklistItems: InspectionChecklistItem[];
   damageMarks: InspectionDamageMark[];
+  priorDamageMarks?: InspectionDamageMark[];
+  newMarksInRed?: boolean;
   generalNotes?: string | null;
   readOnly?: boolean;
   vehiclePhotoUrl?: string | null;
@@ -48,6 +52,8 @@ export function InspectionAccessoriesPanel({
   inspectionId,
   checklistItems,
   damageMarks,
+  priorDamageMarks = [],
+  newMarksInRed = false,
   generalNotes = "",
   readOnly,
   vehiclePhotoUrl,
@@ -69,7 +75,11 @@ export function InspectionAccessoriesPanel({
     damageMarksToDrafts(damageMarks),
   );
   const [notes, setNotes] = useState(generalNotes ?? "");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -117,6 +127,7 @@ export function InspectionAccessoriesPanel({
     }
 
     setSaved(true);
+    announceSuccess("Accesorios y observaciones guardados.");
     router.refresh();
   }
 
@@ -178,6 +189,8 @@ export function InspectionAccessoriesPanel({
         <DamageMapView
           marks={marks}
           onChange={setMarks}
+          referenceMarks={damageMarksToDrafts(priorDamageMarks)}
+          newMarksInRed={newMarksInRed}
           readOnly={readOnly}
           vehiclePhotoUrl={vehiclePhotoUrl}
           viewPhotos={viewPhotos}

@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -49,7 +51,11 @@ export function SettlementForm({
 }: SettlementFormProps) {
   const router = useRouter();
   const isEdit = Boolean(settlement);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [lookupMessage, setLookupMessage] = useState<string | null>(
     initialContract
       ? initialContract.isSubleased

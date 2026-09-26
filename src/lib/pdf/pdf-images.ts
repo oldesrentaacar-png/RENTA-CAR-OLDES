@@ -91,7 +91,13 @@ function damageMarkSvg(
  * coordinates as the inspection UI (x/y in 0–1 over the full image).
  * Avoids react-pdf absolute-position drift from objectFit/letterboxing.
  */
-function markStrokeColor(mark: WireframeDamageMark): string {
+function markStrokeColor(
+  mark: WireframeDamageMark,
+  colorBy: "severity" | "phase" = "severity",
+): string {
+  if (colorBy === "phase") {
+    return mark.phase === "OUT" ? "#15803d" : "#dc2626";
+  }
   const bySeverity =
     mark.severity === "HIGH"
       ? "#b91c1c"
@@ -139,7 +145,9 @@ function freehandStrokeSvg(
 export async function compositeDamageMarksOnWireframe(
   wireframeDataUrl: string,
   marks: WireframeDamageMark[],
+  options?: { colorBy?: "severity" | "phase" },
 ): Promise<string> {
+  const colorBy = options?.colorBy ?? "severity";
   const usable = marks.filter(
     (mark) =>
       Number.isFinite(mark.x) &&
@@ -171,7 +179,7 @@ export async function compositeDamageMarksOnWireframe(
           mark.pathPoints,
           width,
           height,
-          markStrokeColor(mark),
+          markStrokeColor(mark, colorBy),
         );
         if (!svg) return null;
         return {
@@ -189,7 +197,7 @@ export async function compositeDamageMarksOnWireframe(
     usable.map(async (mark) => {
       const cx = Math.round(mark.x * width);
       const cy = Math.round(mark.y * height);
-      const fill = markStrokeColor(mark);
+      const fill = markStrokeColor(mark, colorBy);
       const svg = damageMarkSvg(mark.symbol || "0", diameter, fill);
 
       const left = Math.max(
@@ -270,13 +278,14 @@ export async function prepareContractPdfImages<
   };
 }
 
-/** Car diagram for the close act: only the new return marks, same wireframe as the contract. */
+/** Close-act car: green = salida (OUT), red = rayón nuevo al recibir (IN). */
 export async function prepareReturnWireframe(input: {
   vehicleType?: string | null;
   vehicleTypeSlug?: string | null;
   vehicleTypeName?: string | null;
   vehicleModel?: string | null;
   marks?: WireframeDamageMark[];
+  phase?: "IN" | "OUT";
 }): Promise<string | null> {
   const wireframeType = resolveInspectionWireframe({
     category: input.vehicleType,
@@ -286,7 +295,10 @@ export async function prepareReturnWireframe(input: {
   });
   const base = await getInspectionWireframeDataUrl(wireframeType);
   if (!base) return null;
-  const marks = (input.marks ?? []).filter((mark) => mark.phase !== "OUT");
+  const phase = input.phase ?? "IN";
+  const marks = (input.marks ?? [])
+    .filter((mark) => (mark.phase ?? phase) === phase)
+    .map((mark) => ({ ...mark, phase }));
   if (marks.length === 0) return base;
-  return compositeDamageMarksOnWireframe(base, marks);
+  return compositeDamageMarksOnWireframe(base, marks, { colorBy: "phase" });
 }

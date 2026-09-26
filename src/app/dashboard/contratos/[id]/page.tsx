@@ -247,6 +247,18 @@ export default async function ContratoDetailPage({
           <SetupBanner />
         ) : contract ? (
           <>
+            {deliveryActive ? (
+              <p className="rounded-lg border border-border bg-white px-4 py-3 text-sm">
+                <strong>{contract.customerName}</strong>
+                {" · "}
+                {contract.vehicleLabel}
+                {" · "}
+                {contract.plate}
+                <span className="mt-1 block text-muted">
+                  En este paso solo está lo que hay que llenar aquí.
+                </span>
+              </p>
+            ) : (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
@@ -356,6 +368,7 @@ export default async function ContratoDetailPage({
                 />
               </CardContent>
             </Card>
+            )}
 
             {deliverySteps ? (
               <ContractDeliveryNavigator
@@ -365,7 +378,7 @@ export default async function ContratoDetailPage({
               />
             ) : null}
             {deliveryActive ? (
-              <ScrollHint message="Deslice hacia abajo para editar cobros, observaciones o abonos." />
+              <ScrollHint message="Si este paso sigue abajo, deslice. Aquí no se mezclan otros pasos." />
             ) : null}
 
             {showCobros ? (

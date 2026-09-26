@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -20,7 +22,11 @@ const KIND_OPTIONS = Object.entries(VENDOR_LEDGER_KIND_LABELS).map(
 
 export function VendorLedgerEntryForm({ vendorId }: VendorLedgerEntryFormProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const today = new Date().toISOString().slice(0, 10);
 
   async function handleSubmit(formData: FormData) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -43,7 +45,11 @@ export function ContractForm({
   catalogItems = [],
 }: ContractFormProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [startAt, setStartAt] = useState(toDatetimeLocalValue(reservation.start_at));
   const [endAt, setEndAt] = useState(toDatetimeLocalValue(reservation.end_at));
   const [agreedRate, setAgreedRate] = useState(String(reservation.agreed_rate));

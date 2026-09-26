@@ -50,6 +50,10 @@ export type DamageMarkDraft = {
 type DamageMap2DProps = {
   marks: DamageMarkDraft[];
   onChange: (marks: DamageMarkDraft[]) => void;
+  /** Marcas de la inspección anterior. Se ven en verde y no se editan. */
+  referenceMarks?: DamageMarkDraft[];
+  /** La inspección de hoy pinta en rojo, no en verde. */
+  newMarksInRed?: boolean;
   readOnly?: boolean;
   highlightOnly?: boolean;
   className?: string;
@@ -85,6 +89,8 @@ function pointsToSvg(points: DamagePathPoint[]): string {
 export function DamageMap2D({
   marks,
   onChange,
+  referenceMarks = [],
+  newMarksInRed = false,
   readOnly,
   highlightOnly,
   className,
@@ -226,7 +232,10 @@ export function DamageMap2D({
 
   const selected = selectedIndex != null ? marks[selectedIndex] : null;
   const diagramLocked = Boolean(wireframeTypeProp);
-  const liveColor = DAMAGE_SEVERITY_COLORS.LOW?.fill ?? "#16a34a";
+  const forceRed = newMarksInRed || highlightOnly || referenceMarks.length > 0;
+  const liveColor = forceRed
+    ? "#dc2626"
+    : (DAMAGE_SEVERITY_COLORS.LOW?.fill ?? "#16a34a");
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -334,6 +343,39 @@ export function DamageMap2D({
             draggable={false}
           />
 
+          {referenceMarks.length > 0 ? (
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {referenceMarks.map((mark, index) => {
+                if (!mark.pathPoints || mark.pathPoints.length < 2) return null;
+                return (
+                  <path
+                    key={`ref-stroke-${index}`}
+                    d={pointsToSvg(mark.pathPoints)}
+                    fill="none"
+                    stroke="#15803d"
+                    strokeWidth={1.35}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
+            </svg>
+          ) : null}
+          {referenceMarks.map((mark, index) => (
+            <span
+              key={`ref-pin-${index}`}
+              className="pointer-events-none absolute flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-emerald-700 px-1 text-[10px] font-bold text-white shadow"
+              style={{ left: `${mark.x * 100}%`, top: `${mark.y * 100}%` }}
+              title="Rayón de la salida"
+            >
+              {mark.markNumber}
+            </span>
+          ))}
           <svg
             className="pointer-events-none absolute inset-0 h-full w-full"
             viewBox="0 0 100 100"
@@ -350,11 +392,7 @@ export function DamageMap2D({
                   key={`stroke-${mark.markNumber}-${index}`}
                   d={pointsToSvg(mark.pathPoints)}
                   fill="none"
-                  stroke={
-                    highlightOnly
-                      ? "#dc2626"
-                      : severityColor.fill
-                  }
+                  stroke={forceRed ? "#dc2626" : severityColor.fill}
                   strokeWidth={isSelected ? 1.8 : 1.35}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -399,7 +437,7 @@ export function DamageMap2D({
                   style={{
                     left: `${mark.x * 100}%`,
                     top: `${mark.y * 100}%`,
-                    backgroundColor: severityColor.fill,
+                    backgroundColor: forceRed ? "#dc2626" : severityColor.fill,
                   }}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -426,9 +464,7 @@ export function DamageMap2D({
                 style={{
                   left: `${mark.x * 100}%`,
                   top: `${mark.y * 100}%`,
-                  backgroundColor: highlightOnly
-                    ? undefined
-                    : severityColor.fill,
+                  backgroundColor: forceRed ? "#dc2626" : severityColor.fill,
                   borderColor: isSelected ? "#1d4ed8" : "#ffffff",
                 }}
                 onClick={(event) => {
@@ -447,6 +483,9 @@ export function DamageMap2D({
           })}
         </div>
         <p className="mt-2 text-center text-xs text-slate-600">
+          {referenceMarks.length > 0 || newMarksInRed
+            ? "Verde = cómo salió. Rojo = rayón nuevo de hoy. "
+            : null}
           {wireframeLabel} · Golpe/Rayón/Faltante = clic (pin).{" "}
           <strong>Libre = dibujar a mano alzada</strong> sobre el diagrama.
           {!diagramLocked ? (

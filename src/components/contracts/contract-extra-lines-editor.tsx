@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -36,7 +38,11 @@ export function ContractExtraLinesEditor({
     draftsFromExtraItems(initialLines),
   );
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [ok, setOk] = useState<string | null>(null);
 
   const previewTotal = useMemo(

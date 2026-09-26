@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError, announceSuccess } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -54,7 +56,11 @@ export function ContractReceiptsSection({
   total,
 }: ContractReceiptsSectionProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [message, setMessage] = useState<string | null>(null);
   const [showRefundForm, setShowRefundForm] = useState(false);
   const [voidingId, setVoidingId] = useState<string | null>(null);
@@ -67,12 +73,19 @@ export function ContractReceiptsSection({
     formData.set("createIncome", "true");
     formData.set("incomeType", "RENTAL");
 
-    const result = await createPaymentReceipt(formData);
+    let result;
+    try {
+      result = await createPaymentReceipt(formData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo registrar el abono. Revise el monto e intente de nuevo.");
+      return;
+    }
     if (!result.success) {
       setError(result.error);
       return;
     }
     setMessage(`Recibo ${result.data.code} registrado.`);
+    announceSuccess(`Recibo ${result.data.code} registrado.`);
     router.refresh();
   }
 
@@ -82,19 +95,32 @@ export function ContractReceiptsSection({
     formData.set("contractId", contractId);
     formData.set("customerId", customerId);
 
-    const result = await createPaymentRefund(formData);
+    let result;
+    try {
+      result = await createPaymentRefund(formData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo registrar la devolución. Intente de nuevo.");
+      return;
+    }
     if (!result.success) {
       setError(result.error);
       return;
     }
     setMessage(`Devolución ${result.data.code} registrada.`);
+    announceSuccess(`Devolución ${result.data.code} registrada.`);
     setShowRefundForm(false);
     router.refresh();
   }
 
   async function handleWhatsApp(receiptId: string) {
     setError(null);
-    const result = await getReceiptWhatsAppLink(receiptId);
+    let result;
+    try {
+      result = await getReceiptWhatsAppLink(receiptId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo abrir WhatsApp. Intente de nuevo.");
+      return;
+    }
     if (!result.success) {
       setError(result.error);
       return;
@@ -109,13 +135,21 @@ export function ContractReceiptsSection({
     if (!ok) return;
     setVoidingId(receipt.id);
     setError(null);
-    const result = await voidPaymentReceipt(receipt.id);
-    setVoidingId(null);
+    let result;
+    try {
+      result = await voidPaymentReceipt(receipt.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo anular el recibo. Intente de nuevo.");
+      return;
+    } finally {
+      setVoidingId(null);
+    }
     if (!result.success) {
       setError(result.error);
       return;
     }
     setMessage(`Recibo ${receipt.code} anulado.`);
+    announceSuccess(`Recibo ${receipt.code} anulado.`);
     router.refresh();
   }
 

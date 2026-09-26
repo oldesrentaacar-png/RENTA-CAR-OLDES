@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useMemo, useState, useTransition } from "react";
 import { Download } from "lucide-react";
 
@@ -60,7 +62,11 @@ export function ReportesClient({
   const [to, setTo] = useState(initialTo);
   const [vehicleId, setVehicleId] = useState(initialVehicleId);
   const [category, setCategory] = useState(initialCategory);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [pending, startTransition] = useTransition();
 
   const applyFilters = () => {

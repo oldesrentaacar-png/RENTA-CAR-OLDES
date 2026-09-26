@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -20,7 +22,11 @@ export function RolePermissionsForm({
 }: RolePermissionsFormProps) {
   const router = useRouter();
   const [selected, setSelected] = useState(new Set(selectedPermissionIds));
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
 
   const grouped = useMemo(() => {
     const map = new Map<string, Permission[]>();

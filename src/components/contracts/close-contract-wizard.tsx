@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -63,7 +65,11 @@ export function CloseContractWizard({
   const { contract, checkOut, checkIn, accessoryComparison, extraDayGraceHours } =
     context;
 
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [closing, setClosing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
@@ -686,8 +692,26 @@ export function CloseContractWizard({
                         <strong>Anterior / Salir</strong>; no queda trabado.
                       </p>
                     </div>
+                    {checkOut ? (
+                      <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-950">
+                        <p className="text-xs font-semibold uppercase tracking-wide">
+                          Así salió — no tiene que buscar el contrato
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold">
+                          {checkOut.fuel_level
+                            ? FUEL_LEVEL_LABELS[checkOut.fuel_level] ??
+                              checkOut.fuel_level
+                            : "Sin combustible de salida"}
+                        </p>
+                        <p className="text-sm">
+                          {checkOut.mileage != null
+                            ? `${checkOut.mileage.toLocaleString("es-SV")} km al entregar`
+                            : "Sin kilometraje de salida"}
+                        </p>
+                      </div>
+                    ) : null}
                     <p className="text-muted">
-                      Registre el kilometraje y el combustible. Al pulsar{" "}
+                      Escriba cómo lo está recibiendo ahora. Al pulsar{" "}
                       <strong>Siguiente</strong> aparece la{" "}
                       <strong>firma del cliente</strong> en esta misma pantalla.
                     </p>

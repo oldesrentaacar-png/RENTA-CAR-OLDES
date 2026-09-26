@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 type DamageMapViewProps = {
   marks: DamageMarkDraft[];
   onChange: (marks: DamageMarkDraft[]) => void;
+  referenceMarks?: DamageMarkDraft[];
+  newMarksInRed?: boolean;
   readOnly?: boolean;
   highlightOnly?: boolean;
   className?: string;
@@ -34,6 +36,8 @@ type DamageMapViewProps = {
 export function DamageMapView({
   marks,
   onChange,
+  referenceMarks,
+  newMarksInRed,
   readOnly,
   highlightOnly,
   className,
@@ -56,7 +60,9 @@ export function DamageMapView({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
-          Esquema del vehículo — marque rayones / golpes / faltantes
+          {(referenceMarks?.length ?? 0) > 0 || newMarksInRed
+            ? "Verde = cómo salió. Rojo = lo que marca hoy."
+            : "Esquema del vehículo — marque rayones / golpes / faltantes"}
         </p>
         <Button
           type="button"
@@ -81,6 +87,8 @@ export function DamageMapView({
       <DamageMap2D
         marks={marks}
         onChange={onChange}
+        referenceMarks={referenceMarks}
+        newMarksInRed={newMarksInRed}
         readOnly={readOnly}
         highlightOnly={highlightOnly}
         viewPhotos={viewPhotos}

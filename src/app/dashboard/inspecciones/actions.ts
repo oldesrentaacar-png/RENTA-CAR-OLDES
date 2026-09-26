@@ -1246,3 +1246,31 @@ export async function getPrefillFromReservation(
     return actionError(toUserMessage(error));
   }
 }
+
+export async function getCheckOutDamageMarksForReservation(
+  reservationId: string,
+) {
+  if (!reservationId || !isSupabaseConfigured()) return [];
+  try {
+    await assertPermission("inspections.view");
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("inspections")
+      .select("inspection_damage_marks(*)")
+      .eq("reservation_id", reservationId)
+      .eq("type", "CHECK_OUT")
+      .order("inspection_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return [];
+    const rows =
+      (
+        data as {
+          inspection_damage_marks?: Parameters<typeof mapInspectionDamageRow>[0][];
+        }
+      ).inspection_damage_marks ?? [];
+    return rows.map((row) => mapInspectionDamageRow(row));
+  } catch {
+    return [];
+  }
+}

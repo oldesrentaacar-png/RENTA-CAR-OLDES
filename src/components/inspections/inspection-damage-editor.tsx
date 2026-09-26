@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -44,7 +46,11 @@ export function InspectionDamageEditor({
   const [marks, setMarks] = useState<DamageMarkDraft[]>(() =>
     damageMarksToDrafts(initialMarks),
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {

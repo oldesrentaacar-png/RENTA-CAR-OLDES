@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -17,7 +19,11 @@ export function QuoteListActions({
 }) {
   const router = useRouter();
   const { has } = usePermissions();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [pending, startTransition] = useTransition();
 
   const canEdit = has("quotes.edit");

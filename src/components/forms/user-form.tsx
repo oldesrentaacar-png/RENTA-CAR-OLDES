@@ -1,5 +1,7 @@
 "use client";
 
+import { announceError } from "@/lib/ui/announce";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -20,7 +22,11 @@ type UserFormProps = {
 
 export function UserForm({ user, roles, redirectTo }: UserFormProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const setError = (value: string | null) => {
+    setErrorState(value);
+    if (value) announceError(value);
+  };
   const [signatureUrl, setSignatureUrl] = useState(user?.signature_url ?? "");
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const isEdit = Boolean(user);
