@@ -19,7 +19,7 @@ import {
   machoteStyles,
 } from "@/lib/pdf/machote-box";
 
-export const CLOSE_ACT_PDF_VERSION = "2026-09-25-v5";
+export const CLOSE_ACT_PDF_VERSION = "2026-09-25-v6";
 
 export type CloseActAccessoryRow = {
   label: string;
@@ -166,8 +166,8 @@ const styles = StyleSheet.create({
     gap: 4,
     alignItems: "flex-start",
   },
-  mark: { fontSize: 8, fontFamily: "Helvetica-Bold", color: NAVY, width: 12 },
-  checkLabel: { flex: 1, fontSize: 7, lineHeight: 1.25 },
+  mark: { fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY },
+  checkLabel: { flex: 1, fontSize: 7, lineHeight: 1.2 },
   pairRow: {
     flexDirection: "row",
     gap: 6,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   returnDiagram: {
     width: "100%",
-    height: 340,
+    height: 230,
     objectFit: "contain",
   },
   declaration: {
@@ -200,8 +200,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: LINE,
-    padding: 8,
-    minHeight: 90,
+    padding: 6,
   },
   footer: {
     position: "absolute",
@@ -438,6 +437,7 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
           ) : null}
         </MachoteSection>
 
+        <View wrap={false}>
         <MachoteSection title="4. Inspección de carrocería e incidencias nuevas">
           <Text style={styles.note}>
             Verde = cómo salió. Rojo = rayón o golpe nuevo al recibir. R =
@@ -490,7 +490,9 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
             {props.newDamageNotes?.trim() || props.observations?.trim() || " "}
           </Text>
         </MachoteSection>
+        </View>
 
+        <View wrap={false}>
         <MachoteSection title="5. Balance financiero de cierre">
           <MachoteGrid>
             <MachoteField
@@ -573,7 +575,9 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
             </Text>
           </View>
         </MachoteSection>
+        </View>
 
+        <View wrap={false}>
         <MachoteSection title="6. Declaración de conformidad">
           <Text style={styles.declaration}>
             Por medio del presente documento, el ARRENDATARIO declara la
@@ -596,7 +600,7 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
               ? "☑ El cliente firmó la declaración de conformidad al cierre."
               : "☐ Pendiente firma de conformidad del cliente al cierre."}
           </Text>
-          <View style={styles.signRow}>
+          <View style={styles.signRow} wrap={false}>
             <View style={styles.signBox}>
               <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold" }}>
                 POR LA EMPRESA (RECEPTOR)
@@ -662,6 +666,7 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
             </View>
           </View>
         </MachoteSection>
+        </View>
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
