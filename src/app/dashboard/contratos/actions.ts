@@ -3330,12 +3330,16 @@ export async function getContractCloseActPdfData(contractId: string) {
   );
 
   const returnMarkLines = returnDamageMarks.map((mark) => {
+    const isFreehand = Boolean(mark.pathPoints && mark.pathPoints.length >= 2);
+    const note = mark.description?.trim();
+    if (isFreehand) {
+      return note ? `Trazo libre — ${note}` : "Trazo libre";
+    }
     const typeLabel =
       DAMAGE_TYPE_LABELS[mark.damageType] ?? mark.damageType ?? "Daño";
     const severityLabel =
       DAMAGE_SEVERITY_LABELS[mark.severity ?? "LOW"] ?? mark.severity ?? "Leve";
-    const note = mark.description?.trim();
-    return `#${mark.markNumber} ${mark.symbol} ${typeLabel} · ${severityLabel}${
+    return `${mark.symbol} ${typeLabel} · ${severityLabel}${
       note ? ` — ${note}` : ""
     }`;
   });

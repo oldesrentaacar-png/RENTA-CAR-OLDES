@@ -878,7 +878,7 @@ export async function getQuoteShareDefaults(
     const supabase = await createClient();
     const { data: quote, error } = await supabase
       .from("quotes")
-      .select("customers(first_name, last_name, email)")
+      .select("customers(first_name, last_name, email, company_name, customer_type)")
       .eq("id", quoteId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -911,7 +911,12 @@ export async function getQuoteShareDefaults(
 
     return actionSuccess({
       customerEmail: customer.email?.trim() ?? "",
-      customerName: `${customer.first_name} ${customer.last_name}`.trim(),
+      customerName: getCustomerDisplayName({
+        customer_type: (customer as { customer_type?: "PERSON" | "COMPANY" | null }).customer_type ?? "PERSON",
+        first_name: customer.first_name,
+        last_name: customer.last_name,
+        company_name: (customer as { company_name?: string | null }).company_name ?? null,
+      }),
     });
   } catch (error) {
     return actionError(toUserMessage(error));
@@ -992,7 +997,12 @@ export async function getQuoteWhatsAppLink(
     }
 
     const message = buildQuoteWhatsAppMessage({
-      customerName: `${customer.first_name} ${customer.last_name}`.trim(),
+      customerName: getCustomerDisplayName({
+        customer_type: (customer as { customer_type?: "PERSON" | "COMPANY" | null }).customer_type ?? "PERSON",
+        first_name: customer.first_name,
+        last_name: customer.last_name,
+        company_name: (customer as { company_name?: string | null }).company_name ?? null,
+      }),
       quoteCode: q.code,
       vehicleLabel:
         vehicleTypeLabelFromJoin(firstRelation(q.vehicle_types), "es") ??

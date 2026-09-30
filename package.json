@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "audit:regressions": "node scripts/audit-sep30-regressions.cjs",
     "smoke:api": "node scripts/smoke-public-api.mjs",
     "db:migrate": "node --env-file=.env.local scripts/apply-migrations.mjs",
     "admin:create": "node --env-file=.env.local scripts/create-admin.mjs"

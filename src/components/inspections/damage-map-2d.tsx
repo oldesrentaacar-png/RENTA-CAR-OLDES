@@ -366,16 +366,31 @@ export function DamageMap2D({
               })}
             </svg>
           ) : null}
-          {referenceMarks.map((mark, index) => (
-            <span
-              key={`ref-pin-${index}`}
-              className="pointer-events-none absolute flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-emerald-700 px-1 text-[10px] font-bold text-white shadow"
-              style={{ left: `${mark.x * 100}%`, top: `${mark.y * 100}%` }}
-              title="Rayón de la salida"
-            >
-              {mark.markNumber}
-            </span>
-          ))}
+          {referenceMarks.map((mark, index) => {
+            const refFreehand = Boolean(
+              mark.pathPoints && mark.pathPoints.length >= 2,
+            );
+            if (refFreehand) {
+              return (
+                <span
+                  key={`ref-free-${index}`}
+                  className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-emerald-700 shadow"
+                  style={{ left: `${mark.x * 100}%`, top: `${mark.y * 100}%` }}
+                  title="Trazo libre de la salida"
+                />
+              );
+            }
+            return (
+              <span
+                key={`ref-pin-${index}`}
+                className="pointer-events-none absolute flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-emerald-700 px-1 text-[10px] font-bold text-white shadow"
+                style={{ left: `${mark.x * 100}%`, top: `${mark.y * 100}%` }}
+                title="Rayón de la salida"
+              >
+                {panelDamageGlyph(mark.damageType)}
+              </span>
+            );
+          })}
           <svg
             className="pointer-events-none absolute inset-0 h-full w-full"
             viewBox="0 0 100 100"

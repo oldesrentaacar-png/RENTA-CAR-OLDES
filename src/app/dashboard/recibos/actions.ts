@@ -27,6 +27,7 @@ import type { PaymentMethod, PaymentReceipt } from "@/types/database";
 import type { PaginatedResult } from "@/types/api";
 import type { PaymentReceiptPdfProps } from "@/lib/pdf/payment-receipt-pdf";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getCustomerDisplayName } from "@/lib/customers";
 
 function parseReceiptForm(formData: FormData) {
   return {
@@ -547,7 +548,7 @@ export async function getReceiptWhatsAppLink(
     const { data, error } = await supabase
       .from("payment_receipts")
       .select(
-        "code, amount, concept, receipt_kind, customers(first_name, last_name, phone, whatsapp)",
+        "code, amount, concept, receipt_kind, customers(first_name, last_name, phone, whatsapp, company_name, customer_type)",
       )
       .eq("id", id)
       .is("deleted_at", null)
@@ -567,12 +568,16 @@ export async function getReceiptWhatsAppLink(
             last_name: string;
             phone: string | null;
             whatsapp: string | null;
+            company_name: string | null;
+            customer_type: "PERSON" | "COMPANY" | null;
           }
         | Array<{
             first_name: string;
             last_name: string;
             phone: string | null;
             whatsapp: string | null;
+            company_name: string | null;
+            customer_type: "PERSON" | "COMPANY" | null;
           }>;
     };
 
@@ -591,7 +596,12 @@ export async function getReceiptWhatsAppLink(
     const pdfUrl = buildReceiptPdfShareUrl(id);
 
     const message = buildPaymentReceiptWhatsAppMessage({
-      customerName: `${customer.first_name} ${customer.last_name}`.trim(),
+      customerName: getCustomerDisplayName({
+        customer_type: customer.customer_type ?? "PERSON",
+        first_name: customer.first_name,
+        last_name: customer.last_name,
+        company_name: customer.company_name,
+      }),
       receiptCode: row.code,
       amountLabel: formatMoney(row.amount),
       concept: row.concept,
@@ -619,7 +629,7 @@ export async function getPaymentReceiptPdfData(
   const { data } = await supabase
     .from("payment_receipts")
     .select(
-      "*, customers(first_name, last_name, phone, identification, dui, passport), contracts(code, total, amount_paid, vehicles(brand, model, plate))",
+      "*, customers(first_name, last_name, phone, identification, dui, passport, company_name, customer_type), contracts(code, total, amount_paid, vehicles(brand, model, plate))",
     )
     .eq("id", receiptId)
     .is("deleted_at", null)
@@ -726,7 +736,12 @@ export async function getPaymentReceiptPdfData(
     contactPhone: contact.businessWhatsapp || contact.businessPhone,
     receiptCode: row.code,
     issuedAtLabel: formatAppDate(row.issued_at),
-    customerName: `${row.customers.first_name} ${row.customers.last_name}`,
+    customerName: getCustomerDisplayName({
+      customer_type: (row.customers as { customer_type?: "PERSON" | "COMPANY" | null }).customer_type ?? "PERSON",
+      first_name: row.customers.first_name,
+      last_name: row.customers.last_name,
+      company_name: (row.customers as { company_name?: string | null }).company_name ?? null,
+    }),
     customerPhone: row.customers.phone,
     customerIdentification: idDoc,
     concept: row.concept,

@@ -15,6 +15,7 @@ import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { firstRelation } from "@/lib/validation/form-helpers";
 import { monthFilterSchema, settlementSchema } from "@/lib/validation/settlement";
 import type { Contract, MonthlySettlement, Vendor } from "@/types/database";
+import { getCustomerDisplayName } from "@/lib/customers";
 
 export type SettlementListResult = {
   items: MonthlySettlement[];
@@ -298,10 +299,14 @@ type ContractLookupRow = Contract & {
 function mapContractLookup(raw: ContractLookupRow): ContractLookupResult {
   const customer = firstRelation(raw.customers);
   const vehicle = firstRelation(raw.vehicles);
-  const customerName =
-    customer?.customer_type === "COMPANY" && customer.company_name
-      ? customer.company_name
-      : `${customer?.first_name ?? ""} ${customer?.last_name ?? ""}`.trim();
+  const customerName = customer
+    ? getCustomerDisplayName({
+        customer_type: (customer.customer_type as "PERSON" | "COMPANY" | null) ?? "PERSON",
+        first_name: customer.first_name ?? "",
+        last_name: customer.last_name ?? "",
+        company_name: customer.company_name ?? null,
+      })
+    : "";
   const vehicleLabel = formatVehicleLabel(vehicle);
   const isSubleased =
     String(vehicle?.ownership_type ?? "").toUpperCase() === "SUBLEASED";

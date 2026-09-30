@@ -430,7 +430,7 @@ export async function getReservationOptionsForInspection(): Promise<
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("reservations")
-      .select("id, code, customer_id, vehicle_id, customers(first_name, last_name), vehicles(brand, model, year, plate)")
+      .select("id, code, customer_id, vehicle_id, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate)")
       .is("deleted_at", null)
       .in("status", ["CONFIRMED", "ACTIVE", "COMPLETED"])
       .order("start_at", { ascending: false })
@@ -445,20 +445,36 @@ export async function getReservationOptionsForInspection(): Promise<
         customer_id: string;
         vehicle_id: string;
         customers:
-          | { first_name: string; last_name: string }
-          | Array<{ first_name: string; last_name: string }>;
+          | {
+              first_name: string;
+              last_name: string;
+              company_name: string | null;
+              customer_type: "PERSON" | "COMPANY" | null;
+            }
+          | Array<{
+              first_name: string;
+              last_name: string;
+              company_name: string | null;
+              customer_type: "PERSON" | "COMPANY" | null;
+            }>;
         vehicles:
           | { brand: string; model: string; year: number; plate: string }
           | Array<{ brand: string; model: string; year: number; plate: string }>;
       };
       const customer = Array.isArray(r.customers) ? r.customers[0] : r.customers;
       const vehicle = Array.isArray(r.vehicles) ? r.vehicles[0] : r.vehicles;
+      const customerLabel = getCustomerDisplayName({
+        customer_type: customer.customer_type ?? "PERSON",
+        first_name: customer.first_name,
+        last_name: customer.last_name,
+        company_name: customer.company_name,
+      });
       return {
         id: r.id,
         code: r.code,
         customerId: r.customer_id,
         vehicleId: r.vehicle_id,
-        label: `${r.code} — ${customer.first_name} ${customer.last_name} · ${formatVehicleLabel(vehicle)}`,
+        label: `${r.code} — ${customerLabel} · ${formatVehicleLabel(vehicle)}`,
       };
     });
 
