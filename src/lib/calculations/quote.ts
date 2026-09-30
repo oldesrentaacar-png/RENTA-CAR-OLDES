@@ -269,3 +269,20 @@ export function deriveReservationPricingFromQuote(input: {
     extraLines,
   };
 }
+
+/**
+ * Si la reserva nace de una cotización, el total del PDF (con descuento)
+ * manda y no se puede subir al recalcular por líneas sueltas.
+ */
+export function capTotalToQuote(
+  pretaxTotal: MoneyInput,
+  quoteTotal: MoneyInput | null | undefined,
+): number {
+  const pretax = parseMoneyInput(pretaxTotal);
+  if (quoteTotal === null || quoteTotal === undefined || quoteTotal === "") {
+    return pretax;
+  }
+  const capped = parseMoneyInput(quoteTotal);
+  if (!Number.isFinite(capped) || capped < 0) return pretax;
+  return pretax > capped ? capped : pretax;
+}

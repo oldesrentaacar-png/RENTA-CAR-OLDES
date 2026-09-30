@@ -4,7 +4,7 @@ import { announceError } from "@/lib/ui/announce";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   createReservation,
@@ -248,6 +248,12 @@ export function ReservationForm({
     taxRate,
   ]);
 
+  // Cotización → reserva: el efectivo debe cuadrar con el total del PDF.
+  useEffect(() => {
+    if (!fromQuote || !preview) return;
+    setCashAmount(String(preview.totalWithIva));
+  }, [fromQuote, preview?.totalWithIva]);
+
   async function handleSubmit(formData: FormData) {
     setError(null);
     const computed = preview
@@ -319,10 +325,9 @@ export function ReservationForm({
 
       {fromQuote ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950">
-          Datos heredados de la cotización{" "}
-          <strong>{defaults?.quoteCode ?? ""}</strong>. Complete o ajuste{" "}
-          <strong>Seguro</strong>, <strong>Costos adicionales</strong> e{" "}
-          <strong>IVA</strong> si aplica. El total se recalcula solo.
+          Datos de la cotización{" "}
+          <strong>{defaults?.quoteCode ?? ""}</strong>. El total del PDF (con
+          descuento) se respeta al crear la reserva.
         </div>
       ) : (
         <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">

@@ -7,19 +7,16 @@ import { cn } from "@/lib/utils";
 
 export type SignaturePadProps = {
   onConfirm: (dataUrl: string) => void;
-  /**
-   * Aviso opcional del borrador (hay trazo / se limpió).
-   * NO debe usarse para “cerrar” la firma: el cliente necesita
-   * varios trazos y solo confirma con el botón Confirmar firma.
-   */
-  onDraftChange?: (dataUrl: string | null) => void;
   disabled?: boolean;
   className?: string;
 };
 
+/**
+ * Firma multi-trazo global (entrega, cierre, pagaré, perfil, usuarios).
+ * Solo “Confirmar firma” entrega el dataURL — soltar el dedo NUNCA cierra la firma.
+ */
 export function SignaturePad({
   onConfirm,
-  onDraftChange,
   disabled,
   className,
 }: SignaturePadProps) {
@@ -34,7 +31,6 @@ export function SignaturePad({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // Bitmap fijo; el CSS escala. Más alto = más fácil con el dedo.
     canvas.width = 720;
     canvas.height = 280;
     ctx.fillStyle = "#ffffff";
@@ -68,8 +64,6 @@ export function SignaturePad({
   const endStroke = useCallback(() => {
     drawingRef.current = false;
     lastPointRef.current = null;
-    // Solo avisar que hay borrador. Nunca “bloquear” la firma aquí:
-    // el cliente suele levantar el dedo entre letras.
   }, []);
 
   const onPointerDown = useCallback(
@@ -91,7 +85,6 @@ export function SignaturePad({
       lastPointRef.current = point;
       ctx.beginPath();
       ctx.moveTo(point.x, point.y);
-      // Punto mínimo para que un toque cuente como trazo.
       ctx.lineTo(point.x + 0.01, point.y + 0.01);
       ctx.stroke();
       hasStrokeRef.current = true;
@@ -141,16 +134,13 @@ export function SignaturePad({
     lastPointRef.current = null;
     drawingRef.current = false;
     setHasStroke(false);
-    onDraftChange?.(null);
-  }, [onDraftChange, prepareCanvas]);
+  }, [prepareCanvas]);
 
   const confirm = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !hasStrokeRef.current || disabled) return;
-    const dataUrl = canvas.toDataURL("image/png");
-    onDraftChange?.(dataUrl);
-    onConfirm(dataUrl);
-  }, [disabled, onConfirm, onDraftChange]);
+    onConfirm(canvas.toDataURL("image/png"));
+  }, [disabled, onConfirm]);
 
   return (
     <div className={cn("space-y-3", className)}>

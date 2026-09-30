@@ -13,7 +13,7 @@ import {
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage, isMissingRelationError } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
-import { calculateReservationTotal, deriveReservationPricingFromQuote } from "@/lib/calculations/quote";
+import { calculateReservationTotal, deriveReservationPricingFromQuote, capTotalToQuote } from "@/lib/calculations/quote";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { parseMoneyInput } from "@/lib/money";
@@ -357,10 +357,7 @@ export async function createReservation(
         .select("total")
         .eq("id", quoteIdRaw)
         .maybeSingle();
-      const quoteTotal = Number(quoteRow?.total ?? NaN);
-      if (Number.isFinite(quoteTotal) && quoteTotal >= 0 && pretaxTotal > quoteTotal) {
-        pretaxTotal = quoteTotal;
-      }
+      pretaxTotal = capTotalToQuote(pretaxTotal, quoteRow?.total);
     }
     const ivaTotals = computeOptionalIvaTotals({
       pretaxTotal,
@@ -834,7 +831,7 @@ export async function updateReservation(
       const { data: current, error: currentError } = await supabaseForRead
         .from("reservations")
         .select(
-          "start_at, end_at, agreed_rate, insurance, additional_costs, courtesy_amount, apply_iva, tax_rate",
+          "start_at, end_at, agreed_rate, insurance, additional_costs, courtesy_amount, apply_iva, tax_rate, quote_id",
         )
         .eq("id", id)
         .is("deleted_at", null)
@@ -852,6 +849,7 @@ export async function updateReservation(
         courtesy_amount?: number;
         apply_iva: boolean;
         tax_rate: number;
+        quote_id?: string | null;
       };
 
       const pretax = calculateReservationTotal({
@@ -874,6 +872,15 @@ export async function updateReservation(
             ? parsed.data.courtesyAmount
             : Number(currentRow.courtesy_amount ?? 0),
       });
+      let pretaxTotal = pretax.total;
+      if (currentRow.quote_id) {
+        const { data: quoteRow } = await supabaseForRead
+          .from("quotes")
+          .select("total")
+          .eq("id", currentRow.quote_id)
+          .maybeSingle();
+        pretaxTotal = capTotalToQuote(pretaxTotal, quoteRow?.total);
+      }
       const applyIva =
         parsed.data.applyIva !== undefined
           ? Boolean(parsed.data.applyIva)
@@ -883,7 +890,7 @@ export async function updateReservation(
           ? parsed.data.taxRate
           : currentRow.tax_rate || 0.13;
       const ivaTotals = computeOptionalIvaTotals({
-        pretaxTotal: pretax.total,
+        pretaxTotal,
         applyIva,
         taxRate,
       });
