@@ -22,7 +22,9 @@ import {
 import { DamageMapView } from "@/components/inspections/damage-map-view";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { FUEL_LEVEL_LABELS } from "@/lib/inspections/defaults";
 import type {
+  FuelLevel,
   InspectionChecklistItem,
   InspectionDamageMark,
 } from "@/types/database";
@@ -43,6 +45,9 @@ type InspectionAccessoriesPanelProps = {
   vehicleModel?: string | null;
   vehicleTypeSlug?: string | null;
   vehicleTypeName?: string | null;
+  /** Kilometraje de salida — se muestra junto al inventario. */
+  mileage?: number | null;
+  fuelLevel?: FuelLevel | null;
 };
 
 /**
@@ -62,6 +67,8 @@ export function InspectionAccessoriesPanel({
   vehicleModel,
   vehicleTypeSlug,
   vehicleTypeName,
+  mileage = null,
+  fuelLevel = null,
 }: InspectionAccessoriesPanelProps) {
   const router = useRouter();
   const [drafts, setDrafts] = useState<ChecklistItemDraft[]>(() =>
@@ -167,17 +174,48 @@ export function InspectionAccessoriesPanel({
         )}
       </div>
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-foreground">
-          Accesorios / inventario
-        </h3>
-        <ChecklistForm
-          inspectionId={inspectionId}
-          items={checklistItems}
-          readOnly={readOnly}
-          hideSaveButton
-          onDraftsChange={setDrafts}
-        />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_14rem]">
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground">
+            Accesorios / inventario
+          </h3>
+          <ChecklistForm
+            inspectionId={inspectionId}
+            items={checklistItems}
+            readOnly={readOnly}
+            hideSaveButton
+            onDraftsChange={setDrafts}
+          />
+        </div>
+        <aside className="h-fit space-y-3 rounded-xl border-2 border-brand/40 bg-brand/5 p-4">
+          <h3 className="text-sm font-semibold text-foreground">
+            Salida del vehículo
+          </h3>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">
+              Kilometraje de salida
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+              {mileage != null ? mileage.toLocaleString("es-SV") : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">
+              Combustible
+            </p>
+            <p className="mt-1 text-sm font-medium text-foreground">
+              {fuelLevel ? FUEL_LEVEL_LABELS[fuelLevel] : "—"}
+            </p>
+          </div>
+          {!readOnly ? (
+            <a
+              href={`/dashboard/inspecciones/${inspectionId}/edit`}
+              className="inline-flex text-sm font-medium text-brand hover:underline"
+            >
+              Editar km / combustible
+            </a>
+          ) : null}
+        </aside>
       </div>
 
       <div className="space-y-2 border-t border-border pt-6">

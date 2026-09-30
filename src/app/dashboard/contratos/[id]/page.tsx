@@ -269,8 +269,6 @@ export default async function ContratoDetailPage({
                 <strong>{contract.customerName}</strong>
                 {" · "}
                 {contract.vehicleLabel}
-                {" · "}
-                {contract.plate}
                 <span className="mt-1 block text-muted">
                   En este paso solo está lo que hay que llenar aquí.
                 </span>

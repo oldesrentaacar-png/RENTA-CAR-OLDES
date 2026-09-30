@@ -19,6 +19,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
+import { getCustomerDisplayName } from "@/lib/customers";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getDefaultChecklistFromCatalog } from "@/lib/inspections/accessory-catalog";
 import {
@@ -276,7 +277,7 @@ async function loadInspectionDetail(
   const { data, error } = await supabase
     .from("inspections")
     .select(
-      "*, customers(first_name, last_name), vehicles(brand, model, year, plate, category, vehicle_type_id, vehicle_types(slug, name)), reservations(code)",
+      "*, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate, category, vehicle_type_id, vehicle_types(slug, name)), reservations(code)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -285,7 +286,12 @@ async function loadInspectionDetail(
   if (!data) return null;
 
   const row = data as InspectionRow & {
-    customers: { first_name: string; last_name: string };
+    customers: {
+      first_name: string;
+      last_name: string;
+      company_name: string | null;
+      customer_type: "PERSON" | "COMPANY" | null;
+    };
     vehicles: {
       brand: string;
       model: string;
@@ -369,7 +375,12 @@ async function loadInspectionDetail(
     damageMarks: (damages ?? []).map(mapInspectionDamageRow),
     photos: photosWithUrl,
     reservationCode: row.reservations.code,
-    customerName: `${row.customers.first_name} ${row.customers.last_name}`,
+    customerName: getCustomerDisplayName({
+      customer_type: row.customers.customer_type ?? "PERSON",
+      first_name: row.customers.first_name,
+      last_name: row.customers.last_name,
+      company_name: row.customers.company_name,
+    }),
     vehicleLabel: formatVehicleLabel(row.vehicles),
     vehicleModel: row.vehicles.model,
     vehicleCategory: row.vehicles.category,

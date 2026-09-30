@@ -193,28 +193,35 @@ export async function compositeDamageMarksOnWireframe(
     Boolean(item),
   );
 
-  const pinOverlays = await Promise.all(
-    usable.map(async (mark) => {
-      const cx = Math.round(mark.x * width);
-      const cy = Math.round(mark.y * height);
-      const fill = markStrokeColor(mark, colorBy);
-      const svg = damageMarkSvg(mark.symbol || "0", diameter, fill);
+  const pinOverlays = (
+    await Promise.all(
+      usable.map(async (mark) => {
+        // Freehand: only the stroke, no numbered pin.
+        if (mark.pathPoints && mark.pathPoints.length >= 2) return null;
 
-      const left = Math.max(
-        0,
-        Math.min(width - diameter, Math.round(cx - radius)),
-      );
-      const top = Math.max(
-        0,
-        Math.min(height - diameter, Math.round(cy - radius)),
-      );
+        const cx = Math.round(mark.x * width);
+        const cy = Math.round(mark.y * height);
+        const fill = markStrokeColor(mark, colorBy);
+        const svg = damageMarkSvg(mark.symbol || "·", diameter, fill);
 
-      return {
-        input: await sharp(svg).png().toBuffer(),
-        left,
-        top,
-      };
-    }),
+        const left = Math.max(
+          0,
+          Math.min(width - diameter, Math.round(cx - radius)),
+        );
+        const top = Math.max(
+          0,
+          Math.min(height - diameter, Math.round(cy - radius)),
+        );
+
+        return {
+          input: await sharp(svg).png().toBuffer(),
+          left,
+          top,
+        };
+      }),
+    )
+  ).filter((item): item is { input: Buffer; left: number; top: number } =>
+    Boolean(item),
   );
 
   const out = await sharp(input)

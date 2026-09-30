@@ -71,7 +71,10 @@ export default async function InspeccionDetailPage({
   const accessoriesOnly = focusPaso === "accesorios";
   const inspectionOnly = focusPaso === "inspeccion-salida";
   const showAccessories = !focusPaso || accessoriesOnly;
-  const showPhotos = !focusPaso || inspectionOnly;
+  // Fotos siempre visibles: al crear la inspección el checklist ya viene
+  // precargado y el flujo cae en "accesorios", ocultando el uploader.
+  const showPhotos = true;
+  const showGeneralData = !accessoriesOnly;
 
   return (
     <PermissionGuard permission="inspections.view">
@@ -123,12 +126,14 @@ export default async function InspeccionDetailPage({
             <ScrollHint
               message={
                 accessoriesOnly
-                  ? "Verde es cómo salió. Marque en rojo solo el rayón nuevo."
-                  : "Deslice hacia abajo para las fotos de esta inspección."
+                  ? "Kilometraje junto al inventario. Fotos más abajo. Verde = cómo salió."
+                  : inspectionOnly
+                    ? "Deslice hacia abajo para las fotos de esta inspección."
+                    : "Deslice hacia abajo para fotos, inventario y mapa de daños."
               }
             />
 
-            {!accessoriesOnly ? (
+            {showGeneralData ? (
             <Card>
               <CardHeader>
                 <CardTitle>Datos generales</CardTitle>
@@ -155,7 +160,7 @@ export default async function InspeccionDetailPage({
                   {formatAppDateTime(inspection.inspection_date)}
                 </p>
                 <p>
-                  <span className="text-muted">Kilometraje:</span>{" "}
+                  <span className="text-muted">Kilometraje de salida:</span>{" "}
                   {inspection.mileage?.toLocaleString("es-SV") ?? "—"}
                 </p>
                 <p>
@@ -196,15 +201,17 @@ export default async function InspeccionDetailPage({
                   vehicleTypeName={inspection.vehicleTypeName}
                   priorDamageMarks={priorDamageMarks}
                   newMarksInRed={inspection.type === "CHECK_IN"}
+                  mileage={inspection.mileage}
+                  fuelLevel={inspection.fuel_level}
                 />
               </CardContent>
             </Card>
             ) : null}
 
             {showPhotos ? (
-            <Card>
+            <Card id="fotos">
               <CardHeader>
-                <CardTitle className="text-base">Fotos</CardTitle>
+                <CardTitle className="text-base">Fotos del vehículo</CardTitle>
               </CardHeader>
               <CardContent>
                 <PhotoUploader

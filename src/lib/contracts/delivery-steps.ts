@@ -1,5 +1,6 @@
 import type { DeliveryStep } from "@/components/contracts/delivery-checklist";
 import { formatMoney } from "@/lib/money";
+import { contractPdfHref } from "@/lib/pdf/contract-pdf-meta";
 
 export type DeliveryStepsInput = {
   contractId: string;
@@ -95,7 +96,9 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
         ? "Firmado por el cliente — listo para ver y compartir."
         : "Vista interna disponible. Comparta solo después de la firma del cliente.",
       status: hasClientSignature ? "done" : "partial",
+      // Navegar al paso (pantalla) + abrir el PDF con el botón principal.
       href: `/dashboard/contratos/${contractId}?paso=pdf`,
+      actionHref: contractPdfHref(contractId, updatedAt),
       linkLabel: hasClientSignature
         ? "Ver / Compartir PDF"
         : "Ver PDF (vista interna)",

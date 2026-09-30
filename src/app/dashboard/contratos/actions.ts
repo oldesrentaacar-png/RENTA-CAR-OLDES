@@ -277,7 +277,7 @@ export async function getDeliveryFlowForReservation(
     const { data: contract, error } = await supabase
       .from("contracts")
       .select(
-        "id, reservation_id, amount_paid, pdf_path, customers(first_name, last_name), vehicles(brand, model, year, plate)",
+        "id, reservation_id, amount_paid, pdf_path, updated_at, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate)",
       )
       .eq("reservation_id", reservationId)
       .is("deleted_at", null)
@@ -291,9 +291,20 @@ export async function getDeliveryFlowForReservation(
       reservation_id: string;
       amount_paid?: number | null;
       pdf_path?: string | null;
+      updated_at?: string | null;
       customers:
-        | { first_name: string; last_name: string }
-        | Array<{ first_name: string; last_name: string }>;
+        | {
+            first_name: string;
+            last_name: string;
+            company_name?: string | null;
+            customer_type?: "PERSON" | "COMPANY" | null;
+          }
+        | Array<{
+            first_name: string;
+            last_name: string;
+            company_name?: string | null;
+            customer_type?: "PERSON" | "COMPANY" | null;
+          }>;
       vehicles:
         | { brand: string; model: string; year: number; plate: string }
         | Array<{ brand: string; model: string; year: number; plate: string }>;
@@ -307,7 +318,12 @@ export async function getDeliveryFlowForReservation(
     const progress = await getContractDeliveryProgress(raw.id);
     if (!progress.success) return actionError(progress.error);
 
-    const customerName = `${customers.first_name} ${customers.last_name}`;
+    const customerName = getCustomerDisplayName({
+      customer_type: customers.customer_type ?? "PERSON",
+      first_name: customers.first_name,
+      last_name: customers.last_name,
+      company_name: customers.company_name ?? null,
+    });
     const vehicleLabel = formatVehicleLabel(vehicles);
 
     const steps = buildDeliverySteps({
@@ -321,7 +337,7 @@ export async function getDeliveryFlowForReservation(
       hasClientSignature: progress.data.hasClientSignature,
       hasRepresentativeSignature: progress.data.hasRepresentativeSignature,
       hasPdf: progress.data.hasPdf,
-      updatedAt: (raw as { updated_at?: string }).updated_at,
+      updatedAt: raw.updated_at,
     });
 
     return actionSuccess({
@@ -511,7 +527,7 @@ export async function getContract(
     const { data, error } = await supabase
       .from("contracts")
       .select(
-        "*, customers(first_name, last_name, country, dui, passport), vehicles(brand, model, year, plate, category, ownership_type, sublease_payee_name, vehicle_types(slug, name)), reservations(code)",
+        "*, customers(first_name, last_name, company_name, customer_type, country, dui, passport), vehicles(brand, model, year, plate, category, ownership_type, sublease_payee_name, vehicle_types(slug, name)), reservations(code)",
       )
       .eq("id", id)
       .is("deleted_at", null)
@@ -525,6 +541,8 @@ export async function getContract(
         | {
             first_name: string;
             last_name: string;
+            company_name: string | null;
+            customer_type: "PERSON" | "COMPANY" | null;
             country: string | null;
             dui: string | null;
             passport: string | null;
@@ -532,6 +550,8 @@ export async function getContract(
         | Array<{
             first_name: string;
             last_name: string;
+            company_name: string | null;
+            customer_type: "PERSON" | "COMPANY" | null;
             country: string | null;
             dui: string | null;
             passport: string | null;
@@ -606,7 +626,12 @@ export async function getContract(
       signatures: ((signatures ?? []) as ContractSignatureRow[]).map(
         mapContractSignatureRow,
       ),
-      customerName: `${customers.first_name} ${customers.last_name}`,
+      customerName: getCustomerDisplayName({
+        customer_type: customers.customer_type ?? "PERSON",
+        first_name: customers.first_name,
+        last_name: customers.last_name,
+        company_name: customers.company_name,
+      }),
       vehicleLabel: formatVehicleLabel(vehicles),
       plate: vehicles.plate,
       reservationCode: reservations.code,
@@ -2941,11 +2966,11 @@ export async function getContractPdfData(contractId: string) {
     businessWhatsapp: contact.businessWhatsapp,
     businessWebsite: contact.businessWebsite,
     contractCode: row.code,
-    customerName: `${customer.first_name} ${customer.last_name}`,
+    customerName: getCustomerDisplayName(customer),
     billingName:
       customer.customer_type === "COMPANY" && customer.company_name
         ? customer.company_name
-        : `${customer.first_name} ${customer.last_name}`,
+        : getCustomerDisplayName(customer),
     customerType: customer.customer_type,
     companyName: customer.company_name,
     customerNit: customer.nit,
@@ -2956,7 +2981,7 @@ export async function getContractPdfData(contractId: string) {
     customerIdentification: customer.identification,
     customerDui: customer.dui,
     customerPassport: customer.passport,
-    driverName: `${customer.first_name} ${customer.last_name}`,
+    driverName: getCustomerDisplayName(customer),
     licenseNumber: customer.license_number,
     licenseExpiry: customer.license_expiry
       ? formatAppDate(customer.license_expiry)

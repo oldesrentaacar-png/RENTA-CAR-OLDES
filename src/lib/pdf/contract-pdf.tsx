@@ -636,11 +636,22 @@ export function ContractPdfDocument(props: ContractPdfProps) {
 
         <MachoteSection title="1. Datos del arrendatario">
           <MachoteGrid>
-            <MachoteField label="Nombre completo" value={props.customerName} width="full" />
-            {props.customerType === "COMPANY" || props.companyName ? (
+            <MachoteField
+              label={
+                props.customerType === "COMPANY"
+                  ? "Empresa / razón social"
+                  : "Nombre completo"
+              }
+              value={props.customerName}
+              width="full"
+            />
+            {props.customerType === "COMPANY" &&
+            props.companyName &&
+            props.companyName.trim().toLowerCase() !==
+              props.customerName.trim().toLowerCase() ? (
               <MachoteField
-                label="Empresa / razón social"
-                value={props.companyName || props.billingName}
+                label="Nombre de contacto"
+                value={props.billingName || props.driverName}
                 width="full"
               />
             ) : null}
@@ -683,6 +694,15 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             />
             <MachoteField label="Placa / Matrícula" value={props.plate} width="half" />
             <MachoteField label="Tipo de vehículo" value={props.vehicleType} width="half" />
+            <MachoteField
+              label="Kilometraje (salida)"
+              value={
+                props.mileageOut != null
+                  ? `${props.mileageOut.toLocaleString("es-SV")} km`
+                  : null
+              }
+              width="half"
+            />
             <MachoteField
               label="Combustible (salida)"
               value={props.fuelOutLabel ? `Registrado: ${props.fuelOutLabel}` : null}
@@ -819,23 +839,27 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                     {outMarks.length > 0 ? " (salida)" : " (entrada)"}
                   </Text>
                   {marksOnDiagram.slice(0, 10).map((mark, index) => {
-                    const typeLabel =
-                      DAMAGE_TYPE_LABELS[mark.damageType ?? ""] ??
-                      mark.damageType ??
-                      "Daño";
-                    const severityLabel =
-                      DAMAGE_SEVERITY_LABELS[mark.severity ?? "LOW"] ??
-                      mark.severity ??
-                      "Leve";
+                    const isFreehand =
+                      Boolean(mark.pathPoints && mark.pathPoints.length >= 2);
+                    const typeLabel = isFreehand
+                      ? "Marcado libre"
+                      : DAMAGE_TYPE_LABELS[mark.damageType ?? ""] ??
+                        mark.damageType ??
+                        "Daño";
+                    const severityLabel = isFreehand
+                      ? null
+                      : DAMAGE_SEVERITY_LABELS[mark.severity ?? "LOW"] ??
+                        mark.severity ??
+                        "Leve";
                     const note = mark.description?.trim();
                     return (
                       <Text
                         key={`note-${mark.markNumber ?? index}`}
                         style={styles.damageNotes}
                       >
-                        #{mark.markNumber ?? index + 1} {mark.symbol} {typeLabel} ·{" "}
-                        {severityLabel}
-                        {note ? ` — ${note}` : ""}
+                        {isFreehand
+                          ? `Trazo libre${note ? ` — ${note}` : ""}`
+                          : `${mark.symbol} ${typeLabel} · ${severityLabel}${note ? ` — ${note}` : ""}`}
                       </Text>
                     );
                   })}
@@ -858,6 +882,14 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             <View style={styles.checklistPanel}>
               <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 3 }}>
                 CHECKLIST INVENTARIO (SALIDA) — SÍ / NO / DAÑ.
+              </Text>
+              <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 4 }}>
+                Km salida:{" "}
+                {props.mileageOut != null
+                  ? `${props.mileageOut.toLocaleString("es-SV")} km`
+                  : "—"}
+                {"  ·  Combustible: "}
+                {props.fuelOutLabel ?? "—"}
               </Text>
               <View style={styles.checklistColumns}>
                 <View style={styles.checklistColumn}>

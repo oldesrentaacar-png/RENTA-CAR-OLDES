@@ -91,40 +91,54 @@ export function ContractDeliveryNavigator({
         <ol className="flex gap-2 overflow-x-auto pb-1">
           {steps.map((step, index) => {
             const active = index === currentIndex;
+            const pillClass = cn(
+              "block h-full rounded-lg border px-2.5 py-2 text-left text-xs transition",
+              active && "ring-2 ring-brand/35",
+              step.status === "done" &&
+                !active &&
+                "border-green-200 bg-green-50/50",
+              step.status === "partial" &&
+                !active &&
+                "border-amber-200 bg-amber-50/40",
+              step.status === "pending" &&
+                !active &&
+                "border-border bg-white",
+              active && "border-brand/40 bg-white",
+            );
+            const pillBody = (
+              <>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-semibold tabular-nums text-muted">
+                    {index + 1}
+                  </span>
+                  {step.status === "done" ? (
+                    <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-green-800">
+                      Listo
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 line-clamp-2 font-medium leading-snug text-foreground">
+                  {step.title}
+                </p>
+              </>
+            );
             return (
               <li key={step.id} className="min-w-[7.5rem] flex-1">
                 {step.href ? (
-                  <Link
-                    href={step.href}
-                    className={cn(
-                      "block h-full rounded-lg border px-2.5 py-2 text-left text-xs transition",
-                      active && "ring-2 ring-brand/35",
-                      step.status === "done" &&
-                        !active &&
-                        "border-green-200 bg-green-50/50",
-                      step.status === "partial" &&
-                        !active &&
-                        "border-amber-200 bg-amber-50/40",
-                      step.status === "pending" &&
-                        !active &&
-                        "border-border bg-white",
-                      active && "border-brand/40 bg-white",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-semibold tabular-nums text-muted">
-                        {index + 1}
-                      </span>
-                      {step.status === "done" ? (
-                        <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-green-800">
-                          Listo
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 line-clamp-2 font-medium leading-snug text-foreground">
-                      {step.title}
-                    </p>
-                  </Link>
+                  isDocumentHref(step.href) ? (
+                    <a
+                      href={step.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={pillClass}
+                    >
+                      {pillBody}
+                    </a>
+                  ) : (
+                    <Link href={step.href} className={pillClass}>
+                      {pillBody}
+                    </Link>
+                  )
                 ) : (
                   <div className="rounded-lg border border-border px-2.5 py-2 text-xs">
                     <span className="font-semibold text-muted">{index + 1}</span>
@@ -147,7 +161,7 @@ export function ContractDeliveryNavigator({
           {current.href && current.linkLabel ? (
             <div className="mt-4">
               <StepAction
-                href={current.href}
+                href={current.actionHref ?? current.href}
                 label={current.linkLabel}
                 primary
               />
@@ -170,12 +184,21 @@ export function ContractDeliveryNavigator({
           </p>
           <div className="flex flex-wrap gap-2">
             {prev?.href ? (
-              <Link href={prev.href}>
-                <Button type="button" variant="outline" size="sm">
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  Anterior
-                </Button>
-              </Link>
+              isDocumentHref(prev.href) ? (
+                <a href={prev.href} target="_blank" rel="noopener noreferrer">
+                  <Button type="button" variant="outline" size="sm">
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Anterior
+                  </Button>
+                </a>
+              ) : (
+                <Link href={prev.href}>
+                  <Button type="button" variant="outline" size="sm">
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Anterior
+                  </Button>
+                </Link>
+              )
             ) : (
               <Button type="button" variant="outline" size="sm" disabled>
                 <ChevronLeft className="mr-1 h-4 w-4" />
@@ -183,12 +206,21 @@ export function ContractDeliveryNavigator({
               </Button>
             )}
             {next?.href ? (
-              <Link href={next.href}>
-                <Button type="button" size="sm">
-                  Siguiente
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
+              isDocumentHref(next.href) ? (
+                <a href={next.href} target="_blank" rel="noopener noreferrer">
+                  <Button type="button" size="sm">
+                    Siguiente
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </a>
+              ) : (
+                <Link href={next.href}>
+                  <Button type="button" size="sm">
+                    Siguiente
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </Link>
+              )
             ) : (
               <Link href={`/dashboard/contratos/${contractId}/cerrar`}>
                 <Button type="button" size="sm">

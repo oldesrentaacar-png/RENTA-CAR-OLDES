@@ -14,6 +14,8 @@ export type DeliveryStep = {
   description: string;
   status: DeliveryStepStatus;
   href?: string;
+  /** Si existe, el botón principal abre este documento (p. ej. PDF) en pestaña nueva. */
+  actionHref?: string;
   linkLabel?: string;
 };
 
@@ -88,9 +90,9 @@ export function DeliveryChecklist({
                 <p className="mt-1 pl-8 text-sm text-muted">{step.description}</p>
               </div>
               {step.href && step.linkLabel ? (
-                isDocumentHref(step.href) ? (
+                isDocumentHref(step.actionHref ?? step.href) ? (
                   <a
-                    href={step.href}
+                    href={step.actionHref ?? step.href}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="shrink-0 text-sm font-medium text-brand hover:underline"

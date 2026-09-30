@@ -30,7 +30,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 
@@ -38,7 +37,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
-    private lateinit var swipeRefresh: SwipeRefreshLayout
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var monitorEnabled = false
@@ -78,12 +76,10 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
-        swipeRefresh = findViewById(R.id.swipeRefresh)
 
         pendingOpenPath = intent?.getStringExtra(EXTRA_OPEN_PATH)
 
         configureWebView()
-        configureSwipeRefresh()
         configureBackNavigation()
 
         if (savedInstanceState != null) {
@@ -173,7 +169,6 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
-                swipeRefresh.isRefreshing = false
                 evaluateMonitorState(url)
             }
 
@@ -183,7 +178,6 @@ class MainActivity : AppCompatActivity() {
                 error: SslError?,
             ) {
                 handler?.cancel()
-                swipeRefresh.isRefreshing = false
                 progressBar.visibility = View.GONE
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle(R.string.ssl_error_title)
@@ -282,11 +276,6 @@ class MainActivity : AppCompatActivity() {
         } catch (_: ActivityNotFoundException) {
             // No handler available.
         }
-    }
-
-    private fun configureSwipeRefresh() {
-        swipeRefresh.setColorSchemeResources(R.color.accent_red, R.color.navy_secondary)
-        swipeRefresh.setOnRefreshListener { webView.reload() }
     }
 
     private fun configureBackNavigation() {

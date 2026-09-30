@@ -423,15 +423,16 @@ export function DamageMap2D({
             const isStroke =
               Boolean(mark.pathPoints && mark.pathPoints.length >= 2);
 
-            // Freehand strokes already show the line; keep a small # badge at centroid.
+            // Marcado libre: solo el trazo, sin número.
             if (isStroke) {
               return (
                 <button
-                  key={`badge-${mark.view}-${mark.markNumber}-${mark.x}-${mark.y}`}
+                  key={`free-${mark.view}-${mark.x}-${mark.y}-${globalIndex}`}
                   type="button"
-                  title={`#${mark.markNumber} Marcado libre`}
+                  title="Marcado libre (sin número)"
+                  aria-label="Marcado libre"
                   className={cn(
-                    "absolute flex h-6 min-w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white px-1 text-[10px] font-bold text-white shadow",
+                    "absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white shadow",
                     isSelected ? "ring-2 ring-blue-400 ring-offset-1" : null,
                   )}
                   style={{
@@ -445,9 +446,7 @@ export function DamageMap2D({
                     setActiveTool(mark.damageType);
                   }}
                   onPointerDown={(event) => event.stopPropagation()}
-                >
-                  {mark.markNumber}
-                </button>
+                />
               );
             }
 
@@ -455,7 +454,7 @@ export function DamageMap2D({
               <button
                 key={`${mark.view}-${mark.markNumber}-${mark.x}-${mark.y}`}
                 type="button"
-                title={`#${mark.markNumber} ${DAMAGE_TYPE_LABELS[mark.damageType] ?? mark.damageType} · ${DAMAGE_SEVERITY_LABELS[mark.severity] ?? mark.severity}`}
+                title={`${DAMAGE_TYPE_LABELS[mark.damageType] ?? mark.damageType} · ${DAMAGE_SEVERITY_LABELS[mark.severity] ?? mark.severity}`}
                 className={cn(
                   "absolute flex h-8 min-w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-0.5 rounded-full border-2 px-1 text-[10px] font-bold text-white shadow",
                   highlightOnly ? "bg-red-600 border-white" : null,
@@ -475,9 +474,6 @@ export function DamageMap2D({
                 onPointerDown={(event) => event.stopPropagation()}
               >
                 <span className="font-mono leading-none">{glyph}</span>
-                <span className="leading-none opacity-95">
-                  {mark.markNumber}
-                </span>
               </button>
             );
           })}
@@ -530,14 +526,15 @@ export function DamageMap2D({
                       className="mt-0.5 inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white"
                       style={{ backgroundColor: severityColor.fill }}
                     >
-                      {glyph}
-                      {mark.markNumber}
+                      {mark.pathPoints && mark.pathPoints.length >= 2
+                        ? "—"
+                        : glyph}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="font-medium text-foreground">
                         {mark.pathPoints && mark.pathPoints.length >= 2
-                          ? `#${mark.markNumber} · Trazo libre`
-                          : `#${mark.markNumber} · ${typeLabel} · ${severity}`}
+                          ? "Trazo libre"
+                          : `${typeLabel} · ${severity}`}
                       </span>
                       {mark.description?.trim() ? (
                         <span className="mt-0.5 block text-xs text-muted">
@@ -565,12 +562,10 @@ export function DamageMap2D({
         selected.pathPoints && selected.pathPoints.length >= 2 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-muted/30 px-4 py-3">
             <div>
-              <p className="text-sm font-medium">
-                Trazo libre #{selected.markNumber}
-              </p>
+              <p className="text-sm font-medium">Trazo libre</p>
               <p className="text-xs text-muted">
-                No requiere tipo ni severidad. Puede añadir una nota opcional o
-                eliminar el trazo.
+                Sin numeración. Puede añadir una nota opcional o eliminar el
+                trazo.
               </p>
               <Input
                 className="mt-2 max-w-md"
@@ -588,7 +583,7 @@ export function DamageMap2D({
               size="sm"
               onClick={() => {
                 const ok = window.confirm(
-                  `¿Eliminar el trazo libre #${selected.markNumber}?\n\nDeberá guardar el mapa de daños para confirmar el cambio.`,
+                  "¿Eliminar este trazo libre?\n\nDeberá guardar el mapa de daños para confirmar el cambio.",
                 );
                 if (!ok) return;
                 removeSelected();

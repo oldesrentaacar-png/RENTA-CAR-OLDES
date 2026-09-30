@@ -68,7 +68,9 @@ export function InspectionCreateForm({
       return;
     }
 
-    router.push(`/dashboard/inspecciones/${result.data.id}`);
+    router.push(
+      `/dashboard/inspecciones/${result.data.id}?paso=inspeccion-salida`,
+    );
     router.refresh();
   }
 
