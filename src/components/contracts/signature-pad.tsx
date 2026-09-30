@@ -7,7 +7,11 @@ import { cn } from "@/lib/utils";
 
 export type SignaturePadProps = {
   onConfirm: (dataUrl: string) => void;
-  /** Se llama al soltar el dedo y al limpiar, para no depender de un botón extra. */
+  /**
+   * Aviso opcional del borrador (hay trazo / se limpió).
+   * NO debe usarse para “cerrar” la firma: el cliente necesita
+   * varios trazos y solo confirma con el botón Confirmar firma.
+   */
   onDraftChange?: (dataUrl: string | null) => void;
   disabled?: boolean;
   className?: string;
@@ -22,6 +26,7 @@ export function SignaturePad({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const hasStrokeRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const [hasStroke, setHasStroke] = useState(false);
 
   const prepareCanvas = useCallback(() => {
@@ -29,12 +34,12 @@ export function SignaturePad({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // Fixed bitmap size; CSS scales for display.
-    canvas.width = 640;
-    canvas.height = 220;
+    // Bitmap fijo; el CSS escala. Más alto = más fácil con el dedo.
+    canvas.width = 720;
+    canvas.height = 280;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 3.25;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.strokeStyle = "#111827";
@@ -60,6 +65,13 @@ export function SignaturePad({
     [],
   );
 
+  const endStroke = useCallback(() => {
+    drawingRef.current = false;
+    lastPointRef.current = null;
+    // Solo avisar que hay borrador. Nunca “bloquear” la firma aquí:
+    // el cliente suele levantar el dedo entre letras.
+  }, []);
+
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (disabled) return;
@@ -70,11 +82,16 @@ export function SignaturePad({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      canvas.setPointerCapture(event.pointerId);
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        // ignore
+      }
       drawingRef.current = true;
+      lastPointRef.current = point;
       ctx.beginPath();
       ctx.moveTo(point.x, point.y);
-      // Dot counts as a stroke so "Confirmar" enables after a tap.
+      // Punto mínimo para que un toque cuente como trazo.
       ctx.lineTo(point.x + 0.01, point.y + 0.01);
       ctx.stroke();
       hasStrokeRef.current = true;
@@ -92,8 +109,15 @@ export function SignaturePad({
       if (!canvas || !point) return;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      ctx.lineTo(point.x, point.y);
-      ctx.stroke();
+      const prev = lastPointRef.current;
+      if (prev) {
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(point.x, point.y);
+        ctx.stroke();
+      }
+      lastPointRef.current = point;
+      hasStrokeRef.current = true;
       setHasStroke(true);
     },
     [disabled, getPoint],
@@ -101,52 +125,59 @@ export function SignaturePad({
 
   const onPointerUp = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      drawingRef.current = false;
+      endStroke();
       try {
         canvasRef.current?.releasePointerCapture(event.pointerId);
       } catch {
         // ignore
       }
-      const canvas = canvasRef.current;
-      if (canvas && hasStrokeRef.current && !disabled) {
-        onDraftChange?.(canvas.toDataURL("image/png"));
-      }
     },
-    [disabled, onDraftChange],
+    [endStroke],
   );
 
   const clear = useCallback(() => {
     prepareCanvas();
     hasStrokeRef.current = false;
+    lastPointRef.current = null;
+    drawingRef.current = false;
     setHasStroke(false);
     onDraftChange?.(null);
   }, [onDraftChange, prepareCanvas]);
 
   const confirm = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !hasStroke || disabled) return;
-    onConfirm(canvas.toDataURL("image/png"));
-  }, [disabled, hasStroke, onConfirm]);
+    if (!canvas || !hasStrokeRef.current || disabled) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    onDraftChange?.(dataUrl);
+    onConfirm(dataUrl);
+  }, [disabled, onConfirm, onDraftChange]);
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="overflow-hidden rounded-xl border border-border bg-white">
+      <div className="overflow-hidden rounded-xl border-2 border-border bg-white shadow-sm">
         <canvas
           ref={canvasRef}
-          className="h-44 w-full touch-none cursor-crosshair"
-          style={{ touchAction: "none" }}
+          className="h-52 w-full touch-none cursor-crosshair sm:h-56"
+          style={{ touchAction: "none", WebkitUserSelect: "none" }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
+          onLostPointerCapture={endStroke}
         />
       </div>
-      <p className="text-xs text-muted">
-        Dibuje con el dedo. Al soltar, la firma queda lista. Si se equivoca,
-        pulse <strong>Limpiar</strong>.
+      <p className="text-sm text-muted">
+        Dibuje con el dedo. Puede levantar el dedo entre letras. Cuando termine,
+        pulse <strong>Confirmar firma</strong>.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" onClick={clear} disabled={disabled}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={clear}
+          disabled={disabled}
+        >
           Limpiar
         </Button>
         <Button

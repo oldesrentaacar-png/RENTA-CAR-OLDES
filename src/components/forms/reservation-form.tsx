@@ -205,27 +205,47 @@ export function ReservationForm({
           ? parseMoneyInput(courtesyAmount || 0)
           : 0,
       });
+      // Cotización aceptada: el total del PDF manda (incluye descuento).
+      const quoteTotal =
+        fromQuote && defaults?.total != null
+          ? Number(defaults.total)
+          : null;
+      const discountFromQuote =
+        quoteTotal != null && Number.isFinite(quoteTotal)
+          ? Math.max(
+              0,
+              Math.round((base.total - quoteTotal) * 100) / 100,
+            )
+          : 0;
+      const pretaxTotal =
+        quoteTotal != null && discountFromQuote > 0
+          ? quoteTotal
+          : base.total;
       const taxAmount = applyIva
-        ? Math.round(base.total * taxRate * 100) / 100
+        ? Math.round(pretaxTotal * taxRate * 100) / 100
         : 0;
       return {
         ...base,
-        pretaxTotal: base.total,
+        discountFromQuote,
+        pretaxTotal,
         taxAmount,
-        totalWithIva: Math.round((base.total + taxAmount) * 100) / 100,
+        totalWithIva: Math.round((pretaxTotal + taxAmount) * 100) / 100,
       };
     } catch {
       return null;
     }
   }, [
-    startAt,
-    endAt,
-    agreedRate,
-    insurance,
     additionalCosts,
-    courtesyAmount,
-    canManageCourtesy,
+    agreedRate,
     applyIva,
+    canManageCourtesy,
+    courtesyAmount,
+    defaults?.total,
+    endAt,
+    fromQuote,
+    insurance,
+    startAt,
+    taxRate,
   ]);
 
   async function handleSubmit(formData: FormData) {
@@ -523,7 +543,7 @@ export function ReservationForm({
             insurance={preview.insurance}
             extras={quoteExtraLines.length > 0 ? 0 : preview.additionalCosts}
             extrasLabel="Costos adicionales"
-            discount={0}
+            discount={preview.discountFromQuote ?? 0}
             courtesy={preview.courtesyAmount}
             courtesyDetail={
               canManageCourtesy ? courtesyDetail.trim() || null : null

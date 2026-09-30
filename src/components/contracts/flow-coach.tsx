@@ -27,7 +27,7 @@ export function ScrollHint({ message }: { message: string }) {
       main.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, []);
+  }, [message]);
 
   if (!visible) return null;
 

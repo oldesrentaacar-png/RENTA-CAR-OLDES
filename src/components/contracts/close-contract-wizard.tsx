@@ -297,7 +297,9 @@ export function CloseContractWizard({
       missing.push("registrar el combustible en el paso Kilometraje");
     }
     if (!hasConformitySignature) {
-      missing.push("la firma del cliente en el paso «Firma del cliente»");
+      missing.push(
+        "que el cliente firme y pulse Confirmar firma en este paso",
+      );
     }
     return missing;
   }
@@ -529,41 +531,33 @@ export function CloseContractWizard({
         message={coachToast?.text ?? null}
         tick={coachToast?.tick ?? 0}
       />
-      <ScrollHint message="Deslice hacia abajo para el kilometraje, la firma y el saldo." />
+      <ScrollHint
+        message={
+          current.id === "close"
+            ? "Deslice para firmar y cerrar."
+            : "Deslice para ver kilometraje y combustible."
+        }
+      />
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/40 px-3 py-2 text-sm">
         <p className="text-muted">
-          Cierre de <strong>{contract.code}</strong>
+          Recibir vehículo · <strong>{contract.code}</strong>
           {contract.customerName ? ` · ${contract.customerName}` : ""}
         </p>
         <Link
           href={`/dashboard/contratos/${contract.id}`}
           className="font-medium text-brand hover:underline"
         >
-          Salir del cierre (volver al contrato)
+          Salir
         </Link>
       </div>
-
-      {hasCheckIn && (!hasFuelAndMileage) ? (
-        <div className="rounded-xl border border-border bg-surface-muted/40 px-4 py-3 text-sm">
-          <ul className="list-disc space-y-1 pl-5">
-            {effectiveMileage == null ? (
-              <li>Escriba el kilometraje de entrada.</li>
-            ) : null}
-            {!effectiveFuel ? (
-              <li>Seleccione el combustible de entrada.</li>
-            ) : null}
-          </ul>
-        </div>
-      ) : null}
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Flujo de cierre — paso a paso
+            Recibir vehículo
           </CardTitle>
           <p className="text-sm text-muted">
-            Igual que la entrega: avance de izquierda a derecha. Solo se muestra
-            el paso actual para no saturar la pantalla.
+            1) Km y combustible · 2) Firma del cliente · Cerrar.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -681,21 +675,10 @@ export function CloseContractWizard({
                   </p>
                 ) : (
                   <>
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950">
-                      <p className="font-semibold">
-                        Kilometraje obligatorio
-                      </p>
-                      <p className="mt-1 text-sm">
-                        Sin el km de entrada no se puede cerrar el contrato. Así
-                        el sistema puede alertar mantenimientos (aceite, frenos,
-                        caja, etc.). Si se equivoca, corrija aquí o use{" "}
-                        <strong>Anterior / Salir</strong>; no queda trabado.
-                      </p>
-                    </div>
                     {checkOut ? (
                       <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-950">
                         <p className="text-xs font-semibold uppercase tracking-wide">
-                          Así salió — no tiene que buscar el contrato
+                          Así salió
                         </p>
                         <p className="mt-1 text-2xl font-semibold">
                           {checkOut.fuel_level
@@ -711,9 +694,9 @@ export function CloseContractWizard({
                       </div>
                     ) : null}
                     <p className="text-muted">
-                      Escriba cómo lo está recibiendo ahora. Al pulsar{" "}
-                      <strong>Siguiente</strong> aparece la{" "}
-                      <strong>firma del cliente</strong> en esta misma pantalla.
+                      Escriba cómo lo está recibiendo ahora. El km es
+                      obligatorio. Luego pulse <strong>Siguiente</strong> para
+                      la firma.
                     </p>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Input
@@ -752,23 +735,6 @@ export function CloseContractWizard({
                         </select>
                       </div>
                     </div>
-                    {checkOut ? (
-                      <p className="text-xs text-muted">
-                        Referencia salida:{" "}
-                        {checkOut.mileage != null
-                          ? `${checkOut.mileage.toLocaleString("es-SV")} km`
-                          : "sin km"}
-                        {" · "}
-                        {checkOut.fuel_level
-                          ? FUEL_LEVEL_LABELS[checkOut.fuel_level] ??
-                            checkOut.fuel_level
-                          : "sin combustible"}
-                      </p>
-                    ) : null}
-                    <p className="text-xs text-muted">
-                      Puede corregir km o combustible en cualquier momento y
-                      volver a guardar antes de continuar.
-                    </p>
                     {vitalsOk ? (
                       <p className="text-sm text-emerald-700">{vitalsOk}</p>
                     ) : null}
@@ -1100,18 +1066,17 @@ export function CloseContractWizard({
                 </p>
                 <div className="rounded-lg border-2 border-brand/40 bg-brand/5 p-4">
                   <p className="text-base font-semibold text-foreground">
-                    Firma de devolución
+                    Firma del cliente al devolver
                   </p>
                   <p className="mt-1 text-sm text-muted">
-                    Es distinta de la firma de entrega. El cliente firma aquí,
-                    a su nombre, y al levantar el dedo queda capturada.
+                    El cliente firma abajo. Puede levantar el dedo entre letras.
+                    Cuando termine, pulse <strong>Confirmar firma</strong>.
                   </p>
                 </div>
 
                 {closeConformitySigned && !conformitySignatureDataUrl ? (
                   <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-green-900">
-                    Ya existe una firma de conformidad registrada para este
-                    contrato.
+                    Ya hay firma de conformidad en este contrato.
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -1123,13 +1088,13 @@ export function CloseContractWizard({
                     {conformitySignatureDataUrl ? (
                       <div className="space-y-2">
                         <p className="font-medium text-green-800">
-                          Firma de conformidad capturada.
+                          Firma confirmada. Ya puede cerrar.
                         </p>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={conformitySignatureDataUrl}
                           alt="Firma de conformidad"
-                          className="h-20 max-w-full rounded border border-border bg-white object-contain"
+                          className="h-24 max-w-full rounded border border-border bg-white object-contain"
                         />
                         <Button
                           type="button"
@@ -1142,17 +1107,12 @@ export function CloseContractWizard({
                       </div>
                     ) : (
                       <SignaturePad
-                        onConfirm={(dataUrl) =>
-                          setConformitySignatureDataUrl(dataUrl)
-                        }
-                        onDraftChange={(dataUrl) => {
+                        onConfirm={(dataUrl) => {
                           setConformitySignatureDataUrl(dataUrl);
-                          if (dataUrl) {
-                            setCoachToast({
-                              text: "Firma del cliente capturada.",
-                              tick: Date.now(),
-                            });
-                          }
+                          setCoachToast({
+                            text: "Firma confirmada.",
+                            tick: Date.now(),
+                          });
                         }}
                         disabled={closing}
                       />
@@ -1162,7 +1122,7 @@ export function CloseContractWizard({
 
                 <details className="rounded-lg border border-border bg-surface-muted/40 p-3 text-muted">
                   <summary className="cursor-pointer font-medium text-foreground">
-                    Texto de la declaración (opcional de leer)
+                    Texto de la declaración (opcional)
                   </summary>
                   <p className="mt-2 leading-relaxed">{CLOSE_CONFORMITY_TEXT}</p>
                 </details>
@@ -1171,7 +1131,7 @@ export function CloseContractWizard({
                   <MissingFieldsBanner items={missingRequirements()} />
                 ) : (
                   <p className="text-green-800">
-                    Kilometraje, combustible y firma listos. Ya puede cerrar.
+                    Listo: km, combustible y firma. Puede cerrar.
                   </p>
                 )}
                 <Tooltip
@@ -1199,7 +1159,7 @@ export function CloseContractWizard({
                 >
                   {showOptionalClose
                     ? "Ocultar ajustes opcionales"
-                    : "Ajustes opcionales (accesorios, días extra, cobros) — no hacen falta para firmar"}
+                    : "Ajustes opcionales (no son necesarios para firmar)"}
                 </button>
               </div>
             ) : null}

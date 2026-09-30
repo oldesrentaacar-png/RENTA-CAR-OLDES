@@ -348,8 +348,22 @@ export async function createReservation(
       additionalCosts,
       courtesyAmount,
     });
+    let pretaxTotal = pretax.total;
+    const quoteIdRaw = String(formData.get("quoteId") ?? "").trim();
+    if (quoteIdRaw) {
+      const supabase = await createClient();
+      const { data: quoteRow } = await supabase
+        .from("quotes")
+        .select("total")
+        .eq("id", quoteIdRaw)
+        .maybeSingle();
+      const quoteTotal = Number(quoteRow?.total ?? NaN);
+      if (Number.isFinite(quoteTotal) && quoteTotal >= 0 && pretaxTotal > quoteTotal) {
+        pretaxTotal = quoteTotal;
+      }
+    }
     const ivaTotals = computeOptionalIvaTotals({
-      pretaxTotal: pretax.total,
+      pretaxTotal,
       applyIva,
       taxRate,
     });
