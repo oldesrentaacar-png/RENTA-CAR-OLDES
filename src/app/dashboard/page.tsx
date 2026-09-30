@@ -180,6 +180,57 @@ function OpenContractsList({
   );
 }
 
+
+function PendingSettlementsList({
+  items,
+}: {
+  items: import("@/lib/dashboard/data").OpsPendingSettlement[];
+}) {
+  if (items.length === 0) {
+    return <AgendaEmpty message="No hay contratos con saldo pendiente." />;
+  }
+
+  return (
+    <div className="space-y-3">
+      <ul className="divide-y divide-border">
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+          >
+            <div className="min-w-0 space-y-0.5">
+              <Link
+                href={item.href}
+                className="font-medium text-zinc-900 hover:underline touch-manipulation"
+              >
+                {item.code} · {item.customerName}
+              </Link>
+              <p className="truncate text-xs text-muted">{item.vehicleLabel}</p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <span className="text-sm font-semibold text-red-700">
+                {formatMoney(item.balanceDue)}
+              </span>
+              <Link
+                href={item.href}
+                className="text-xs font-medium text-brand hover:underline"
+              >
+                Crear abono
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <Link
+        href="/dashboard/contratos?status=POR_LIQUIDAR"
+        className="inline-flex text-sm font-medium text-brand hover:underline"
+      >
+        Ver todos los pendientes de liquidar
+      </Link>
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   const auth = await getSession();
   const permissions = auth
@@ -348,6 +399,25 @@ export default async function DashboardPage() {
                     items={agenda.returnsToday}
                     timeField="end_at"
                   />
+                </CardContent>
+              </Card>
+            ) : null}
+
+
+            {showContracts ? (
+              <Card className="border-amber-200 bg-amber-50/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base text-amber-950">
+                    <DollarSign className="h-4 w-4" />
+                    Pendientes de liquidar
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-3 text-sm text-amber-900">
+                    Contratos con saldo (cerrados o abiertos) que aún no se
+                    abonaron por completo.
+                  </p>
+                  <PendingSettlementsList items={agenda.pendingSettlements} />
                 </CardContent>
               </Card>
             ) : null}

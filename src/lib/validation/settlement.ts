@@ -68,6 +68,8 @@ export const settlementSchema = z.object({
 });
 
 export const partnerRentalSchema = z.object({
+  contractId: optionalUuid(),
+  contractCode: optionalText(50),
   customerId: optionalUuid(),
   customerName: z.string().trim().min(1, "Cliente requerido.").max(200),
   customerPhone: optionalText(50),

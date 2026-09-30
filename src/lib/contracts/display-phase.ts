@@ -6,7 +6,8 @@ export type ContractDisplayPhase =
   | "FINALIZADO"
   | "EN_CURSO"
   | "ANULADO"
-  | "SIN_RESOLVER";
+  | "SIN_RESOLVER"
+  | "POR_LIQUIDAR";
 
 export const CONTRACT_DISPLAY_PHASE_LABELS: Record<
   ContractDisplayPhase,
@@ -16,12 +17,14 @@ export const CONTRACT_DISPLAY_PHASE_LABELS: Record<
   EN_CURSO: "En curso",
   ANULADO: "Anulado",
   SIN_RESOLVER: "Sin resolver",
+  POR_LIQUIDAR: "Por liquidar",
 };
 
 export const CONTRACT_DISPLAY_PHASE_OPTIONS: Array<{
   value: ContractDisplayPhase;
   label: string;
 }> = [
+  { value: "POR_LIQUIDAR", label: "Por liquidar (saldo)" },
   { value: "EN_CURSO", label: "En curso" },
   { value: "SIN_RESOLVER", label: "Sin resolver" },
   { value: "FINALIZADO", label: "Finalizado" },
@@ -32,12 +35,16 @@ export function deriveContractDisplayPhase(input: {
   status: string;
   closedAt?: string | null;
   endAt: string;
+  balanceDue?: number | null;
   now?: Date;
 }): ContractDisplayPhase {
   const status = String(input.status ?? "").toUpperCase();
   const now = input.now ?? new Date();
+  const balanceDue = Number(input.balanceDue ?? 0);
 
   if (status === "CANCELLED") return "ANULADO";
+  // Saldo pendiente tiene prioridad visual: cerrado o abierto sin liquidar.
+  if (balanceDue > 0.009 && status !== "CANCELLED") return "POR_LIQUIDAR";
   if (status === "COMPLETED" || input.closedAt) return "FINALIZADO";
 
   const endAt = new Date(input.endAt);
@@ -58,6 +65,8 @@ export function contractDisplayPhaseBadgeVariant(
       return "info";
     case "SIN_RESOLVER":
       return "warning";
+    case "POR_LIQUIDAR":
+      return "danger";
     case "ANULADO":
       return "outline";
     default:

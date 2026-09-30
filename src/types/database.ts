@@ -52,6 +52,8 @@ export interface MonthlySettlement {
 
 export interface PartnerRental {
   id: string;
+  contract_id: string | null;
+  contract_code: string | null;
   customer_id: string | null;
   customer_name: string;
   customer_phone: string | null;

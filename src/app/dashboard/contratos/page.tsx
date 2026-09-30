@@ -29,7 +29,7 @@ export default async function ContratosPage({
   return (
     <ModuleListShell
       title="Contratos"
-      description="Contratos de arrendamiento. Estado operativo: En curso, Sin resolver, Finalizado o Anulado."
+      description="Contratos de arrendamiento. Use el filtro «Por liquidar (saldo)» para ver cerrados o abiertos que aún deben abono."
       permission="contracts.view"
       configured={configured}
       error={error}
@@ -96,6 +96,18 @@ export default async function ContratosPage({
             key: "total",
             header: "Total",
             cell: (row) => formatMoney(row.total),
+          },
+          {
+            key: "balance",
+            header: "Saldo",
+            cell: (row) =>
+              Number(row.balance_due ?? 0) > 0 ? (
+                <span className="font-semibold text-red-700">
+                  {formatMoney(row.balance_due ?? 0)}
+                </span>
+              ) : (
+                <span className="text-muted">{formatMoney(0)}</span>
+              ),
           },
           {
             key: "status",

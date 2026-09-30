@@ -382,6 +382,8 @@ export async function listContracts(
     const nowIso = new Date().toISOString();
     if (phaseFilter === "ANULADO") {
       query = query.eq("status", "CANCELLED");
+    } else if (phaseFilter === "POR_LIQUIDAR") {
+      query = query.neq("status", "CANCELLED").gt("balance_due", 0);
     } else if (phaseFilter === "FINALIZADO") {
       query = query.eq("status", "COMPLETED");
     } else if (phaseFilter === "SIN_RESOLVER") {
@@ -471,6 +473,7 @@ export async function listContracts(
         status: contract.status,
         closedAt: contract.closed_at,
         endAt: contract.end_at,
+        balanceDue: contract.balance_due,
       });
 
       return {

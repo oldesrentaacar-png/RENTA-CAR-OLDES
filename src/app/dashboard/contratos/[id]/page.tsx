@@ -163,6 +163,23 @@ export default async function ContratoDetailPage({
   return (
     <PermissionGuard permission="contracts.view">
       <div className="space-y-6">
+        {contract && Number(contract.balance_due ?? 0) > 0 ? (
+          <div className="rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-amber-950">
+            <p className="text-base font-semibold">
+              Pendiente de liquidar: {formatMoney(contract.balance_due ?? 0)}
+            </p>
+            <p className="mt-1 text-sm">
+              Este contrato aún tiene saldo. Puede registrar el abono abajo sin
+              reabrir el cierre.
+            </p>
+            <a
+              href="#abonos"
+              className="mt-2 inline-flex text-sm font-semibold text-brand underline"
+            >
+              Ir a crear abono
+            </a>
+          </div>
+        ) : null}
         <PageHeader
           title={contract ? `Contrato ${contract.code}` : "Contrato"}
           breadcrumbs={[

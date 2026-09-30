@@ -413,6 +413,44 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
       if (inserted) created += 1;
     }
 
+    // Contratos con saldo pendiente de liquidar (cerrados o abiertos).
+    const { data: unpaidContracts } = await supabase
+      .from("contracts")
+      .select(
+        "id, code, balance_due, status, customers(first_name, last_name, company_name, customer_type)",
+      )
+      .is("deleted_at", null)
+      .neq("status", "CANCELLED")
+      .gt("balance_due", 0)
+      .limit(80);
+
+    for (const row of unpaidContracts ?? []) {
+      const contract = row as {
+        id: string;
+        code: string;
+        balance_due: number | null;
+        status: string;
+        customers: CustomerJoin | CustomerJoin[] | null;
+      };
+      const balance = Number(contract.balance_due ?? 0);
+      if (!(balance > 0)) continue;
+      const customer = unwrapRelation(contract.customers);
+      const name = customerLabelFrom(customer);
+      const dedupeKey = `contract:unpaid:${contract.id}`;
+      activeDedupeKeys.add(dedupeKey);
+      const inserted = await upsertAlert(supabase, {
+        alert_type: "contract_unpaid_balance",
+        title: `Por liquidar — ${contract.code}`,
+        message: `${name}: saldo pendiente $${balance.toFixed(2)}. Abra el contrato y registre el abono.`,
+        entity_type: "contract",
+        entity_id: contract.id,
+        severity: "warning",
+        dedupe_key: dedupeKey,
+        due_at: now.toISOString(),
+      });
+      if (inserted) created += 1;
+    }
+
     // Aviso operativo de WebBoost: problemas del piloto ya resueltos.
     const webboostDedupeKey = "webboost:support:problems-resolved-v1";
     activeDedupeKeys.add(webboostDedupeKey);

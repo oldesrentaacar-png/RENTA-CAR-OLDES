@@ -84,6 +84,7 @@ export const contractSearchSchema = z.object({
       "FINALIZADO",
       "ANULADO",
       "SIN_RESOLVER",
+      "POR_LIQUIDAR",
     ]),
   ),
   customerId: optionalUuid(),

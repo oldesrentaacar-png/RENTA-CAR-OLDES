@@ -17,6 +17,8 @@ import type { PartnerRental } from "@/types/database";
 
 function parsePartnerRentalForm(formData: FormData) {
   return {
+    contractId: formData.get("contractId"),
+    contractCode: formData.get("contractCode"),
     customerId: formData.get("customerId"),
     customerName: formData.get("customerName"),
     customerPhone: formData.get("customerPhone"),
@@ -38,6 +40,8 @@ function partnerRentalInputToRow(
   input: ReturnType<typeof partnerRentalSchema.parse>,
 ) {
   return {
+    contract_id: input.contractId ?? null,
+    contract_code: input.contractCode ?? null,
     customer_id: input.customerId ?? null,
     customer_name: input.customerName,
     customer_phone: input.customerPhone ?? null,
@@ -127,14 +131,35 @@ export async function createPartnerRental(
     }
 
     const supabase = await createClient();
-    const { data, error } = await supabase
+    const row = {
+      ...partnerRentalInputToRow(parsed.data),
+      created_by: user.id,
+    };
+    let { data, error } = await supabase
       .from("partner_rentals")
-      .insert({
-        ...partnerRentalInputToRow(parsed.data),
-        created_by: user.id,
-      })
+      .insert(row)
       .select("id")
       .single();
+
+    // Si aún no corre la migración de contract_id/code, guarda sin esos campos.
+    if (
+      error &&
+      (String(error.message ?? "").includes("contract_id") ||
+        String(error.message ?? "").includes("contract_code") ||
+        String((error as { code?: string }).code ?? "") === "PGRST204")
+    ) {
+      const { contract_id: _cid, contract_code: _cc, ...fallback } = row as Record<
+        string,
+        unknown
+      >;
+      const retry = await supabase
+        .from("partner_rentals")
+        .insert(fallback)
+        .select("id")
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) throw mapPostgresError(error);
     const id = (data as { id: string }).id;
@@ -176,6 +201,12 @@ export async function updatePartnerRental(
     }
 
     const row: Record<string, unknown> = {};
+    if (parsed.data.contractId !== undefined) {
+      row.contract_id = parsed.data.contractId ?? null;
+    }
+    if (parsed.data.contractCode !== undefined) {
+      row.contract_code = parsed.data.contractCode ?? null;
+    }
     if (parsed.data.customerId !== undefined) {
       row.customer_id = parsed.data.customerId ?? null;
     }

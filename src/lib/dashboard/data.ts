@@ -101,6 +101,16 @@ export type OpsOpenContract = {
   isOverdue: boolean;
 };
 
+export type OpsPendingSettlement = {
+  id: string;
+  code: string;
+  status: string;
+  customerName: string;
+  vehicleLabel: string;
+  balanceDue: number;
+  href: string;
+};
+
 export type DashboardOpsAgenda = {
   configured: boolean;
   error: string | null;
@@ -114,6 +124,7 @@ export type DashboardOpsAgenda = {
   returnsToday: OpsAgendaItem[];
   openContracts: OpsOpenContract[];
   openContractAlerts: OpsOpenContract[];
+  pendingSettlements: OpsPendingSettlement[];
 };
 
 function unwrapRelation<T>(value: T | T[] | null | undefined): T | null {
@@ -344,6 +355,7 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
     returnsToday: [],
     openContracts: [],
     openContractAlerts: [],
+    pendingSettlements: [],
   };
 
   if (!isSupabaseConfigured()) {
@@ -366,6 +378,7 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
       deliveriesRes,
       returnsRes,
       openContractsRes,
+      pendingSettlementsRes,
     ] = await Promise.all([
       supabase
         .from("web_requests")
@@ -423,6 +436,16 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
         .neq("status", "CANCELLED")
         .order("end_at", { ascending: true })
         .limit(30),
+      supabase
+        .from("contracts")
+        .select(
+          "id, code, status, start_at, end_at, balance_due, customers(first_name, last_name), vehicles(brand, model, plate)",
+        )
+        .is("deleted_at", null)
+        .neq("status", "CANCELLED")
+        .gt("balance_due", 0)
+        .order("balance_due", { ascending: false })
+        .limit(20),
     ]);
 
     const firstError =
@@ -432,7 +455,8 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
       tomorrowRes.error ??
       deliveriesRes.error ??
       returnsRes.error ??
-      openContractsRes.error;
+      openContractsRes.error ??
+      pendingSettlementsRes.error;
 
     if (firstError) {
       return { ...empty, configured: true, error: firstError.message };
@@ -475,6 +499,23 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
     );
     const openContractAlerts = openContracts.filter((c) => c.isOverdue);
 
+    const pendingSettlements: OpsPendingSettlement[] = (
+      (pendingSettlementsRes.data ?? []) as Array<
+        ContractJoinRow & { balance_due?: number | null }
+      >
+    ).map((row) => {
+      const base = mapOpenContract(row, nowIso);
+      return {
+        id: base.id,
+        code: base.code,
+        status: base.status,
+        customerName: base.customerName,
+        vehicleLabel: base.vehicleLabel,
+        balanceDue: Number(row.balance_due ?? 0),
+        href: `/dashboard/contratos/${row.id}#abonos`,
+      };
+    });
+
     return {
       configured: true,
       error: null,
@@ -488,6 +529,7 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
       returnsToday,
       openContracts,
       openContractAlerts,
+      pendingSettlements,
     };
   } catch (err) {
     return {

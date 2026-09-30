@@ -50,6 +50,12 @@ export default async function SociosPage() {
         emptyTitle="Sin sub-rentas"
         emptyDescription="Registre operaciones con socios para separar la utilidad real."
         columns={[
+          {
+            key: "contract",
+            header: "Contrato",
+            cell: (row) => row.contract_code || "—",
+            className: "hidden sm:table-cell",
+          },
           { key: "customer", header: "Cliente", cell: (row) => row.customer_name },
           {
             key: "vehicle",
