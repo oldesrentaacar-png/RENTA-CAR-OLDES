@@ -17,7 +17,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateQuoteLineTotals } from "@/lib/calculations/quote";
 import { rentalDaysBetween } from "@/lib/dates";
-import { formatMoney, parseMoneyInput, toNumber, multiply } from "@/lib/money";
+import { formatMoney, parseMoneyInput, parseRateInput, toNumber, multiply } from "@/lib/money";
 
 export type QuoteCatalogItem = {
   id: string;
@@ -336,7 +336,7 @@ export function QuoteForm({
         endAt,
         lines: lines.map((line) => ({
           quantity: parseMoneyInput(line.quantity || "0"),
-          unit_price: parseMoneyInput(line.unit_price || "0"),
+          unit_price: parseRateInput(line.unit_price || "0"),
           item_type: line.item_type,
         })),
         discountPercent: parseMoneyInput(discountPercent || "0"),
@@ -449,7 +449,7 @@ export function QuoteForm({
   }
 
   function lineAmount(line: QuoteLineDraft) {
-    const unit = parseMoneyInput(line.unit_price || "0");
+    const unit = parseRateInput(line.unit_price || "0");
     const qty =
       line.item_type === "VEHICLE"
         ? rentalDaysOrOne()
@@ -484,7 +484,7 @@ export function QuoteForm({
             line.item_type === "VEHICLE"
               ? days
               : parseMoneyInput(line.quantity || "0");
-          const unit_price = parseMoneyInput(line.unit_price || "0");
+          const unit_price = parseRateInput(line.unit_price || "0");
           return {
             description: line.description.trim(),
             quantity,
@@ -689,7 +689,7 @@ export function QuoteForm({
                   <input
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="any"
                     value={line.unit_price}
                     onChange={(e) =>
                       updateLine(line.key, { unit_price: e.target.value })

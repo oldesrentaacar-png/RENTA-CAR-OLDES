@@ -74,7 +74,7 @@ import {
   buildContractBillingBreakdown,
   computeOptionalIvaTotals,
 } from "@/lib/pdf/contract-billing";
-import { parseMoneyInput } from "@/lib/money";
+import { parseMoneyInput, parseRateInput } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
@@ -892,7 +892,7 @@ export async function createContract(
       formData.get("startAt") ?? r.start_at,
     );
     const endAt = normalizeFormDateTimeToIso(formData.get("endAt") ?? r.end_at);
-    const agreedRate = parseMoneyInput(
+    const agreedRate = parseRateInput(
       formData.get("agreedRate"),
       r.agreed_rate,
     );
@@ -1102,7 +1102,7 @@ export async function updateContract(
 
     // Extensiones / ajustes: fechas y tarifa se editan en el contrato (fuente de verdad),
     // incluso después de firmar (p. ej. extender renta desde calendario → contrato).
-    if (agreedRate) row.agreed_rate = Number(agreedRate);
+    if (agreedRate) row.agreed_rate = parseRateInput(agreedRate);
     if (deposit) row.deposit = Number(deposit);
     if (insurance) row.insurance = Number(insurance);
     if (startAt) row.start_at = normalizeFormDateTimeToIso(startAt);

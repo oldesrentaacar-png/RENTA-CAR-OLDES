@@ -16,7 +16,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { calculateReservationTotal, deriveReservationPricingFromQuote, capTotalToQuote } from "@/lib/calculations/quote";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
-import { parseMoneyInput } from "@/lib/money";
+import { parseMoneyInput, parseRateInput } from "@/lib/money";
 import { computeOptionalIvaTotals } from "@/lib/pdf/contract-billing";
 import {
   extraLinesFromQuoteItems,
@@ -307,7 +307,7 @@ export async function createReservation(
 
     const startAt = normalizeFormDateTimeToIso(formData.get("startAt"));
     const endAt = normalizeFormDateTimeToIso(formData.get("endAt"));
-    const agreedRate = parseMoneyInput(formData.get("agreedRate"));
+    const agreedRate = parseRateInput(formData.get("agreedRate"));
     const deposit = parseMoneyInput(formData.get("deposit"));
     const insurance = parseMoneyInput(formData.get("insurance") || 0);
     const cashAmount = parseMoneyInput(formData.get("cashAmount") || 0);
@@ -704,7 +704,7 @@ export async function updateReservation(
       vehicleType: formData.get("vehicleType"),
       agreedRate:
         agreedRateRaw !== null && agreedRateRaw !== ""
-          ? parseMoneyInput(agreedRateRaw)
+          ? parseRateInput(agreedRateRaw)
           : undefined,
       deposit:
         depositRaw !== null && depositRaw !== ""

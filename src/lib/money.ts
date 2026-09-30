@@ -7,6 +7,11 @@ Decimal.set({
 
 export type MoneyInput = string | number | Decimal;
 
+/** Decimales para montos (USD): abonos, totales, depósitos. */
+export const MONEY_DECIMALS = 2;
+/** Decimales para tarifas diarias: permite 435/7 = 62.142857… */
+export const RATE_DECIMALS = 6;
+
 export function toDecimal(value: MoneyInput | null | undefined): Decimal {
   if (value instanceof Decimal) {
     return value.isFinite() ? value : new Decimal(0);
@@ -54,7 +59,7 @@ export function formatMoney(
   locale: string = "es-SV",
 ): string {
   try {
-    const amount = toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    const amount = toDecimal(value).toDecimalPlaces(MONEY_DECIMALS, Decimal.ROUND_HALF_UP);
     const n = amount.toNumber();
     return new Intl.NumberFormat(locale, {
       style: "currency",
@@ -74,8 +79,63 @@ export function formatMoney(
 
 /** Converts a monetary value to a number suitable for PostgreSQL NUMERIC columns. */
 export function toNumber(value: MoneyInput | null | undefined): number {
-  const n = toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+  const n = toDecimal(value)
+    .toDecimalPlaces(MONEY_DECIMALS, Decimal.ROUND_HALF_UP)
+    .toNumber();
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Tarifa diaria con hasta 6 decimales (no redondear a centavos). */
+export function toRateNumber(value: MoneyInput | null | undefined): number {
+  const n = toDecimal(value)
+    .toDecimalPlaces(RATE_DECIMALS, Decimal.ROUND_HALF_UP)
+    .toNumber();
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Parse de tarifa diaria. Conserva hasta 6 decimales para que
+ * días × tarifa llegue al total pactado (ej. 7 × 62.142857 = 435.00).
+ */
+export function parseRateInput(value: unknown, fallback = 0): number {
+  if (value === null || value === undefined || value === "") {
+    return toRateNumber(fallback);
+  }
+  try {
+    const amount = toDecimal(String(value).replace(",", "."));
+    if (!amount.isFinite() || amount.isNaN()) {
+      return toRateNumber(fallback);
+    }
+    if (amount.isNegative()) {
+      return 0;
+    }
+    return toRateNumber(amount);
+  } catch {
+    return toRateNumber(fallback);
+  }
+}
+
+/** Muestra tarifa con hasta 6 decimales (sin ceros basura al final). */
+export function formatRate(
+  value: MoneyInput | null | undefined,
+  locale: string = "es-SV",
+): string {
+  try {
+    const amount = toDecimal(value).toDecimalPlaces(
+      RATE_DECIMALS,
+      Decimal.ROUND_HALF_UP,
+    );
+    const n = amount.toNumber();
+    if (!Number.isFinite(n)) return "$0";
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: RATE_DECIMALS,
+    }).format(n);
+  } catch {
+    return "$0.00";
+  }
 }
 
 /**

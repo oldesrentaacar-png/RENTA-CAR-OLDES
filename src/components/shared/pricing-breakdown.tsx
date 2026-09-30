@@ -1,4 +1,4 @@
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatRate } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 export type PricingBreakdownProps = {
@@ -75,7 +75,7 @@ export function PricingBreakdown({
     >
       <p className="mb-3 font-medium text-foreground">Resumen automático</p>
       <Row
-        label={`${rentalDays} día${rentalDays === 1 ? "" : "s"} × ${formatMoney(dailyRate)}`}
+        label={`${rentalDays} día${rentalDays === 1 ? "" : "s"} × ${formatRate(dailyRate)}`}
         value={formatMoney(subtotal)}
       />
       {lines && lines.length > 0 ? (

@@ -51,7 +51,7 @@ function FleetTypeFields({
         name="dailyRate"
         label="Tarifa diaria *"
         type="number"
-        step="0.01"
+        step="any"
         min="0"
         defaultValue={item?.daily_rate ?? ""}
         required

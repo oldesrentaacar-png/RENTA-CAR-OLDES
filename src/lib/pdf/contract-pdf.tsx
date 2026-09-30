@@ -19,7 +19,7 @@ import {
   DAMAGE_TYPE_LABELS,
   fuelLevelIndex,
 } from "@/lib/inspections/defaults";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatRate, toNumber, multiply } from "@/lib/money";
 import { PDF_BRAND } from "@/lib/pdf/brand-assets";
 import { CONTRACT_PDF_TEMPLATE_VERSION } from "@/lib/pdf/contract-pdf-meta";
 import { PdfFuelNeedleGauge } from "@/lib/pdf/fuel-needle-gauge";
@@ -540,7 +540,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
 
   const clauses = resolveContractClauses(props.clauses);
 
-  const subtotalRental = props.dailyRate * props.rentalDays;
+  const subtotalRental = toNumber(multiply(props.dailyRate, props.rentalDays));
   const billingLines = props.billingLineItems ?? [];
   // Authoritative total from the contract record — never invent from line sums.
   const displayedTotal = props.total;
@@ -709,14 +709,14 @@ export function ContractPdfDocument(props: ContractPdfProps) {
             />
             <MachoteField
               label="Tarifa diaria"
-              value={`${formatMoney(props.dailyRate)} / día`}
+              value={`${formatRate(props.dailyRate)} / día`}
               width="third"
             />
             <MachoteField label="Depósito (garantía)" value={formatMoney(props.deposit)} width="third" />
           </MachoteGrid>
           <View style={machoteStyles.billingRow}>
             <Text style={{ fontSize: 7.5 }}>
-              Renta ({props.rentalDays} días × {formatMoney(props.dailyRate)})
+              Renta ({props.rentalDays} días × {formatRate(props.dailyRate)})
             </Text>
             <Text style={{ fontSize: 7.5 }}>{formatMoney(subtotalRental)}</Text>
           </View>

@@ -28,7 +28,7 @@ import {
 } from "@/lib/billing/extra-lines";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { toDatetimeLocalValue } from "@/lib/dates";
-import { formatMoney, parseMoneyInput } from "@/lib/money";
+import { formatMoney, parseMoneyInput, parseRateInput } from "@/lib/money";
 import type { Reservation } from "@/types/database";
 
 type VehicleOption = {
@@ -198,7 +198,7 @@ export function ReservationForm({
       const base = calculateReservationTotal({
         startAt,
         endAt,
-        agreedRate: parseMoneyInput(agreedRate),
+        agreedRate: parseRateInput(agreedRate),
         insurance: parseMoneyInput(insurance || 0),
         additionalCosts: parseMoneyInput(additionalCosts || 0),
         courtesyAmount: canManageCourtesy
@@ -262,7 +262,7 @@ export function ReservationForm({
           const base = calculateReservationTotal({
             startAt,
             endAt,
-            agreedRate: parseMoneyInput(agreedRate),
+            agreedRate: parseRateInput(agreedRate),
             insurance: parseMoneyInput(insurance || 0),
             additionalCosts: parseMoneyInput(additionalCosts || 0),
             courtesyAmount: canManageCourtesy
@@ -281,7 +281,7 @@ export function ReservationForm({
         })();
 
     formData.set("total", String(computed.totalWithIva));
-    formData.set("agreedRate", String(parseMoneyInput(agreedRate)));
+    formData.set("agreedRate", String(parseRateInput(agreedRate)));
     formData.set("deposit", String(parseMoneyInput(deposit)));
     formData.set("insurance", String(parseMoneyInput(insurance || 0)));
     formData.set("cashAmount", String(parseMoneyInput(cashAmount || 0)));
@@ -423,17 +423,23 @@ export function ReservationForm({
           onChange={(e) => setEndAt(e.target.value)}
           required
         />
-        <Input
-          name="agreedRate"
-          label="Tarifa diaria (USD) *"
-          type="number"
-          step="0.01"
-          min="0"
-          inputMode="decimal"
-          value={agreedRate}
-          onChange={(e) => setAgreedRate(e.target.value)}
-          required
-        />
+        <div className="space-y-1">
+          <Input
+            name="agreedRate"
+            label="Tarifa diaria (USD) *"
+            type="number"
+            step="any"
+            min="0"
+            inputMode="decimal"
+            value={agreedRate}
+            onChange={(e) => setAgreedRate(e.target.value)}
+            required
+          />
+          <p className="text-xs text-muted">
+            Puede usar hasta 6 decimales (ej. 62.142857) para que días × tarifa
+            llegue exacto al total pactado. El total se redondea a centavos.
+          </p>
+        </div>
         <div className="space-y-1">
           <Input
             name="insurance"
@@ -543,7 +549,7 @@ export function ReservationForm({
           <input type="hidden" name="total" value={preview.totalWithIva} />
           <PricingBreakdown
             rentalDays={preview.rentalDays}
-            dailyRate={parseMoneyInput(agreedRate)}
+            dailyRate={parseRateInput(agreedRate)}
             subtotal={preview.rentalSubtotal}
             insurance={preview.insurance}
             extras={quoteExtraLines.length > 0 ? 0 : preview.additionalCosts}

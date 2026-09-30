@@ -288,13 +288,20 @@ export function ContractDetailActions({
               type="datetime-local"
               defaultValue={toDatetimeLocalValue(contract.end_at)}
             />
-            <Input
-              name="agreedRate"
-              label="Tarifa diaria"
-              type="number"
-              step="0.01"
-              defaultValue={contract.agreed_rate}
-            />
+            <div className="space-y-1">
+              <Input
+                name="agreedRate"
+                label="Tarifa diaria"
+                type="number"
+                step="any"
+                min="0"
+                inputMode="decimal"
+                defaultValue={contract.agreed_rate}
+              />
+              <p className="text-xs text-muted">
+                Hasta 6 decimales (ej. 62.142857) para cuadrar el total exacto.
+              </p>
+            </div>
             <Input
               name="deposit"
               label="Depósito"

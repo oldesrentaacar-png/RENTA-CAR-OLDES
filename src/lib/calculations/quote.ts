@@ -3,6 +3,7 @@ import {
   add,
   multiply,
   parseMoneyInput,
+  parseRateInput,
   subtract,
   toNumber,
   type MoneyInput,
@@ -39,7 +40,7 @@ export function calculateQuoteTotals(
   input: QuoteCalculationInput,
 ): QuoteCalculationResult {
   const rentalDays = rentalDaysBetween(input.startAt, input.endAt);
-  const dailyRate = parseMoneyInput(input.dailyRate);
+  const dailyRate = parseRateInput(input.dailyRate);
   const subtotal = toNumber(multiply(dailyRate, rentalDays));
 
   const insuranceAmount = parseMoneyInput(input.insuranceAmount);
@@ -182,7 +183,7 @@ export function calculateReservationTotal(input: {
   total: number;
 } {
   const rentalDays = rentalDaysBetween(input.startAt, input.endAt);
-  const agreedRate = parseMoneyInput(input.agreedRate);
+  const agreedRate = parseRateInput(input.agreedRate);
   const insurance = parseMoneyInput(input.insurance);
   const additionalCosts = parseMoneyInput(input.additionalCosts);
   const rentalSubtotal = toNumber(multiply(agreedRate, rentalDays));
@@ -232,7 +233,7 @@ export function deriveReservationPricingFromQuote(input: {
     amount: number;
   }>;
 } {
-  const agreedRate = parseMoneyInput(input.dailyRate);
+  const agreedRate = parseRateInput(input.dailyRate);
   const rentalDays = Math.max(0, Number(input.rentalDays) || 0);
   const quoteTotal = parseMoneyInput(input.quoteTotal);
   const rentalSubtotal = toNumber(multiply(agreedRate, rentalDays));
