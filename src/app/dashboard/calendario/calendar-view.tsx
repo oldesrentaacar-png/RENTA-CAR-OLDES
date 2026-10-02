@@ -331,7 +331,7 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-[11px] text-muted">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
         {(
           [
             "SIN_CONTRATO",
@@ -351,9 +351,18 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
             {CALENDAR_PHASE_LABELS[phase]}
           </span>
         ))}
+        <span className={cn("rounded px-2 py-0.5 font-bold", rentalDayRoleClass("ENTREGAR"))}>
+          ENTREGAR
+        </span>
+        <span className={cn("rounded px-2 py-0.5 font-bold", rentalDayRoleClass("EN_RENTA"))}>
+          EN RENTA
+        </span>
+        <span className={cn("rounded px-2 py-0.5 font-bold", rentalDayRoleClass("RECIBIR"))}>
+          RECIBIR
+        </span>
         <span className="self-center">
-          Números tipo Google: 2/5 = día 2 de 5. Entregar = primer día · Recibir
-          = último día · En renta = días intermedios.
+          Como Google: <strong>2/5</strong> = día 2 de 5. Sin abrir el contrato
+          ya se ve si toca entregar o recibir, y si mañana sigue o no.
         </span>
       </div>
 
@@ -576,16 +585,21 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                     <p className="mt-1 text-sm text-foreground">
                       {eventLabel(r)}
                     </p>
-                    <p className="mt-1 text-xs text-muted">
+                    <p className="mt-2 text-sm font-medium text-foreground">
                       {dayActionHint(prog, r.phase)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
                       {prog && prog.dayIndex < prog.totalDays
-                        ? " · Mañana sigue en el calendario"
-                        : ""}
+                        ? `Mañana también aparece (día ${prog.dayIndex + 1}/${prog.totalDays}).`
+                        : null}
                       {prog &&
                       prog.dayIndex === prog.totalDays &&
                       prog.totalDays > 1
-                        ? " · Último día de esta renta"
-                        : ""}
+                        ? "Mañana ya no aparece: hoy es el último día (RECIBIR)."
+                        : null}
+                      {prog && prog.totalDays === 1
+                        ? "Renta de un solo día: entregar y recibir hoy."
+                        : null}
                     </p>
                   </Link>
                 );

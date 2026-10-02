@@ -22,9 +22,9 @@ export type RentalDayProgress = {
 };
 
 const ROLE_LABELS: Record<RentalDayRole, string> = {
-  ENTREGAR: "Entregar",
-  EN_RENTA: "En renta",
-  RECIBIR: "Recibir",
+  ENTREGAR: "ENTREGAR",
+  EN_RENTA: "EN RENTA",
+  RECIBIR: "RECIBIR",
 };
 
 /**
@@ -60,7 +60,9 @@ export function getRentalDayProgress(
 
   const fraction = `${dayIndex}/${totalDays}`;
   const roleLabel =
-    dayIndex === 1 && totalDays === 1 ? "Entregar / Recibir" : ROLE_LABELS[role];
+    dayIndex === 1 && totalDays === 1
+      ? "ENTREGAR + RECIBIR"
+      : ROLE_LABELS[role];
 
   return {
     dayIndex,
@@ -68,19 +70,19 @@ export function getRentalDayProgress(
     role: dayIndex === 1 && totalDays === 1 ? "ENTREGAR" : role,
     fraction,
     roleLabel,
-    label: `Día ${fraction} · ${roleLabel}`,
+    label: `${fraction} · ${roleLabel}`,
   };
 }
 
 export function rentalDayRoleClass(role: RentalDayRole): string {
   switch (role) {
     case "ENTREGAR":
-      return "bg-amber-100 text-amber-950";
+      return "bg-amber-600 text-white";
     case "RECIBIR":
-      return "bg-violet-100 text-violet-950";
+      return "bg-blue-700 text-white";
     case "EN_RENTA":
     default:
-      return "bg-emerald-100 text-emerald-950";
+      return "bg-emerald-700 text-white";
   }
 }
 
@@ -90,8 +92,8 @@ export function dayActionHint(
   phase: CalendarPhase,
 ): string {
   if (!progress) return "";
-  if (progress.totalDays === 1) return "Entregar y recibir hoy";
-  if (progress.role === "ENTREGAR") return "Hoy toca entregar";
-  if (progress.role === "RECIBIR") return "Hoy toca recibir";
-  return `Día ${progress.fraction} de la renta (${phase})`;
+  if (progress.totalDays === 1) return "Hoy: entregar y recibir el mismo día";
+  if (progress.role === "ENTREGAR") return "Hoy toca ENTREGAR el vehículo";
+  if (progress.role === "RECIBIR") return "Hoy toca RECIBIR el vehículo";
+  return `Día ${progress.fraction} de la renta · sigue en curso`;
 }
