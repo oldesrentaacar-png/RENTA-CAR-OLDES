@@ -24,6 +24,11 @@ import {
   calendarPhaseBarClass,
   type CalendarPhase,
 } from "@/lib/calendar/phase";
+import {
+  dayActionHint,
+  getRentalDayProgress,
+  rentalDayRoleClass,
+} from "@/lib/calendar/day-progress";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
@@ -347,8 +352,8 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
           </span>
         ))}
         <span className="self-center">
-          En vista mes: clic en el día o en “+N más” para ver todas las reservas
-          de ese día.
+          Números tipo Google: 2/5 = día 2 de 5. Entregar = primer día · Recibir
+          = último día · En renta = días intermedios.
         </span>
       </div>
 
@@ -440,7 +445,17 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                         }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {eventLabel(bar.reservation)}
+                        {(() => {
+                          const prog = getRentalDayProgress(
+                            bar.reservation.start_at,
+                            bar.reservation.end_at,
+                            days[bar.startCol],
+                          );
+                          const prefix = prog
+                            ? `${prog.fraction} ${prog.roleLabel} · `
+                            : "";
+                          return `${prefix}${eventLabel(bar.reservation)}`;
+                        })()}
                       </Link>
                     ))}
                   </div>
@@ -464,22 +479,36 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                 {format(day, "EEE d", { locale: es })}
               </button>
               <div className="mt-2 space-y-1">
-                {reservationsForDay(day).map((r) => (
-                  <Link
-                    key={r.id}
-                    href={eventHref(r)}
-                    className={cn(
-                      "block truncate rounded px-2 py-1 text-xs font-medium",
-                      calendarPhaseBarClass(r.phase),
-                    )}
-                    title={`${r.contractCode ? `Contrato ${r.contractCode}` : r.code} — ${CALENDAR_PHASE_LABELS[r.phase]} — ${eventLabel(r)}`}
-                  >
-                    <span className="mr-1 opacity-80">
-                      {CALENDAR_PHASE_LABELS[r.phase]}
-                    </span>
-                    {eventLabel(r)}
-                  </Link>
-                ))}
+                {reservationsForDay(day).map((r) => {
+                  const prog = getRentalDayProgress(r.start_at, r.end_at, day);
+                  return (
+                    <Link
+                      key={r.id}
+                      href={eventHref(r)}
+                      className={cn(
+                        "block truncate rounded px-2 py-1 text-xs font-medium",
+                        calendarPhaseBarClass(r.phase),
+                      )}
+                      title={`${r.contractCode ? `Contrato ${r.contractCode}` : r.code} — ${prog?.label ?? CALENDAR_PHASE_LABELS[r.phase]} — ${eventLabel(r)}`}
+                    >
+                      {prog ? (
+                        <span
+                          className={cn(
+                            "mr-1 rounded px-1 py-0.5 text-[10px] font-semibold",
+                            rentalDayRoleClass(prog.role),
+                          )}
+                        >
+                          {prog.fraction} {prog.roleLabel}
+                        </span>
+                      ) : (
+                        <span className="mr-1 opacity-80">
+                          {CALENDAR_PHASE_LABELS[r.phase]}
+                        </span>
+                      )}
+                      {eventLabel(r)}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -504,31 +533,63 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
             {reservationsForDay(cursor).length === 0 ? (
               <p className="text-sm text-muted">Sin reservas este día.</p>
             ) : (
-              reservationsForDay(cursor).map((r) => (
-                <Link
-                  key={r.id}
-                  href={eventHref(r)}
-                  className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-4 py-3 hover:bg-surface-muted"
-                >
-                  <span
-                    className={cn(
-                      "rounded px-2 py-0.5 text-xs font-medium",
-                      calendarPhaseBarClass(r.phase),
-                    )}
+              reservationsForDay(cursor).map((r) => {
+                const prog = getRentalDayProgress(
+                  r.start_at,
+                  r.end_at,
+                  cursor,
+                );
+                return (
+                  <Link
+                    key={r.id}
+                    href={eventHref(r)}
+                    className="block rounded-lg border border-border px-4 py-3 hover:bg-surface-muted"
                   >
-                    {CALENDAR_PHASE_LABELS[r.phase]}
-                  </span>
-                  <span className="font-medium">{r.code}</span>
-                  {r.contractCode ? (
-                    <span className="text-xs text-muted">
-                      Contrato {r.contractCode}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted">Sin contrato</span>
-                  )}
-                  <span className="text-sm text-muted">{eventLabel(r)}</span>
-                </Link>
-              ))
+                    <div className="flex flex-wrap items-center gap-2">
+                      {prog ? (
+                        <span
+                          className={cn(
+                            "rounded px-2 py-0.5 text-xs font-semibold",
+                            rentalDayRoleClass(prog.role),
+                          )}
+                        >
+                          {prog.label}
+                        </span>
+                      ) : null}
+                      <span
+                        className={cn(
+                          "rounded px-2 py-0.5 text-xs font-medium",
+                          calendarPhaseBarClass(r.phase),
+                        )}
+                      >
+                        {CALENDAR_PHASE_LABELS[r.phase]}
+                      </span>
+                      <span className="font-medium">{r.code}</span>
+                      {r.contractCode ? (
+                        <span className="text-xs text-muted">
+                          Contrato {r.contractCode}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted">Sin contrato</span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-foreground">
+                      {eventLabel(r)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      {dayActionHint(prog, r.phase)}
+                      {prog && prog.dayIndex < prog.totalDays
+                        ? " · Mañana sigue en el calendario"
+                        : ""}
+                      {prog &&
+                      prog.dayIndex === prog.totalDays &&
+                      prog.totalDays > 1
+                        ? " · Último día de esta renta"
+                        : ""}
+                    </p>
+                  </Link>
+                );
+              })
             )}
           </div>
         </div>
