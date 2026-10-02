@@ -676,23 +676,42 @@ export function CloseContractWizard({
                 ) : (
                   <>
                     {checkOut ? (
-                      <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-950">
+                      <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-emerald-950">
                         <p className="text-xs font-semibold uppercase tracking-wide">
                           Así salió
                         </p>
-                        <p className="mt-1 text-2xl font-semibold">
+                        <p className="mt-1 text-sm font-semibold">
+                          {checkOut.mileage != null
+                            ? `${checkOut.mileage.toLocaleString("es-SV")} km`
+                            : "Sin km"}
+                          {" · "}
                           {checkOut.fuel_level
                             ? FUEL_LEVEL_LABELS[checkOut.fuel_level] ??
                               checkOut.fuel_level
-                            : "Sin combustible de salida"}
-                        </p>
-                        <p className="text-sm">
-                          {checkOut.mileage != null
-                            ? `${checkOut.mileage.toLocaleString("es-SV")} km al entregar`
-                            : "Sin kilometraje de salida"}
+                            : "Sin combustible"}
                         </p>
                       </div>
                     ) : null}
+                    <div className="rounded-xl border border-border bg-surface-muted/40 px-3 py-3">
+                      <p className="text-sm font-semibold text-foreground">
+                        1) Inventario / accesorios
+                      </p>
+                      <p className="mt-1 text-sm text-muted">
+                        Revise el checklist de la inspección de entrada. El
+                        combustible va debajo, no arriba.
+                      </p>
+                      {checkIn ? (
+                        <Link
+                          href={`/dashboard/inspecciones/${checkIn.id}#accesorios`}
+                          className="mt-2 inline-flex text-sm font-medium text-brand hover:underline"
+                        >
+                          Abrir accesorios de la inspección
+                        </Link>
+                      ) : null}
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">
+                      2) Kilometraje y combustible (debajo del inventario)
+                    </p>
                     <p className="text-muted">
                       Escriba cómo lo está recibiendo ahora. El km es
                       obligatorio. Luego pulse <strong>Siguiente</strong> para

@@ -42,7 +42,7 @@ export function receiptPdfHref(
 }
 
 /** Bump when close-act PDF layout changes (keep in sync with CLOSE_ACT_PDF_VERSION). */
-export const CLOSE_ACT_PDF_TEMPLATE_VERSION = "2026-09-25-v6";
+export const CLOSE_ACT_PDF_TEMPLATE_VERSION = "2026-10-01-v1";
 
 export function closeActPdfHref(
   contractId: string,

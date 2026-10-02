@@ -19,7 +19,7 @@ import {
   machoteStyles,
 } from "@/lib/pdf/machote-box";
 
-export const CLOSE_ACT_PDF_VERSION = "2026-09-25-v6";
+export const CLOSE_ACT_PDF_VERSION = "2026-10-01-v1";
 
 export type CloseActAccessoryRow = {
   label: string;
@@ -373,29 +373,7 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
           </MachoteGrid>
         </MachoteSection>
 
-        <MachoteSection title="3. Nivel de combustible e inventario de accesorios">
-          <View style={styles.pairRow}>
-            <View style={styles.pairCol}>
-              <FuelGauge
-                label="SALIDA — CÓMO SE ENTREGÓ"
-                activeIndex={fuelLevelIndex(props.fuelOutLabel)}
-              />
-            </View>
-            <View style={styles.pairCol}>
-              <FuelGauge
-                label="AL RECIBIR — CÓMO VUELVE"
-                activeIndex={fuelLevelIndex(props.fuelInLabel)}
-              />
-            </View>
-          </View>
-          <Text style={styles.note}>
-            Mismo nivel entregado en salida:{" "}
-            {props.fuelSameLevel == null
-              ? "[ ] Sí   [ ] No"
-              : props.fuelSameLevel
-                ? "[X] Sí   [ ] No"
-                : "[ ] Sí   [X] No"}
-          </Text>
+        <MachoteSection title="3. Inventario de accesorios y combustible">
           <Text
             style={{
               fontSize: 7,
@@ -406,6 +384,16 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
             }}
           >
             Checklist de accesorios (devolución)
+          </Text>
+          <Text style={[styles.note, { marginBottom: 2 }]}>
+            Km salida:{" "}
+            {kmOut != null ? `${kmOut.toLocaleString("es-SV")} km` : "—"}
+            {"   ·   "}
+            Km retorno:{" "}
+            {kmIn != null ? `${kmIn.toLocaleString("es-SV")} km` : "—"}
+            {tripKm != null
+              ? `   ·   Recorrido: ${tripKm.toLocaleString("es-SV")} km`
+              : ""}
           </Text>
           <View style={styles.checkGrid}>
             {accessories.map((item) => (
@@ -435,6 +423,29 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
               {props.missingAccessories!.join("; ")}
             </Text>
           ) : null}
+          {/* Combustible DEBAJO del inventario — menos hueco en el acta */}
+          <View style={[styles.pairRow, { marginTop: 4 }]}>
+            <View style={styles.pairCol}>
+              <FuelGauge
+                label="SALIDA — CÓMO SE ENTREGÓ"
+                activeIndex={fuelLevelIndex(props.fuelOutLabel)}
+              />
+            </View>
+            <View style={styles.pairCol}>
+              <FuelGauge
+                label="AL RECIBIR — CÓMO VUELVE"
+                activeIndex={fuelLevelIndex(props.fuelInLabel)}
+              />
+            </View>
+          </View>
+          <Text style={styles.note}>
+            Mismo nivel entregado en salida:{" "}
+            {props.fuelSameLevel == null
+              ? "[ ] Sí   [ ] No"
+              : props.fuelSameLevel
+                ? "[X] Sí   [ ] No"
+                : "[ ] Sí   [X] No"}
+          </Text>
         </MachoteSection>
 
         <View wrap={false}>
