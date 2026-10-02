@@ -96,7 +96,7 @@ function markStrokeColor(
   colorBy: "severity" | "phase" = "severity",
 ): string {
   if (colorBy === "phase") {
-    return mark.phase === "OUT" ? "#15803d" : "#dc2626";
+    return mark.phase === "OUT" ? "#64748b" : "#dc2626";
   }
   const bySeverity =
     mark.severity === "HIGH"
@@ -285,7 +285,7 @@ export async function prepareContractPdfImages<
   };
 }
 
-/** Close-act car: green = salida (OUT), red = rayón nuevo al recibir (IN). */
+/** Close-act car: gray = salida (OUT), red = rayón nuevo al recibir (IN). */
 export async function prepareReturnWireframe(input: {
   vehicleType?: string | null;
   vehicleTypeSlug?: string | null;

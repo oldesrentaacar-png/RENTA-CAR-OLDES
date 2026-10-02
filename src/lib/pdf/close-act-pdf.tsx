@@ -19,7 +19,7 @@ import {
   machoteStyles,
 } from "@/lib/pdf/machote-box";
 
-export const CLOSE_ACT_PDF_VERSION = "2026-10-01-v1";
+export const CLOSE_ACT_PDF_VERSION = "2026-10-01-v2";
 
 export type CloseActAccessoryRow = {
   label: string;
@@ -451,12 +451,12 @@ export function CloseActPdfDocument(props: CloseActPdfProps) {
         <View wrap={false}>
         <MachoteSection title="4. Inspección de carrocería e incidencias nuevas">
           <Text style={styles.note}>
-            Verde = cómo salió. Rojo = rayón o golpe nuevo al recibir. R =
+            Gris = cómo salió. Rojo = rayón o golpe nuevo al recibir. R =
             Rayón · G = Golpe · F = Faltante
           </Text>
           <View style={styles.pairRow}>
             <View style={styles.pairCol}>
-              <Text style={[styles.diagramCaption, { color: "#15803d" }]}>
+              <Text style={[styles.diagramCaption, { color: "#64748b" }]}>
                 SALIDA
               </Text>
               {props.outDiagramUrl ? (
