@@ -61,7 +61,7 @@ export function DamageMapView({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
           {(referenceMarks?.length ?? 0) > 0 || newMarksInRed
-            ? "Verde = cómo salió. Rojo = lo que marca hoy."
+            ? "Gris = cómo salió. Rojo = lo que marca hoy."
             : "Esquema del vehículo — marque rayones / golpes / faltantes"}
         </p>
         <Button

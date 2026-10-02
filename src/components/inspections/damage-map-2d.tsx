@@ -356,7 +356,7 @@ export function DamageMap2D({
                     key={`ref-stroke-${index}`}
                     d={pointsToSvg(mark.pathPoints)}
                     fill="none"
-                    stroke="#15803d"
+                    stroke="#64748b"
                     strokeWidth={1.35}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -374,18 +374,18 @@ export function DamageMap2D({
               return (
                 <span
                   key={`ref-free-${index}`}
-                  className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-emerald-700 shadow"
+                  className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-slate-500 shadow"
                   style={{ left: `${mark.x * 100}%`, top: `${mark.y * 100}%` }}
-                  title="Trazo libre de la salida"
+                  title="Daño de salida (gris)"
                 />
               );
             }
             return (
               <span
                 key={`ref-pin-${index}`}
-                className="pointer-events-none absolute flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-emerald-700 px-1 text-[10px] font-bold text-white shadow"
+                className="pointer-events-none absolute flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-slate-500 px-1 text-[10px] font-bold text-white shadow"
                 style={{ left: `${mark.x * 100}%`, top: `${mark.y * 100}%` }}
-                title="Rayón de la salida"
+                title="Daño de salida (gris)"
               >
                 {panelDamageGlyph(mark.damageType)}
               </span>
@@ -495,7 +495,7 @@ export function DamageMap2D({
         </div>
         <p className="mt-2 text-center text-xs text-slate-600">
           {referenceMarks.length > 0 || newMarksInRed
-            ? "Verde = cómo salió. Rojo = rayón nuevo de hoy. "
+            ? "Gris = cómo salió. Rojo = rayón nuevo de hoy. "
             : null}
           {wireframeLabel} · Golpe/Rayón/Faltante = clic (pin).{" "}
           <strong>Libre = dibujar a mano alzada</strong> sobre el diagrama.

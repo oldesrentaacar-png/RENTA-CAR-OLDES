@@ -682,8 +682,7 @@ export function CloseContractWizard({
                   <>
                     <p className="rounded-lg border border-border bg-surface-muted/50 px-3 py-2 text-muted">
                       Reciba en ~5 minutos: izquierda = cómo salió · derecha =
-                      cómo vuelve. Rayones viejos en gris/verde; solo marque
-                      nuevos en rojo.
+                      cómo vuelve. Rayones de salida en gris; solo marque nuevos en rojo.
                     </p>
 
                     <div className="grid gap-3 md:grid-cols-2">
@@ -782,8 +781,9 @@ export function CloseContractWizard({
                       </div>
                       <p className="mt-1 text-xs text-muted">
                         El inventario de entrada parte igual al de salida. Solo
-                        cambie lo que falte o esté dañado. En el mapa: gris/verde
-                        = rayón de salida; rojo = rayón nuevo.
+                        cambie lo que falte o esté dañado. En el mapa:{" "}
+                        <strong>gris = salida</strong>,{" "}
+                        <strong>rojo = daño nuevo</strong>.
                       </p>
                       {accessoryComparison.length === 0 ? (
                         <p className="mt-2 text-amber-800">

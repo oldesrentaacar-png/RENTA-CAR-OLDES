@@ -95,6 +95,13 @@ function formatEventTime(iso: string): string | null {
   return format(d, "HH:mm");
 }
 
+/** Always show clock for day-list ops (even 00:00). */
+function movementClock(iso: string): string {
+  const d = parseISO(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return format(d, "HH:mm");
+}
+
 function eventLabel(r: CalendarReservation): string {
   const time = formatEventTime(r.start_at);
   return [time, r.vehicleLabel, r.customerName].filter(Boolean).join(" · ");
@@ -548,17 +555,23 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                   r.end_at,
                   cursor,
                 );
+                const showEntrega =
+                  Boolean(prog) &&
+                  (prog!.role === "ENTREGAR" || prog!.totalDays === 1);
+                const showDevolucion =
+                  Boolean(prog) &&
+                  (prog!.role === "RECIBIR" || prog!.totalDays === 1);
                 return (
                   <Link
                     key={r.id}
                     href={eventHref(r)}
-                    className="block rounded-lg border border-border px-4 py-3 hover:bg-surface-muted"
+                    className="block rounded-xl border border-border px-4 py-3 hover:bg-surface-muted"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       {prog ? (
                         <span
                           className={cn(
-                            "rounded px-2 py-0.5 text-xs font-semibold",
+                            "rounded px-2 py-1 text-xs font-bold tracking-wide",
                             rentalDayRoleClass(prog.role),
                           )}
                         >
@@ -573,18 +586,31 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
                       >
                         {CALENDAR_PHASE_LABELS[r.phase]}
                       </span>
-                      <span className="font-medium">{r.code}</span>
-                      {r.contractCode ? (
-                        <span className="text-xs text-muted">
-                          Contrato {r.contractCode}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted">Sin contrato</span>
-                      )}
+                      <span className="font-medium">
+                        {r.contractCode ?? r.code}
+                      </span>
                     </div>
-                    <p className="mt-1 text-sm text-foreground">
-                      {eventLabel(r)}
+                    <p className="mt-2 text-sm font-semibold text-foreground">
+                      {r.vehicleLabel}
                     </p>
+                    <p className="text-sm text-muted">{r.customerName}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {showEntrega ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-950">
+                          [ENTREGA] {movementClock(r.start_at)}
+                        </span>
+                      ) : null}
+                      {showDevolucion ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-950">
+                          [DEVOLUCIÓN] {movementClock(r.end_at)}
+                        </span>
+                      ) : null}
+                      {prog && prog.role === "EN_RENTA" ? (
+                        <span className="inline-flex items-center rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-950">
+                          [EN RENTA] sin movimiento hoy
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="mt-2 text-sm font-medium text-foreground">
                       {dayActionHint(prog, r.phase)}
                     </p>

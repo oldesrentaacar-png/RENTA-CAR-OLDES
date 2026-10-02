@@ -126,7 +126,7 @@ export default async function InspeccionDetailPage({
             <ScrollHint
               message={
                 accessoriesOnly
-                  ? "Kilometraje junto al inventario. Fotos más abajo. Verde = cómo salió."
+                  ? "Kilometraje junto al inventario. Fotos más abajo. Gris = cómo salió · rojo = nuevo."
                   : inspectionOnly
                     ? "Deslice hacia abajo para las fotos de esta inspección."
                     : "Deslice hacia abajo para fotos, inventario y mapa de daños."
