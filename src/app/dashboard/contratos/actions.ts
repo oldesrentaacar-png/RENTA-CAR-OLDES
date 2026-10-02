@@ -1913,6 +1913,147 @@ async function ensureCheckInChecklist(
 }
 
 /**
+ * Crea la inspección CHECK_IN si falta, copiando el inventario de salida
+ * para que el cierre sea espejo rápido (solo marcar lo nuevo).
+ */
+export async function ensureCloseCheckIn(
+  contractId: string,
+): Promise<ActionResult<{ checkInId: string; created: boolean }>> {
+  try {
+    const { user } = await assertPermission("contracts.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const supabase = await createClient();
+    const { data: contract, error: contractError } = await supabase
+      .from("contracts")
+      .select("id, reservation_id, vehicle_id, customer_id, status, closed_at")
+      .eq("id", contractId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (contractError) throw mapPostgresError(contractError);
+    if (!contract) return actionError("Contrato no encontrado.");
+
+    const row = contract as {
+      reservation_id: string;
+      vehicle_id: string;
+      customer_id: string;
+      status: string;
+      closed_at: string | null;
+    };
+    if (row.status === "CANCELLED" || row.closed_at) {
+      return actionError("No se puede inspeccionar un contrato cerrado o anulado.");
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from("inspections")
+      .select("id")
+      .eq("reservation_id", row.reservation_id)
+      .eq("type", "CHECK_IN")
+      .order("inspection_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw mapPostgresError(existingError);
+    if (existing) {
+      const checkInId = (existing as { id: string }).id;
+      await ensureCheckInChecklist(supabase, checkInId);
+      return actionSuccess({ checkInId, created: false });
+    }
+
+    const { data: checkOut, error: outError } = await supabase
+      .from("inspections")
+      .select("id, code, inspection_checklist_items(item_name, status, sort_order)")
+      .eq("reservation_id", row.reservation_id)
+      .eq("type", "CHECK_OUT")
+      .order("inspection_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (outError) throw mapPostgresError(outError);
+
+    const checkOutRow = checkOut as {
+      id: string;
+      code?: string | null;
+      inspection_checklist_items?: Array<{
+        item_name: string;
+        status: string;
+        sort_order?: number | null;
+      }> | null;
+    } | null;
+
+    let presetCode: string | null = null;
+    const checkOutCode = checkOutRow?.code?.trim();
+    if (checkOutCode) {
+      const base = checkOutCode.replace(/[AB]$/i, "");
+      presetCode = `${base}B`;
+    }
+
+    const insertRow: Record<string, unknown> = {
+      reservation_id: row.reservation_id,
+      vehicle_id: row.vehicle_id,
+      customer_id: row.customer_id,
+      type: "CHECK_IN",
+      inspection_date: new Date().toISOString(),
+      mileage: null,
+      fuel_level: null,
+      created_by: user.id,
+    };
+    if (presetCode) insertRow.code = presetCode;
+
+    const { data: created, error: createError } = await supabase
+      .from("inspections")
+      .insert(insertRow)
+      .select("id")
+      .single();
+    if (createError) throw mapPostgresError(createError);
+
+    const checkInId = (created as { id: string }).id;
+
+    const outItems = checkOutRow?.inspection_checklist_items ?? [];
+    const checklistRows =
+      outItems.length > 0
+        ? outItems.map((item, index) => ({
+            inspection_id: checkInId,
+            item_name: item.item_name,
+            // Espejo: parte del mismo estado de salida; solo cambia lo nuevo.
+            status: item.status,
+            sort_order: item.sort_order ?? index,
+          }))
+        : (
+            (await getDefaultChecklistFromCatalog()) ?? DEFAULT_CHECKLIST_ITEMS
+          ).map((item, index) => ({
+            inspection_id: checkInId,
+            item_name: item.label,
+            status: item.status,
+            sort_order: index,
+          }));
+
+    const { error: checklistError } = await supabase
+      .from("inspection_checklist_items")
+      .insert(checklistRows);
+    if (checklistError) {
+      await supabase.from("inspections").delete().eq("id", checkInId);
+      throw mapPostgresError(checklistError);
+    }
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "inspection.create",
+      entityType: "inspection",
+      entityId: checkInId,
+      metadata: { type: "CHECK_IN", source: "close_wizard_ensure" },
+    });
+
+    revalidatePath(`/dashboard/inspecciones/${checkInId}`);
+    revalidatePath(`/dashboard/contratos/${contractId}/cerrar`);
+
+    return actionSuccess({ checkInId, created: true });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
+/**
  * Guarda km + combustible en la inspección de entrada desde el wizard de cierre
  * (sin salir de la pantalla). También siembra checklist si faltaba.
  */
@@ -1971,13 +2112,12 @@ export async function saveCloseCheckInVitals(
       .limit(1)
       .maybeSingle();
     if (checkInError) throw mapPostgresError(checkInError);
-    if (!checkIn) {
-      return actionError(
-        "Primero cree la inspección de entrada (CHECK_IN) y luego registre km y combustible aquí.",
-      );
+    let checkInId = checkIn ? (checkIn as { id: string }).id : null;
+    if (!checkInId) {
+      const ensured = await ensureCloseCheckIn(contractId);
+      if (!ensured.success) return actionError(ensured.error);
+      checkInId = ensured.data.checkInId;
     }
-
-    const checkInId = (checkIn as { id: string }).id;
     const { error: updateError } = await supabase
       .from("inspections")
       .update({

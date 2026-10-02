@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { getContractCloseContext } from "@/app/dashboard/contratos/actions";
+import {
+  ensureCloseCheckIn,
+  getContractCloseContext,
+} from "@/app/dashboard/contratos/actions";
 import { CloseContractWizard } from "@/components/contracts/close-contract-wizard";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { PageHeader } from "@/components/shared/page-header";
@@ -17,6 +20,10 @@ export default async function CerrarContratoPage({
 }) {
   const { id } = await params;
   const configured = isSupabaseConfigured();
+  if (configured) {
+    // Espejo rápido: crea CHECK_IN si falta (copia inventario de salida).
+    await ensureCloseCheckIn(id);
+  }
   const result = configured ? await getContractCloseContext(id) : null;
 
   if (configured && result && !result.success) notFound();
@@ -45,7 +52,7 @@ export default async function CerrarContratoPage({
               ? `Cerrar renta · ${context.contract.code}`
               : "Cerrar renta"
           }
-          description="Kilometraje obligatorio y, enseguida, la firma del cliente."
+          description="Espejo entrega → recepción: vea con cuánto combustible salió y registre cómo vuelve (≈5 min)."
           breadcrumbs={[
             { label: "Contratos", href: "/dashboard/contratos" },
             {

@@ -4,7 +4,7 @@ import { announceError } from "@/lib/ui/announce";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
@@ -73,7 +73,6 @@ export function CloseContractWizard({
   const [closing, setClosing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-  const landedOnSignature = useRef(false);
 
   const [actualReturnAt, setActualReturnAt] = useState(
     toDatetimeLocalValue(
@@ -249,10 +248,10 @@ export function CloseContractWizard({
       : []),
     {
       id: "fuel",
-      title: "Kilometraje",
+      title: "Espejo: salida → recepción",
       description: hasFuelAndMileage
-        ? "Km y combustible listos. Siguiente: firma del cliente"
-        : "Escriba el km y el combustible. Después va la firma",
+        ? "Km y combustible de entrada listos. Siguiente: firma"
+        : "Compare con cuánto salió y registre cómo vuelve",
       done: hasFuelAndMileage,
       required: true,
     },
@@ -271,15 +270,8 @@ export function CloseContractWizard({
   const isFirst = stepIndex <= 0;
   const isLast = stepIndex >= steps.length - 1;
 
-  useEffect(() => {
-    if (landedOnSignature.current) return;
-    landedOnSignature.current = true;
-    if (checkIn?.mileage == null || !checkIn.fuel_level) return;
-    const closeIndex = steps.findIndex((step) => step.id === "close");
-    if (closeIndex >= 0) setStepIndex(closeIndex);
-    // Solo al abrir la pantalla: si el km ya estaba guardado, se entra directo a la firma.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // No saltar a la firma: el operador debe ver siempre el espejo salida|entrada
+  // (combustible y km con los que debe recibir el vehículo).
 
   useEffect(() => {
     if (stepIndex > steps.length - 1) {
@@ -669,91 +661,181 @@ export function CloseContractWizard({
 
             {current.id === "fuel" ? (
               <div className="space-y-4 text-sm">
+                {!checkOut ? (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950">
+                    <p className="font-semibold">
+                      No hay inspección de salida en este contrato
+                    </p>
+                    <p className="mt-1">
+                      Sin esa referencia no se puede saber con cuánto combustible
+                      debió regresar. Genere/revise la CHECK_OUT de la reserva.
+                    </p>
+                  </div>
+                ) : null}
+
                 {!checkIn ? (
                   <p className="text-amber-900">
-                    Primero cree la inspección de entrada en el paso anterior.
+                    Preparando inspección de entrada… Si no aparece, vuelva a
+                    abrir Cerrar renta.
                   </p>
                 ) : (
                   <>
-                    {checkOut ? (
-                      <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-emerald-950">
-                        <p className="text-xs font-semibold uppercase tracking-wide">
-                          Así salió
+                    <p className="rounded-lg border border-border bg-surface-muted/50 px-3 py-2 text-muted">
+                      Reciba en ~5 minutos: izquierda = cómo salió · derecha =
+                      cómo vuelve. Rayones viejos en gris/verde; solo marque
+                      nuevos en rojo.
+                    </p>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-xl border-2 border-slate-300 bg-slate-100 px-4 py-3 text-slate-900">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Izquierda · Cómo se entregó
                         </p>
-                        <p className="mt-1 text-sm font-semibold">
-                          {checkOut.mileage != null
-                            ? `${checkOut.mileage.toLocaleString("es-SV")} km`
-                            : "Sin km"}
-                          {" · "}
-                          {checkOut.fuel_level
+                        <p className="mt-2 text-xs font-medium text-slate-600">
+                          Combustible salida
+                        </p>
+                        <p className="text-2xl font-semibold tabular-nums">
+                          {checkOut?.fuel_level
                             ? FUEL_LEVEL_LABELS[checkOut.fuel_level] ??
                               checkOut.fuel_level
-                            : "Sin combustible"}
+                            : "—"}
                         </p>
+                        <p className="mt-2 text-xs font-medium text-slate-600">
+                          Kilometraje salida
+                        </p>
+                        <p className="text-lg font-semibold tabular-nums">
+                          {checkOut?.mileage != null
+                            ? `${checkOut.mileage.toLocaleString("es-SV")} km`
+                            : "—"}
+                        </p>
+                        {checkOut ? (
+                          <Link
+                            href={`/dashboard/inspecciones/${checkOut.id}`}
+                            className="mt-3 inline-flex text-sm font-medium text-brand hover:underline"
+                          >
+                            Ver inspección de salida
+                          </Link>
+                        ) : null}
                       </div>
-                    ) : null}
-                    <div className="rounded-xl border border-border bg-surface-muted/40 px-3 py-3">
-                      <p className="text-sm font-semibold text-foreground">
-                        1) Inventario / accesorios
-                      </p>
-                      <p className="mt-1 text-sm text-muted">
-                        Revise el checklist de la inspección de entrada. El
-                        combustible va debajo, no arriba.
-                      </p>
-                      {checkIn ? (
-                        <Link
-                          href={`/dashboard/inspecciones/${checkIn.id}#accesorios`}
-                          className="mt-2 inline-flex text-sm font-medium text-brand hover:underline"
-                        >
-                          Abrir accesorios de la inspección
-                        </Link>
-                      ) : null}
-                    </div>
-                    <p className="text-sm font-semibold text-foreground">
-                      2) Kilometraje y combustible (debajo del inventario)
-                    </p>
-                    <p className="text-muted">
-                      Escriba cómo lo está recibiendo ahora. El km es
-                      obligatorio. Luego pulse <strong>Siguiente</strong> para
-                      la firma.
-                    </p>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Input
-                        label="Kilometraje entrada *"
-                        type="number"
-                        min="0"
-                        step="1"
-                        inputMode="numeric"
-                        value={mileageInput}
-                        onChange={(e) => {
-                          setMileageInput(e.target.value);
-                          setSavedMileage(null);
-                          setVitalsOk(null);
-                        }}
-                        placeholder="Ej. 45230"
-                      />
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-zinc-700">
-                          Combustible entrada *
-                        </label>
-                        <select
-                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                          value={fuelLevelInput}
-                          onChange={(e) => {
-                            setFuelLevelInput(e.target.value);
-                            setSavedFuelLevel(null);
-                            setVitalsOk(null);
-                          }}
-                        >
-                          <option value="">Seleccionar…</option>
-                          {FUEL_LEVEL_ORDER.map((level) => (
-                            <option key={level} value={level}>
-                              {FUEL_LEVEL_LABELS[level] ?? level}
-                            </option>
-                          ))}
-                        </select>
+
+                      <div className="rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3 text-red-950">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-red-800">
+                          Derecha · Cómo lo recibe ahora
+                        </p>
+                        <p className="mt-2 text-xs text-red-800">
+                          Debe recibir al menos el combustible de la izquierda
+                          (salvo acuerdo).
+                        </p>
+                        <div className="mt-3 space-y-3">
+                          <div>
+                            <label className="mb-1 block text-sm font-medium">
+                              Combustible entrada *
+                            </label>
+                            <select
+                              className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm"
+                              value={fuelLevelInput}
+                              onChange={(e) => {
+                                setFuelLevelInput(e.target.value);
+                                setSavedFuelLevel(null);
+                                setVitalsOk(null);
+                              }}
+                            >
+                              <option value="">Seleccionar…</option>
+                              {FUEL_LEVEL_ORDER.map((level) => (
+                                <option key={level} value={level}>
+                                  {FUEL_LEVEL_LABELS[level] ?? level}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <Input
+                            label="Kilometraje entrada *"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputMode="numeric"
+                            value={mileageInput}
+                            onChange={(e) => {
+                              setMileageInput(e.target.value);
+                              setSavedMileage(null);
+                              setVitalsOk(null);
+                            }}
+                            placeholder="Ej. 45230"
+                          />
+                        </div>
                       </div>
                     </div>
+
+                    <div className="rounded-xl border border-border bg-white px-3 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold">
+                          Inventario (espejo salida → entrada)
+                        </p>
+                        {checkIn ? (
+                          <Link
+                            href={`/dashboard/inspecciones/${checkIn.id}#accesorios`}
+                            className="text-sm font-medium text-brand hover:underline"
+                          >
+                            Editar accesorios / mapa de daños
+                          </Link>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-muted">
+                        El inventario de entrada parte igual al de salida. Solo
+                        cambie lo que falte o esté dañado. En el mapa: gris/verde
+                        = rayón de salida; rojo = rayón nuevo.
+                      </p>
+                      {accessoryComparison.length === 0 ? (
+                        <p className="mt-2 text-amber-800">
+                          Sin ítems aún. Abra accesorios para completar el
+                          checklist.
+                        </p>
+                      ) : (
+                        <div className="mt-2 max-h-56 overflow-auto rounded-lg border border-border">
+                          <table className="w-full min-w-[28rem] text-left text-sm">
+                            <thead className="sticky top-0 bg-surface-muted">
+                              <tr className="border-b border-border text-muted">
+                                <th className="px-3 py-2 font-medium">
+                                  Accesorio
+                                </th>
+                                <th className="px-3 py-2 font-medium">Salida</th>
+                                <th className="px-3 py-2 font-medium">
+                                  Entrada
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {accessoryComparison.map((row) => (
+                                <tr
+                                  key={row.itemName}
+                                  className={cn(
+                                    "border-b border-border/60",
+                                    row.changed && "bg-amber-50",
+                                  )}
+                                >
+                                  <td className="px-3 py-2">{row.itemName}</td>
+                                  <td className="px-3 py-2 text-slate-600">
+                                    {row.checkOutStatus
+                                      ? CHECKLIST_STATUS_LABELS[
+                                          row.checkOutStatus
+                                        ] ?? row.checkOutStatus
+                                      : "—"}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {row.checkInStatus
+                                      ? CHECKLIST_STATUS_LABELS[
+                                          row.checkInStatus
+                                        ] ?? row.checkInStatus
+                                      : "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
                     {vitalsOk ? (
                       <p className="text-sm text-emerald-700">{vitalsOk}</p>
                     ) : null}
@@ -769,9 +851,9 @@ export function CloseContractWizard({
                           : "Guardar km y combustible"}
                       </Button>
                       {hasFuelAndMileage ? (
-                        <Badge variant="success">Listo para continuar</Badge>
+                        <Badge variant="success">Listo para firmar</Badge>
                       ) : (
-                        <Badge variant="warning">Pendiente</Badge>
+                        <Badge variant="warning">Pendiente km/combustible</Badge>
                       )}
                     </div>
                   </>
