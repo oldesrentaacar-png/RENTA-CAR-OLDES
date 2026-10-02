@@ -183,6 +183,13 @@ export async function fetchReportData(
       expense_date: row.expense_date,
     }));
 
+    // Mantenimiento cuenta como gasto operativo (antes no entraba en utilidad/ranking).
+    const maintenanceExpenseRows: ExpenseRow[] = maintenance.map((row) => ({
+      amount: Number(row.cost ?? 0),
+      vehicle_id: row.vehicle_id,
+      expense_date: row.maintenance_date,
+    }));
+
     const reservationRows: ProfitabilityReservationRow[] = reservations
       .filter((row) => row.status !== "CANCELLED")
       .map((row) => ({
@@ -197,11 +204,21 @@ export async function fetchReportData(
       filters.from,
       filters.to,
     );
-    const filteredExpenses = filterExpenseByDateRange(
+    const filteredExpensesOnly = filterExpenseByDateRange(
       expenseRows,
       filters.from,
       filters.to,
     );
+    const filteredMaintenanceExpenses = filterExpenseByDateRange(
+      maintenanceExpenseRows,
+      filters.from,
+      filters.to,
+    );
+    // Gastos del módulo + costo de mantenimiento → mismo “equivalente” de utilidad.
+    const filteredExpenses = [
+      ...filteredExpensesOnly,
+      ...filteredMaintenanceExpenses,
+    ];
 
     const totalRealIncome = sumRealIncome(filteredIncome);
     const totalExpenses = filteredExpenses.reduce(
@@ -217,7 +234,10 @@ export async function fetchReportData(
     const occupiedNow = reservations.filter((row) => row.status === "ACTIVE").length;
     const occupancyRate = Math.round((occupiedNow / totalFleet) * 100);
 
-    const maintenanceCost = maintenance.reduce((sum, row) => sum + row.cost, 0);
+    const maintenanceCost = filteredMaintenanceExpenses.reduce(
+      (sum, row) => sum + row.amount,
+      0,
+    );
 
     const profitability = rankVehiclesByProfitability(
       filters.vehicleId
@@ -315,20 +335,27 @@ export async function fetchFinanceSummary(
       .from("expense_transactions")
       .select("amount, vehicle_id, expense_date")
       .is("deleted_at", null);
+    let maintenanceQuery = supabase
+      .from("maintenance_records")
+      .select("cost, vehicle_id, maintenance_date")
+      .is("deleted_at", null);
 
     if (from) {
       incomeQuery = incomeQuery.gte("transaction_date", from);
       expenseQuery = expenseQuery.gte("expense_date", from);
+      maintenanceQuery = maintenanceQuery.gte("maintenance_date", from);
     }
     if (to) {
       incomeQuery = incomeQuery.lte("transaction_date", to);
       expenseQuery = expenseQuery.lte("expense_date", to);
+      maintenanceQuery = maintenanceQuery.lte("maintenance_date", to);
     }
 
-    const [incomeRes, expenseRes, vehiclesRes, reservationsRes] =
+    const [incomeRes, expenseRes, maintenanceRes, vehiclesRes, reservationsRes] =
       await Promise.all([
         incomeQuery,
         expenseQuery,
+        maintenanceQuery,
         supabase
           .from("vehicles")
           .select("id, brand, model, plate")
@@ -342,15 +369,31 @@ export async function fetchFinanceSummary(
       ]);
 
     const firstError =
-      incomeRes.error ?? expenseRes.error ?? vehiclesRes.error ?? reservationsRes.error;
+      incomeRes.error ??
+      expenseRes.error ??
+      maintenanceRes.error ??
+      vehiclesRes.error ??
+      reservationsRes.error;
     if (firstError) throw mapPostgresError(firstError);
 
     const incomeRows = (incomeRes.data ?? []) as IncomeRow[];
     const expenseRows = (expenseRes.data ?? []) as ExpenseRow[];
+    const maintenanceExpenseRows: ExpenseRow[] = (
+      (maintenanceRes.data ?? []) as Array<{
+        cost: number;
+        vehicle_id: string | null;
+        maintenance_date: string;
+      }>
+    ).map((row) => ({
+      amount: Number(row.cost ?? 0),
+      vehicle_id: row.vehicle_id,
+      expense_date: row.maintenance_date,
+    }));
+    const allExpenseRows = [...expenseRows, ...maintenanceExpenseRows];
     const reservationRows = (reservationsRes.data ?? []) as ProfitabilityReservationRow[];
 
     const monthIncome = sumRealIncome(incomeRows);
-    const monthExpenses = expenseRows.reduce((sum, row) => sum + row.amount, 0);
+    const monthExpenses = allExpenseRows.reduce((sum, row) => sum + row.amount, 0);
 
     const vehicles = (vehiclesRes.data ?? []).map((row) => {
       const v = row as { id: string; brand: string; model: string; plate: string };
@@ -363,7 +406,7 @@ export async function fetchFinanceSummary(
     const ranking = rankVehiclesByProfitability(
       vehicles,
       incomeRows,
-      expenseRows,
+      allExpenseRows,
       reservationRows,
       from,
       to,
@@ -376,7 +419,7 @@ export async function fetchFinanceSummary(
       entry.income += countsAsRealIncome(row);
       chartMap.set(key, entry);
     }
-    for (const row of expenseRows) {
+    for (const row of allExpenseRows) {
       const key = row.expense_date;
       const entry = chartMap.get(key) ?? { income: 0, expense: 0 };
       entry.expense += row.amount;

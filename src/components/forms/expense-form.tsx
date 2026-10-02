@@ -97,9 +97,9 @@ export function ExpenseForm({ expense, vehicles, redirectTo }: ExpenseFormProps)
         />
         <SearchableSelect
           name="vehicleId"
-          label="Vehículo"
+          label="Vehículo (recomendado para que salga en reportes)"
           defaultValue={expense?.vehicle_id ?? ""}
-          placeholder="Ninguno"
+          placeholder="Seleccione el vehículo del gasto"
           searchPlaceholder="Buscar vehículo…"
           options={[
             { value: "", label: "Ninguno" },

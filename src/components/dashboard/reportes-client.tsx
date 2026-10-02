@@ -254,8 +254,13 @@ export function ReportesClient({
       ) : null}
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Ranking de rentabilidad</CardTitle>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">Ranking de rentabilidad</CardTitle>
+            <p className="mt-1 text-xs text-muted">
+              Gastos del módulo + mantenimiento del periodo (antes el mant. no bajaba la utilidad).
+            </p>
+          </div>
           <Button type="button" variant="outline" size="sm" onClick={exportProfitability}>
             <Download className="mr-2 h-4 w-4" />
             CSV
@@ -276,7 +281,7 @@ export function ReportesClient({
               },
               {
                 key: "expenses",
-                header: "Gastos",
+                header: "Gastos + mant.",
                 cell: (row) => formatMoney(row.expenses),
               },
               {

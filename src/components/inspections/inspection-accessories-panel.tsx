@@ -174,7 +174,7 @@ export function InspectionAccessoriesPanel({
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_14rem]">
+      <div className="space-y-3">
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-foreground">
             Accesorios / inventario
@@ -187,35 +187,32 @@ export function InspectionAccessoriesPanel({
             onDraftsChange={setDrafts}
           />
         </div>
-        <aside className="h-fit space-y-3 rounded-xl border-2 border-brand/40 bg-brand/5 p-4">
-          <h3 className="text-sm font-semibold text-foreground">
-            Salida del vehículo
-          </h3>
+        <div className="grid gap-3 rounded-xl border-2 border-brand/40 bg-brand/5 p-3 sm:grid-cols-2">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted">
               Kilometraje de salida
             </p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+            <p className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">
               {mileage != null ? mileage.toLocaleString("es-SV") : "—"}
             </p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted">
-              Combustible
+              Combustible (debajo del inventario)
             </p>
-            <p className="mt-1 text-sm font-medium text-foreground">
+            <p className="mt-0.5 text-sm font-medium text-foreground">
               {fuelLevel ? FUEL_LEVEL_LABELS[fuelLevel] : "—"}
             </p>
           </div>
           {!readOnly ? (
             <a
               href={`/dashboard/inspecciones/${inspectionId}/edit`}
-              className="inline-flex text-sm font-medium text-brand hover:underline"
+              className="inline-flex text-sm font-medium text-brand hover:underline sm:col-span-2"
             >
               Editar km / combustible
             </a>
           ) : null}
-        </aside>
+        </div>
       </div>
 
       <div className="space-y-2 border-t border-border pt-6">

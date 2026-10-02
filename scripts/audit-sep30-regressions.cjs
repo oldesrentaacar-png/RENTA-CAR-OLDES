@@ -123,7 +123,7 @@ function assert(cond, msg) {
     "PDF shows Kilometraje (salida) from mileageOut",
   );
   assert(
-    pdf.includes("Km salida:"),
+    pdf.includes("Km salida:") && pdf.includes("NIVEL COMBUSTIBLE"),
     "PDF checklist panel shows Km salida",
   );
   const accessories = read(

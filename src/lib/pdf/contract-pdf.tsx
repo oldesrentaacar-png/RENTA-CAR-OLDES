@@ -704,11 +704,6 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               width="half"
             />
             <MachoteField
-              label="Combustible (salida)"
-              value={props.fuelOutLabel ? `Registrado: ${props.fuelOutLabel}` : null}
-              width="half"
-            />
-            <MachoteField
               label="Fecha y hora de entrega"
               value={
                 props.deliveryDateLabel && props.deliveryTimeLabel
@@ -874,22 +869,16 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                   Sin marcas de daño registradas en la inspección de salida.
                 </Text>
               )}
-              <FuelGauge
-                label="NIVEL COMBUSTIBLE (SALIDA)"
-                activeIndex={fuelLevelIndex(props.fuelOutLabel)}
-              />
             </View>
             <View style={styles.checklistPanel}>
               <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 3 }}>
                 CHECKLIST INVENTARIO (SALIDA) — SÍ / NO / DAÑ.
               </Text>
-              <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 4 }}>
+              <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 3 }}>
                 Km salida:{" "}
                 {props.mileageOut != null
                   ? `${props.mileageOut.toLocaleString("es-SV")} km`
                   : "—"}
-                {"  ·  Combustible: "}
-                {props.fuelOutLabel ?? "—"}
               </Text>
               <View style={styles.checklistColumns}>
                 <View style={styles.checklistColumn}>
@@ -924,6 +913,12 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                 </View>
               </View>
             </View>
+          </View>
+          <View style={{ paddingHorizontal: 4, paddingBottom: 4, marginTop: 2 }}>
+            <FuelGauge
+              label="NIVEL COMBUSTIBLE (SALIDA)"
+              activeIndex={fuelLevelIndex(props.fuelOutLabel)}
+            />
           </View>
         </MachoteSection>
 
