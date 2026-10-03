@@ -34,7 +34,7 @@ type ContractDetailActionsProps = {
   operatorName?: string | null;
   /** Current operator already has signature_url on profile. */
   operatorHasSignature?: boolean;
-  /** Paso de entrega: IVA y pagaré se definen al crear el contrato, no aquí. */
+  /** Paso de entrega: ocultar solo IVA (el pagaré sí se puede incluir/quitar aquí). */
   hideCommercialOptions?: boolean;
 };
 
@@ -506,7 +506,7 @@ export function ContractDetailActions({
             </label>
           ) : null}
 
-          {!hideCommercialOptions && !clientSigned && (editable || canSign) ? (
+          {!clientSigned && (editable || canSign) ? (
             <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
               <input
                 type="checkbox"
@@ -520,8 +520,8 @@ export function ContractDetailActions({
               <span>
                 <strong>Incluir pagaré mercantil en el PDF del contrato</strong>
                 <span className="mt-1 block text-xs text-muted">
-                  Se define antes de la firma. Después de firmar ya no se
-                  cambia aquí.
+                  Márquelo o desmárquelo antes de firmar. El monto del pagaré
+                  queda en blanco en el PDF para completar a mano.
                   {savingPagareOption ? " Guardando…" : ""}
                 </span>
               </span>
@@ -535,8 +535,8 @@ export function ContractDetailActions({
                   Pagaré mercantil (documento aparte)
                 </p>
                 <p className="mt-1 text-xs text-amber-900">
-                  Incluido en el PDF. Monto sugerido (deducible):{" "}
-                  {formatMoney(contract.pagareAmount)}.
+                  Incluido en el PDF. El monto queda en blanco (líneas) para
+                  completar a mano si aplica.
                 </p>
               </div>
               <SignaturePad

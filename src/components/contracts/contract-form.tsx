@@ -22,6 +22,7 @@ import {
   sumExtraLineItems,
 } from "@/lib/billing/extra-lines";
 import { calculateReservationTotal } from "@/lib/calculations/quote";
+import { shouldIncludePagare } from "@/lib/contracts/oldes-terms";
 import { toDatetimeLocalValue } from "@/lib/dates";
 import { formatMoney, parseMoneyInput } from "@/lib/money";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
@@ -82,6 +83,13 @@ export function ContractForm({
   const [applyIva, setApplyIva] = useState(
     Boolean(reservation.apply_iva) || customer.customer_type === "COMPANY",
   );
+  const [includePagare, setIncludePagare] = useState(
+    shouldIncludePagare({
+      country: customer.country,
+      dui: customer.dui,
+      passport: customer.passport,
+    }),
+  );
   const taxRate = 0.13;
 
   const preview = useMemo(() => {
@@ -140,6 +148,7 @@ export function ContractForm({
       formData.set("courtesyDetail", courtesyDetail.trim());
     }
     formData.set("applyIva", applyIva ? "true" : "false");
+    formData.set("includePagare", includePagare ? "true" : "false");
     formData.set("taxRate", "13");
     if (preview) {
       formData.set("total", String(preview.totalWithIva));
@@ -345,6 +354,22 @@ export function ContractForm({
             Opcional. Útil para empresas. Si está marcado, el PDF muestra
             Subtotal + IVA + Total. Por defecto se sugiere para clientes tipo
             empresa.
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4 accent-brand"
+          checked={includePagare}
+          onChange={(e) => setIncludePagare(e.target.checked)}
+        />
+        <span>
+          <strong>Incluir pagaré mercantil en el PDF</strong>
+          <span className="mt-1 block text-xs text-muted">
+            Solo clientes locales por defecto. Puede incluirlo o quitarlo.
+            El monto sale en blanco en el PDF para completar a mano.
           </span>
         </span>
       </label>

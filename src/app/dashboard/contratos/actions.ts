@@ -979,6 +979,12 @@ export async function createContract(
       dui: (customerRow as { dui?: string | null } | null)?.dui,
       passport: (customerRow as { passport?: string | null } | null)?.passport,
     });
+    const includePagareExplicit = formData.has("includePagare");
+    const includePagare = includePagareExplicit
+      ? formData.get("includePagare") === "true" ||
+        formData.get("includePagare") === "on" ||
+        formData.get("includePagare") === "1"
+      : includePagareDefault;
 
     const applyIvaExplicit = formData.has("applyIva");
     const applyIva = applyIvaExplicit
@@ -1018,7 +1024,7 @@ export async function createContract(
         clauses: parsed.data.clauses ?? null,
         notes: parsed.data.notes ?? null,
         status: parsed.data.status,
-        include_pagare: includePagareDefault,
+        include_pagare: includePagare,
         created_by: user.id,
       })
       .select("id")
@@ -3186,18 +3192,9 @@ export async function getContractPdfData(contractId: string) {
       dui: customer.dui,
       passport: customer.passport,
     }),
-    pagareAmount: deductibleForVehicleType(
-      row.vehicles.vehicle_types?.slug ??
-        row.vehicles.vehicle_types?.name ??
-        row.vehicles.category,
-    ),
-    pagareAmountWords: amountToSpanishUsd(
-      deductibleForVehicleType(
-        row.vehicles.vehicle_types?.slug ??
-          row.vehicles.vehicle_types?.name ??
-          row.vehicles.category,
-      ),
-    ),
+    // Monto en blanco en el PDF (líneas) — el operador/cliente lo completa a mano.
+    pagareAmount: null,
+    pagareAmountWords: null,
     pagareSignatureUrl,
     pagareSignedAt: pagareSig
       ? formatAppDateTime(pagareSig.signed_at)
