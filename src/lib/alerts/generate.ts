@@ -451,21 +451,6 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
       if (inserted) created += 1;
     }
 
-    // Aviso operativo de WebBoost: problemas del piloto ya resueltos.
-    const webboostDedupeKey = "webboost:support:problems-resolved-v1";
-    activeDedupeKeys.add(webboostDedupeKey);
-    const webboostInserted = await upsertAlert(supabase, {
-      alert_type: "webboost_notice",
-      title: "WebBoost — Problemas solucionados",
-      message: "Los problemas reportados ya fueron solucionados.",
-      entity_type: "webboost",
-      entity_id: null,
-      severity: "info",
-      dedupe_key: webboostDedupeKey,
-      due_at: now.toISOString(),
-    });
-    if (webboostInserted) created += 1;
-
     const { data: staleAlerts } = await supabase
       .from("alerts")
       .select("id, dedupe_key")
