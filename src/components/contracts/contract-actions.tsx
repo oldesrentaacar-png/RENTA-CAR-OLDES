@@ -14,6 +14,7 @@ import {
 } from "@/app/dashboard/contratos/actions";
 import type { ContractDetail } from "@/app/dashboard/contratos/actions";
 import { saveMySignature } from "@/app/dashboard/mi-perfil/actions";
+import { ContractPagareToggle } from "@/components/contracts/contract-pagare-toggle";
 import { SignaturePad } from "@/components/contracts/signature-pad";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
@@ -506,26 +507,12 @@ export function ContractDetailActions({
             </label>
           ) : null}
 
-          {!clientSigned && (editable || canSign) ? (
-            <label className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 accent-brand"
-                checked={includePagare}
-                disabled={savingPagareOption}
-                onChange={(event) =>
-                  void handleToggleIncludePagare(event.target.checked)
-                }
-              />
-              <span>
-                <strong>Incluir pagaré mercantil en el PDF del contrato</strong>
-                <span className="mt-1 block text-xs text-muted">
-                  Márquelo o desmárquelo antes de firmar. El monto del pagaré
-                  queda en blanco en el PDF para completar a mano.
-                  {savingPagareOption ? " Guardando…" : ""}
-                </span>
-              </span>
-            </label>
+          {editable || canSign ? (
+            <ContractPagareToggle
+              contractId={contract.id}
+              includePagare={includePagare}
+              canEdit={editable || canSign}
+            />
           ) : null}
 
           {clientSigned && includePagare && !pagareSigned ? (

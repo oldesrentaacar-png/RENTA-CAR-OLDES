@@ -9,6 +9,7 @@ import { listPaymentReceipts } from "@/app/dashboard/recibos/actions";
 import { ContractObservationsBox } from "@/components/contracts/contract-observations-box";
 import { ContractDetailActions } from "@/components/contracts/contract-actions";
 import { ContractExtraLinesEditor } from "@/components/contracts/contract-extra-lines-editor";
+import { ContractPagareToggle } from "@/components/contracts/contract-pagare-toggle";
 import { ContractPdfLink } from "@/components/contracts/contract-pdf-link";
 import { ContractReceiptsSection } from "@/components/contracts/contract-receipts";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
@@ -499,25 +500,38 @@ export default async function ContratoDetailPage({
                     Cerrar renta: kilometraje, firma de devolución y confirmar.
                   </p>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
-                  <ContractPdfLink
-                    contractId={id}
-                    updatedAt={contract.updated_at}
-                    clientSigned={Boolean(
-                      contract.signatures.some((s) => s.signer_type === "CLIENT"),
-                    )}
-                    className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted"
-                  >
-                    Abrir PDF
-                  </ContractPdfLink>
-                  {canClose && canEdit ? (
-                    <Link
-                      href={`/dashboard/contratos/${id}/cerrar`}
-                      className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
-                    >
-                      Cerrar renta
-                    </Link>
+                <CardContent className="space-y-4">
+                  {canEdit ? (
+                    <ContractPagareToggle
+                      contractId={contract.id}
+                      includePagare={Boolean(contract.includePagare)}
+                      canEdit={
+                        canEdit &&
+                        contract.status !== "COMPLETED" &&
+                        contract.status !== "CANCELLED"
+                      }
+                    />
                   ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <ContractPdfLink
+                      contractId={id}
+                      updatedAt={contract.updated_at}
+                      clientSigned={Boolean(
+                        contract.signatures.some((s) => s.signer_type === "CLIENT"),
+                      )}
+                      className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium text-foreground hover:bg-surface-muted"
+                    >
+                      Abrir PDF
+                    </ContractPdfLink>
+                    {canClose && canEdit ? (
+                      <Link
+                        href={`/dashboard/contratos/${id}/cerrar`}
+                        className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+                      >
+                        Cerrar renta
+                      </Link>
+                    ) : null}
+                  </div>
                 </CardContent>
               </Card>
             ) : null}
