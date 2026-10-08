@@ -34,13 +34,10 @@ export const webRequestUpdateSchema = z.object({
   firstName: z.string().trim().min(1, "Nombre requerido.").max(100),
   lastName: z.string().trim().min(1, "Apellido requerido.").max(100),
   phone: z.string().trim().min(7, "Teléfono inválido.").max(40),
-  email: z
-    .string()
-    .trim()
-    .email("Correo inválido.")
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value)),
+  email: z.preprocess(
+    (value) => (value == null || value === "" ? undefined : value),
+    z.string().trim().email("Correo inválido.").optional(),
+  ),
   pickupDate: z.string().min(1, "Fecha de recogida requerida."),
   pickupTime: z.string().min(1, "Hora de recogida requerida."),
   returnDate: z.string().min(1, "Fecha de devolución requerida."),
