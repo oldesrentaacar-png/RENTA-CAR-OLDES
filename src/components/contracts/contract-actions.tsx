@@ -37,6 +37,10 @@ type ContractDetailActionsProps = {
   operatorHasSignature?: boolean;
   /** Paso de entrega: ocultar solo IVA (el pagaré sí se puede incluir/quitar aquí). */
   hideCommercialOptions?: boolean;
+  /** Solo el recuadro de anular, para que se vea aunque el paso de entrega oculte el resto. */
+  annulmentOnly?: boolean;
+  /** El detalle ya muestra el recuadro arriba; no repetirlo en las acciones. */
+  hideAnnulment?: boolean;
 };
 
 export function ContractDetailActions({
@@ -47,6 +51,8 @@ export function ContractDetailActions({
   operatorName,
   operatorHasSignature = false,
   hideCommercialOptions = false,
+  annulmentOnly = false,
+  hideAnnulment = false,
 }: ContractDetailActionsProps) {
   const router = useRouter();
   const [error, setErrorState] = useState<string | null>(null);
@@ -104,6 +110,66 @@ export function ContractDetailActions({
     contract.status !== "COMPLETED" &&
     contract.status !== "CANCELLED";
   const termsEditable = canEdit && contract.status === "PENDING";
+
+  const annulmentBlock =
+    canCancel &&
+    contract.status !== "CANCELLED" &&
+    contract.status !== "COMPLETED" &&
+    !contract.closed_at ? (
+      <details
+        open
+        className="rounded-xl border border-amber-200 bg-amber-50/50 p-4"
+      >
+        <summary className="cursor-pointer text-sm font-medium text-amber-950">
+          Anular contrato (el registro se conserva)
+        </summary>
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-amber-950">
+            <strong>Anular</strong> marca el contrato como{" "}
+            <strong>Anulado</strong> y conserva lo llenado. No borra el
+            registro. Si el vehículo ya salió, el sistema pide usar Cerrar
+            renta.
+          </p>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={async () => {
+              const ok = confirm(
+                "¿Anular este contrato?\n\nQuedará marcado como ANULADO (no se borra).\n\nSi el vehículo ya salió, cancele y use «Cerrar renta».",
+              );
+              if (!ok) return;
+              const typed = window.prompt(
+                "Para confirmar, escriba exactamente: ANULAR",
+              );
+              if (typed?.trim().toUpperCase() !== "ANULAR") {
+                setError(
+                  "Anulación cancelada. Debe escribir ANULAR para confirmar.",
+                );
+                return;
+              }
+              const result = await cancelContract(contract.id);
+              if (!result.success) setError(result.error);
+              else router.refresh();
+            }}
+          >
+            Anular contrato (conserva el registro)
+          </Button>
+        </div>
+      </details>
+    ) : null;
+
+  if (annulmentOnly) {
+    return (
+      <div className="space-y-3">
+        {error ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {error}
+          </div>
+        ) : null}
+        {annulmentBlock}
+      </div>
+    );
+  }
 
   async function handleOperatorSignatureConfirm(dataUrl: string) {
     setOperatorSignatureDataUrl(dataUrl);
@@ -559,56 +625,7 @@ export function ContractDetailActions({
           ) : null}
         </div>
       ) : null}
-
-      {canCancel && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (
-        <details className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-          <summary className="cursor-pointer text-sm font-medium text-amber-950">
-            Anular contrato (el registro se conserva)
-          </summary>
-          <div className="mt-3 space-y-3">
-            <p className="text-sm text-amber-950">
-              <strong>Anular</strong> marca el contrato como{" "}
-              <strong>Anulado</strong> y{" "}
-              <strong>conserva todo lo llenado</strong> (datos, montos, firmas)
-              para historial y auditoría.{" "}
-              <strong>No elimina</strong> el contrato.
-            </p>
-            <p className="text-sm text-amber-900">
-              Úselo si el cliente desiste antes de la entrega (sin dinero, no
-              acepta condiciones, etc.). Si el vehículo ya salió, use{" "}
-              <a
-                href={`/dashboard/contratos/${contract.id}/cerrar`}
-                className="font-medium underline"
-              >
-                Cerrar renta
-              </a>
-              .
-            </p>
-            <Button
-              type="button"
-              variant="danger"
-              onClick={async () => {
-                const ok = confirm(
-                  "¿Anular este contrato?\n\nQuedará el registro completo marcado como ANULADO (no se borra).\n\nSi el vehículo ya salió, cancele y use «Cerrar renta».",
-                );
-                if (!ok) return;
-                const typed = window.prompt(
-                  'Para confirmar, escriba exactamente: ANULAR',
-                );
-                if (typed?.trim().toUpperCase() !== "ANULAR") {
-                  setError("Anulación cancelada. Debe escribir ANULAR para confirmar.");
-                  return;
-                }
-                const result = await cancelContract(contract.id);
-                if (!result.success) setError(result.error);
-                else router.refresh();
-              }}
-            >
-              Anular contrato (conserva el registro)
-            </Button>
-          </div>
-        </details>
-      ) : null}
+      {hideAnnulment ? null : annulmentBlock}
     </div>
   );
 }

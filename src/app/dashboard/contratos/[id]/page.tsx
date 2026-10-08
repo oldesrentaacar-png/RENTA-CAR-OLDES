@@ -261,6 +261,22 @@ export default async function ContratoDetailPage({
           }
         />
 
+        {contract &&
+        canCancel &&
+        contract.status !== "CANCELLED" &&
+        contract.status !== "COMPLETED" &&
+        !contract.closed_at ? (
+          <ContractDetailActions
+            annulmentOnly
+            contract={contract}
+            canEdit={canEdit}
+            canSign={canSign}
+            canCancel={canCancel}
+            operatorName={operatorName}
+            operatorHasSignature={operatorHasSignature}
+          />
+        ) : null}
+
         {!configured ? (
           <SetupBanner />
         ) : contract ? (
@@ -554,6 +570,7 @@ export default async function ContratoDetailPage({
               operatorName={operatorName}
               operatorHasSignature={operatorHasSignature}
               hideCommercialOptions={focusedPaso === "cliente-vehiculo"}
+              hideAnnulment
             />
             ) : null}
           </>
