@@ -359,11 +359,20 @@ export default async function ContratoDetailPage({
                 {contract.balance_due !== undefined ? (
                   <p className="rounded-xl border-2 border-border bg-white px-4 py-3 sm:col-span-2">
                     <span className="block text-sm font-medium text-muted">
-                      Saldo pendiente
+                      {Number(contract.balance_due) < -0.009
+                        ? "Saldo a favor de este contrato (no es devolución)"
+                        : "Saldo pendiente"}
                     </span>
                     <span className="text-3xl font-semibold tracking-tight text-foreground">
-                      {formatMoney(contract.balance_due)}
+                      {formatMoney(Math.abs(Number(contract.balance_due)))}
                     </span>
+                    {Number(contract.balance_due) < -0.009 ? (
+                      <span className="mt-1 block text-xs text-muted">
+                        Quedó anotado aquí por una devolución anticipada. No es
+                        un reintegro de dinero hasta que el administrador lo
+                        autorice.
+                      </span>
+                    ) : null}
                   </p>
                 ) : null}
                 {contract.closed_at ? (

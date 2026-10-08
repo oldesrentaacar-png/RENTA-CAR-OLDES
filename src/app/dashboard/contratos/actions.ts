@@ -35,7 +35,10 @@ import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
-import { coerceGraceHours } from "@/lib/calculations/rental-close";
+import {
+  calculateReturnSettlement,
+  coerceGraceHours,
+} from "@/lib/calculations/rental-close";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
@@ -2392,22 +2395,64 @@ export async function closeContract(
         ? normalizeFormDateTimeToIso(actualReturnRaw)
         : checkInDate ?? null;
 
+    const { data: settingsRow } = await supabase
+      .from("business_settings")
+      .select("policies")
+      .limit(1)
+      .maybeSingle();
+    const policies = (
+      settingsRow as { policies?: Record<string, unknown> } | null
+    )?.policies;
+    const graceHours = coerceGraceHours(policies?.extraDayGraceHours, 2);
+    const settlement =
+      actualReturnAt && contract.start_at
+        ? calculateReturnSettlement({
+            startAt: contract.start_at,
+            scheduledEndAt: contract.end_at,
+            actualReturnAt,
+            dailyRate: contract.agreed_rate,
+            graceHours,
+            courtesyHours,
+            courtesyDays,
+            manualExtraDaysWaived: graceExtraDaysWaived,
+          })
+        : null;
+    const dayAdjustment = settlement?.dayAdjustment ?? 0;
+
     const owed = Math.max(
       0,
       Number(contract.total) +
         extraCharges +
         damageCharges +
         fuelCharges +
-        complementaryAmount -
+        complementaryAmount +
+        dayAdjustment -
         additionalCloseCourtesy,
     );
     const amountPaid = Number(contract.amount_paid ?? 0) + finalPayment;
-    const balanceDue = Math.max(0, owed - amountPaid);
+    const balanceDue = Math.round((owed - amountPaid) * 100) / 100;
     const paymentStatus =
-      balanceDue <= 0 ? "PAID" : amountPaid > 0 ? "PARTIAL" : "PENDING";
+      balanceDue > 0.009 ? (amountPaid > 0 ? "PARTIAL" : "PENDING") : "PAID";
 
     const closedAt = new Date().toISOString();
     const closeMetaBits = [
+      settlement
+        ? `Pactado ${settlement.agreedDays} días hasta ${formatAppDateTime(contract.end_at)} por ${contract.total}. Devolución real ${formatAppDateTime(actualReturnAt ?? contract.end_at)} (${settlement.actualDays} días).`
+        : null,
+      settlement && settlement.extraDays > 0
+        ? `Se suman ${settlement.extraDays} día(s): ${settlement.extraCharge}.`
+        : null,
+      settlement && settlement.unusedDays > 0
+        ? `Se restan ${settlement.unusedDays} día(s) no usados: ${settlement.earlyCredit}.`
+        : null,
+      fuelCharges > 0 ? `Combustible extra: ${fuelCharges}.` : null,
+      damageCharges > 0 ? `Daños: ${damageCharges}.` : null,
+      additionalCloseCourtesy > 0
+        ? `Descuento de administrador al recibir: ${additionalCloseCourtesy}.`
+        : null,
+      balanceDue < -0.009
+        ? `Saldo a favor ${Math.abs(balanceDue)} (no es devolución de dinero; reintegro solo con autorización del administrador).`
+        : null,
       notesExtra,
       chargeConcept ? `Concepto cargo: ${chargeConcept}` : null,
       Number(contract.deposit ?? 0) > 0

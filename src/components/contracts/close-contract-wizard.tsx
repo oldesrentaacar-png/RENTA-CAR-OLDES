@@ -24,7 +24,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { calculateSuggestedExtraDayCharge } from "@/lib/calculations/rental-close";
+import {
+  calculateReturnSettlement,
+  calculateSuggestedExtraDayCharge,
+} from "@/lib/calculations/rental-close";
 import {
   formatAppDateTime,
   normalizeFormDateTimeToIso,
@@ -169,6 +172,33 @@ export function CloseContractWizard({
     graceExtraDaysWaived,
   ]);
 
+  const returnSettlement = useMemo(() => {
+    if (!actualReturnAt || !contract.start_at) return null;
+    try {
+      return calculateReturnSettlement({
+        startAt: contract.start_at,
+        scheduledEndAt: contract.end_at,
+        actualReturnAt,
+        dailyRate: contract.agreed_rate,
+        graceHours: extraDayGraceHours,
+        courtesyHours: Number(courtesyHours) || 0,
+        courtesyDays: Number(courtesyDays) || 0,
+        manualExtraDaysWaived: Number(graceExtraDaysWaived) || 0,
+      });
+    } catch {
+      return null;
+    }
+  }, [
+    actualReturnAt,
+    contract.agreed_rate,
+    contract.end_at,
+    contract.start_at,
+    courtesyDays,
+    courtesyHours,
+    extraDayGraceHours,
+    graceExtraDaysWaived,
+  ]);
+
   const billing = useMemo(() => {
     const extra = parseMoneyInput(extraCharges);
     const damage = parseMoneyInput(damageCharges);
@@ -179,18 +209,29 @@ export function CloseContractWizard({
       ? parseMoneyInput(courtesyAmount || 0)
       : priorCourtesy;
     const additionalCourtesy = Math.max(0, courtesy - priorCourtesy);
+    const dayAdjustment = returnSettlement?.dayAdjustment ?? 0;
     const owed = Math.max(
       0,
       Number(contract.total) +
         extra +
         damage +
         fuel +
-        complementary -
+        complementary +
+        dayAdjustment -
         additionalCourtesy,
     );
     const paid = amountPaidBase + payment;
-    const balance = Math.max(0, owed - paid);
-    return { owed, paid, balance, payment, courtesy, additionalCourtesy };
+    const balance = Math.round((owed - paid) * 100) / 100;
+    return {
+      owed,
+      paid,
+      balance,
+      payment,
+      courtesy,
+      additionalCourtesy,
+      dayAdjustment,
+      fuel,
+    };
   }, [
     amountPaidBase,
     canManageCourtesy,
@@ -202,6 +243,7 @@ export function CloseContractWizard({
     finalPayment,
     fuelCharges,
     priorCourtesy,
+    returnSettlement,
   ]);
 
   const closeConformitySigned = contract.signatures.some(
@@ -1149,10 +1191,24 @@ export function CloseContractWizard({
 
             {current.id === "close" ? (
               <div className="space-y-4 text-sm">
-                <div className="rounded-xl border-2 border-border bg-white px-4 py-3">
-                  <p className="text-sm font-medium text-muted">Saldo pendiente</p>
-                  <p className="text-3xl font-semibold tracking-tight text-foreground">
-                    {formatMoney(billing.balance)}
+                <div className="rounded-xl border border-border bg-surface-muted/40 p-4">
+                  <p className="font-semibold text-foreground">
+                    Lo pactado no se reabre
+                  </p>
+                  <p className="mt-1 text-muted">
+                    Fechas y tarifa del contrato quedan como se firmaron. Aquí
+                    solo se ajusta la recepción: días de más suman, días de
+                    menos restan, y el combustible distinto se cobra aparte.
+                  </p>
+                  <p className="mt-2">
+                    Pactado:{" "}
+                    <strong>
+                      {returnSettlement?.agreedDays ?? "—"} días
+                    </strong>{" "}
+                    hasta{" "}
+                    <strong>{formatAppDateTime(contract.end_at)}</strong> ·{" "}
+                    {formatMoney(contract.total)} a{" "}
+                    {formatMoney(contract.agreed_rate)} por día.
                   </p>
                 </div>
                 <Input
@@ -1161,10 +1217,116 @@ export function CloseContractWizard({
                   value={actualReturnAt}
                   onChange={(e) => setActualReturnAt(e.target.value)}
                 />
-                <p className="text-xs text-muted">
-                  Esta hora es la que queda en el acta. Cámbiela si la
-                  devolución fue a otra hora.
-                </p>
+                {returnSettlement ? (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-950">
+                    <p>
+                      Días reales de uso:{" "}
+                      <strong>{returnSettlement.actualDays}</strong>
+                      {returnSettlement.returnedEarly
+                        ? ` · se restan ${returnSettlement.unusedDays} día(s) no usados (${formatMoney(returnSettlement.earlyCredit)})`
+                        : returnSettlement.extraDays > 0
+                          ? ` · se suman ${returnSettlement.extraDays} día(s) (${formatMoney(returnSettlement.extraCharge)})`
+                          : " · sin cambio de días"}
+                    </p>
+                    <p className="mt-1 text-xs">
+                      Margen de cortesía antes de cobrar día extra:{" "}
+                      {extraDayGraceHours} h.
+                    </p>
+                  </div>
+                ) : null}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-lg border border-border bg-white p-3 sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                      Combustible
+                    </p>
+                    <p className="mt-1">
+                      Salió:{" "}
+                      <strong>
+                        {checkOut?.fuel_level
+                          ? FUEL_LEVEL_LABELS[checkOut.fuel_level]
+                          : "—"}
+                      </strong>
+                      {" · "}
+                      Vuelve:{" "}
+                      <strong>
+                        {liveFuel
+                          ? FUEL_LEVEL_LABELS[liveFuel] ?? liveFuel
+                          : "—"}
+                      </strong>
+                    </p>
+                  </div>
+                  <Input
+                    label="Cobro extra de combustible (USD)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={fuelCharges}
+                    onChange={(e) => setFuelCharges(e.target.value)}
+                  />
+                  <Input
+                    label="Cobro por daño (USD)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={damageCharges}
+                    onChange={(e) => setDamageCharges(e.target.value)}
+                  />
+                </div>
+                {canManageCourtesy ? (
+                  <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                    <p className="font-medium text-amber-950">
+                      Descuento extra al recibir (solo administrador)
+                    </p>
+                    <p className="text-xs text-amber-900/80">
+                      Para un inconveniente (cambio de vehículo, demora, etc.).
+                      No reabre la tarifa pactada. El reintegro de dinero, si
+                      aplica, se hace aparte y queda autorizado.
+                    </p>
+                    <Input
+                      label="Descuento / cortesía al recibir (USD)"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={courtesyAmount}
+                      onChange={(e) => setCourtesyAmount(e.target.value)}
+                    />
+                    <Textarea
+                      label="Motivo"
+                      rows={2}
+                      value={courtesyDetail}
+                      onChange={(e) => setCourtesyDetail(e.target.value)}
+                      placeholder="Ej. se cambió el vehículo el segundo día"
+                    />
+                  </div>
+                ) : null}
+                <div
+                  className={cn(
+                    "rounded-xl border-2 px-4 py-3",
+                    billing.balance < -0.009
+                      ? "border-emerald-300 bg-emerald-50"
+                      : "border-border bg-white",
+                  )}
+                >
+                  <p className="text-sm font-medium text-muted">
+                    {billing.balance < -0.009
+                      ? "Saldo a favor (no es devolución de dinero)"
+                      : "Saldo pendiente"}
+                  </p>
+                  <p className="text-3xl font-semibold tracking-tight text-foreground">
+                    {formatMoney(Math.abs(billing.balance))}
+                  </p>
+                  {billing.balance < -0.009 ? (
+                    <p className="mt-1 text-xs text-emerald-900">
+                      El cliente ya abonó de más por los días no usados. Queda
+                      anotado en este contrato. No aparece como deuda ni como
+                      reintegro hasta que un administrador lo autorice.
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-xs text-muted">
+                    A cobrar ahora: {formatMoney(billing.owed)} · Ya abonado:{" "}
+                    {formatMoney(billing.paid)}
+                  </p>
+                </div>
                 <div className="rounded-lg border-2 border-brand/40 bg-brand/5 p-4">
                   <p className="text-base font-semibold text-foreground">
                     Firma del cliente al devolver

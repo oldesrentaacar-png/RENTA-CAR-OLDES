@@ -1,6 +1,6 @@
 import { parseISO } from "date-fns";
 
-import { normalizeFormDateTimeToIso } from "@/lib/dates";
+import { normalizeFormDateTimeToIso, rentalDaysBetween } from "@/lib/dates";
 import { parseMoneyInput } from "@/lib/money";
 
 /** Settings JSON may store the grace window as number or string. */
@@ -82,5 +82,72 @@ export function calculateSuggestedExtraDayCharge(
     graceHoursApplied: graceHours,
     courtesyHoursApplied: courtesyHours,
     courtesyDaysApplied: totalCourtesyDays,
+  };
+}
+
+export type ReturnSettlement = {
+  agreedDays: number;
+  actualDays: number;
+  /** Days past the agreed end, after the courtesy window. */
+  extraDays: number;
+  /** Full rental days not used because the car came back early. */
+  unusedDays: number;
+  extraCharge: number;
+  earlyCredit: number;
+  /** Positive adds to the bill. Negative reduces it. */
+  dayAdjustment: number;
+  returnedEarly: boolean;
+};
+
+/**
+ * Late return adds days. Early return subtracts unused days.
+ * The original contract total stays the agreed price; this is only the difference.
+ */
+export function calculateReturnSettlement(input: {
+  startAt: Date | string;
+  scheduledEndAt: Date | string;
+  actualReturnAt: Date | string;
+  dailyRate: number;
+  graceHours?: number;
+  courtesyHours?: number;
+  courtesyDays?: number;
+  manualExtraDaysWaived?: number;
+}): ReturnSettlement {
+  const dailyRate = parseMoneyInput(input.dailyRate);
+  const scheduled = asInstant(input.scheduledEndAt);
+  const actual = asInstant(input.actualReturnAt);
+  const agreedDays = rentalDaysBetween(input.startAt, input.scheduledEndAt);
+  const actualDays = rentalDaysBetween(input.startAt, input.actualReturnAt);
+  const returnedEarly =
+    Number.isFinite(actual.getTime()) &&
+    Number.isFinite(scheduled.getTime()) &&
+    actual.getTime() < scheduled.getTime();
+
+  const late = calculateSuggestedExtraDayCharge({
+    scheduledEndAt: input.scheduledEndAt,
+    actualReturnAt: input.actualReturnAt,
+    dailyRate,
+    graceHours: input.graceHours,
+    courtesyHours: input.courtesyHours,
+    courtesyDays: input.courtesyDays,
+    manualExtraDaysWaived: input.manualExtraDaysWaived,
+  });
+
+  const unusedDays = returnedEarly
+    ? Math.max(0, agreedDays - actualDays)
+    : 0;
+  const earlyCredit = Math.round(unusedDays * dailyRate * 100) / 100;
+  const extraCharge = returnedEarly ? 0 : late.suggestedExtraCharge;
+  const extraDays = returnedEarly ? 0 : late.billedExtraDays;
+
+  return {
+    agreedDays,
+    actualDays,
+    extraDays,
+    unusedDays,
+    extraCharge,
+    earlyCredit,
+    dayAdjustment: Math.round((extraCharge - earlyCredit) * 100) / 100,
+    returnedEarly,
   };
 }
