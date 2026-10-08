@@ -35,6 +35,7 @@ import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
+import { coerceGraceHours } from "@/lib/calculations/rental-close";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
@@ -1863,10 +1864,7 @@ export async function getContractCloseContext(
       .maybeSingle();
     const policies = (settingsRow as { policies?: Record<string, unknown> } | null)
       ?.policies;
-    const extraDayGraceHours =
-      typeof policies?.extraDayGraceHours === "number"
-        ? policies.extraDayGraceHours
-        : 2;
+    const extraDayGraceHours = coerceGraceHours(policies?.extraDayGraceHours, 2);
 
     return actionSuccess({
       contract: detail.data,

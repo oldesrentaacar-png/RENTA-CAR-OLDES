@@ -828,7 +828,10 @@ export async function saveInspectionGeneralNotes(
   notes: string,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { user } = await assertPermission("inspections.edit");
+    const { user } = await assertAnyPermission([
+      "inspections.edit",
+      "inspections.create",
+    ]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -907,7 +910,10 @@ export async function saveChecklistItems(
   itemsJson: string,
 ): Promise<ActionResult<void>> {
   try {
-    const { user } = await assertPermission("inspections.edit");
+    const { user } = await assertAnyPermission([
+      "inspections.edit",
+      "inspections.create",
+    ]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -975,7 +981,10 @@ export async function saveDamageMarks(
   marksJson: string,
 ): Promise<ActionResult<void>> {
   try {
-    const { user } = await assertPermission("inspections.edit");
+    const { user } = await assertAnyPermission([
+      "inspections.edit",
+      "inspections.create",
+    ]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }

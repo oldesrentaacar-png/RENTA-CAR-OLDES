@@ -60,10 +60,13 @@ export const contractSignSchema = z.object({
       (value) => value.length <= 1_500_000,
       "La firma es demasiado pesada. Limpie el pad, dibuje de nuevo y confirme.",
     ),
-  acceptedTerms: z
-    .union([z.literal("true"), z.literal("false"), z.boolean()])
-    .optional()
-    .transform((value) => value === true || value === "true"),
+  acceptedTerms: z.preprocess(
+    (value) => (value == null || value === "" ? undefined : value),
+    z
+      .union([z.literal("true"), z.literal("false"), z.boolean()])
+      .optional()
+      .transform((value) => value === true || value === "true"),
+  ),
 });
 
 export type ContractInput = z.infer<typeof contractSchema>;

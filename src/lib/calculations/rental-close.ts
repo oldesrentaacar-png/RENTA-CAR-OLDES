@@ -1,7 +1,22 @@
 import { parseISO } from "date-fns";
 
-import { rentalDaysBetween } from "@/lib/dates";
+import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { parseMoneyInput } from "@/lib/money";
+
+/** Settings JSON may store the grace window as number or string. */
+export function coerceGraceHours(value: unknown, fallback = 2): number {
+  if (value == null || value === "") return fallback;
+  const hours = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(hours)) return fallback;
+  return Math.min(24, Math.max(0, hours));
+}
+
+function asInstant(value: Date | string): Date {
+  if (value instanceof Date) return value;
+  const normalized = normalizeFormDateTimeToIso(value);
+  const parsed = parseISO(normalized || value);
+  return Number.isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
+}
 
 export type ExtraDayCalculationInput = {
   scheduledEndAt: Date | string;
@@ -27,14 +42,8 @@ export function delayHoursAfterScheduledEnd(
   scheduledEndAt: Date | string,
   actualReturnAt: Date | string,
 ): number {
-  const scheduled =
-    typeof scheduledEndAt === "string"
-      ? parseISO(scheduledEndAt)
-      : scheduledEndAt;
-  const actual =
-    typeof actualReturnAt === "string"
-      ? parseISO(actualReturnAt)
-      : actualReturnAt;
+  const scheduled = asInstant(scheduledEndAt);
+  const actual = asInstant(actualReturnAt);
   const diffMs = actual.getTime() - scheduled.getTime();
   if (!Number.isFinite(diffMs) || diffMs <= 0) return 0;
   return diffMs / (1000 * 60 * 60);
@@ -48,7 +57,7 @@ export function calculateSuggestedExtraDayCharge(
   input: ExtraDayCalculationInput,
 ): ExtraDayCalculationResult {
   const dailyRate = parseMoneyInput(input.dailyRate);
-  const graceHours = Math.max(0, input.graceHours ?? 2);
+  const graceHours = coerceGraceHours(input.graceHours, 2);
   const courtesyHours = Math.max(0, input.courtesyHours ?? 0);
   const courtesyDays = Math.max(0, input.courtesyDays ?? 0);
   const manualWaived = Math.max(0, input.manualExtraDaysWaived ?? 0);
@@ -58,36 +67,13 @@ export function calculateSuggestedExtraDayCharge(
     input.actualReturnAt,
   );
 
-  let billedExtraDays = 0;
-  if (delayHours > graceHours) {
-    const billableEnd = parseISO(
-      typeof input.actualReturnAt === "string"
-        ? input.actualReturnAt
-        : input.actualReturnAt.toISOString(),
-    );
-    const scheduledEnd = parseISO(
-      typeof input.scheduledEndAt === "string"
-        ? input.scheduledEndAt
-        : input.scheduledEndAt.toISOString(),
-    );
-    billedExtraDays = Math.max(
-      0,
-      rentalDaysBetween(scheduledEnd, billableEnd) - 1,
-    );
-    if (billedExtraDays === 0 && delayHours > graceHours) {
-      billedExtraDays = 1;
-    }
-  }
-
+  const hoursPastGrace = Math.max(0, delayHours - graceHours - courtesyHours);
+  let billedExtraDays =
+    hoursPastGrace > 0 ? Math.max(1, Math.ceil(hoursPastGrace / 24)) : 0;
   const courtesyHoursAsDays =
-    courtesyHours >= 24
-      ? Math.floor(courtesyHours / 24)
-      : courtesyHours >= graceHours && billedExtraDays > 0
-        ? 1
-        : 0;
-
+    courtesyHours >= 24 ? Math.floor(courtesyHours / 24) : 0;
   const totalCourtesyDays = courtesyDays + courtesyHoursAsDays;
-  billedExtraDays = Math.max(0, billedExtraDays - totalCourtesyDays - manualWaived);
+  billedExtraDays = Math.max(0, billedExtraDays - courtesyDays - manualWaived);
 
   return {
     delayHours: Math.round(delayHours * 10) / 10,

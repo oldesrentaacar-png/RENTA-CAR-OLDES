@@ -239,8 +239,9 @@ export function ContractDetailActions({
     setError(null);
     const fd = new FormData();
     fd.set("signerType", "PAGARE");
-    fd.set("signedBy", signedBy.trim() || contract.customerName);
+    fd.set("signedBy", signedBy.trim() || contract.customerName || "Cliente");
     fd.set("signatureDataUrl", pagareSignatureDataUrl);
+    fd.set("acceptedTerms", "false");
     const result = await signContract(contract.id, fd);
     setSigningPagare(false);
     if (!result.success) {

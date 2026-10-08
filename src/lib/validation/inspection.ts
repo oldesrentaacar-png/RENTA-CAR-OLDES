@@ -92,18 +92,30 @@ export const damageMarkSchema = z.object({
     "OTHER",
   ]),
   severity: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  description: optionalText(500),
-  photoId: z.uuid().optional(),
-  pathPoints: z
-    .array(
-      z.object({
-        x: z.coerce.number().min(0).max(1),
-        y: z.coerce.number().min(0).max(1),
-      }),
-    )
-    .min(2)
-    .max(2000)
-    .optional(),
+  description: z.preprocess(
+    (value) => (value == null || value === "" ? undefined : value),
+    optionalText(500),
+  ),
+  photoId: z.preprocess(
+    (value) => (value == null || value === "" ? undefined : value),
+    z.uuid().optional(),
+  ),
+  pathPoints: z.preprocess(
+    (value) =>
+      value == null || (Array.isArray(value) && value.length < 2)
+        ? undefined
+        : value,
+    z
+      .array(
+        z.object({
+          x: z.coerce.number().min(0).max(1),
+          y: z.coerce.number().min(0).max(1),
+        }),
+      )
+      .min(2)
+      .max(2000)
+      .optional(),
+  ),
 });
 
 export const inspectionPhotoSchema = z.object({

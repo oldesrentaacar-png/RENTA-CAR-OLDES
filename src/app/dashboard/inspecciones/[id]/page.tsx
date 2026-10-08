@@ -192,7 +192,7 @@ export default async function InspeccionDetailPage({
                   checklistItems={inspection.checklist}
                   damageMarks={inspection.damageMarks}
                   generalNotes={inspection.notes}
-                  readOnly={!canEdit}
+                  readOnly={!(canEdit || canCreate)}
                   vehiclePhotoUrl={inspection.vehiclePhotoUrl}
                   viewPhotos={inspection.viewPhotos}
                   vehicleCategory={inspection.vehicleCategory}

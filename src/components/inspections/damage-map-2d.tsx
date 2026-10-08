@@ -123,6 +123,7 @@ export function DamageMap2D({
   const [activeTool, setActiveTool] = useState<DamageType>("SCRATCH");
   const [liveStroke, setLiveStroke] = useState<DamagePathPoint[] | null>(null);
   const drawingRef = useRef(false);
+  const pinPlacedRef = useRef(false);
   const diagramRef = useRef<HTMLDivElement>(null);
 
   const isFreehand = activeTool === "OTHER";
@@ -138,10 +139,9 @@ export function DamageMap2D({
     };
   }, []);
 
-  function addPinMark(event: React.MouseEvent<HTMLDivElement>) {
+  function placePin(clientX: number, clientY: number) {
     if (readOnly || isFreehand) return;
-
-    const point = normalizePoint(event.clientX, event.clientY);
+    const point = normalizePoint(clientX, clientY);
     if (!point) return;
 
     const next: DamageMarkDraft = {
@@ -155,6 +155,14 @@ export function DamageMap2D({
 
     onChange([...marks, next]);
     setSelectedIndex(marks.length);
+  }
+
+  function addPinMark(event: React.MouseEvent<HTMLDivElement>) {
+    if (pinPlacedRef.current) {
+      pinPlacedRef.current = false;
+      return;
+    }
+    placePin(event.clientX, event.clientY);
   }
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -184,7 +192,13 @@ export function DamageMap2D({
   }
 
   function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
-    if (!drawingRef.current || !isFreehand) return;
+    if (!isFreehand) {
+      if (event.target !== event.currentTarget) return;
+      pinPlacedRef.current = true;
+      placePin(event.clientX, event.clientY);
+      return;
+    }
+    if (!drawingRef.current) return;
     drawingRef.current = false;
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);

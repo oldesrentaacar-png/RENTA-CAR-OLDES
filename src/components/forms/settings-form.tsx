@@ -29,7 +29,8 @@ function policiesExtraDayGraceHours(
 ): number {
   if (!policies || typeof policies !== "object") return 2;
   const value = (policies as { extraDayGraceHours?: unknown }).extraDayGraceHours;
-  return typeof value === "number" ? value : 2;
+  const hours = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(hours) ? Math.min(24, Math.max(0, hours)) : 2;
 }
 
 function policiesStringValue(
