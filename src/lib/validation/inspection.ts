@@ -1,18 +1,12 @@
 import { z } from "zod";
 
 import {
+  blankText,
   optionalEnum,
   optionalUuid,
 } from "@/lib/validation/form-helpers";
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+const optionalText = blankText;
 
 
 export const inspectionFields = z.object({
@@ -31,21 +25,22 @@ export const inspectionFields = z.object({
       value === "" || value === null || value === undefined ? undefined : value,
     z.coerce.number().int().min(0).max(9_999_999).optional(),
   ),
-  fuelLevel: z
-    .enum([
-      "EMPTY",
-      "ONE_EIGHTH",
-      "QUARTER",
-      "THREE_EIGHTHS",
-      "HALF",
-      "FIVE_EIGHTHS",
-      "THREE_QUARTERS",
-      "SEVEN_EIGHTHS",
-      "FULL",
-    ])
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value)),
+  fuelLevel: z.preprocess(
+    (value) => (value == null || value === "" ? undefined : value),
+    z
+      .enum([
+        "EMPTY",
+        "ONE_EIGHTH",
+        "QUARTER",
+        "THREE_EIGHTHS",
+        "HALF",
+        "FIVE_EIGHTHS",
+        "THREE_QUARTERS",
+        "SEVEN_EIGHTHS",
+        "FULL",
+      ])
+      .optional(),
+  ),
   handoverPersonName: optionalText(200),
   additionalDriverName: optionalText(200),
   notes: optionalText(2000),

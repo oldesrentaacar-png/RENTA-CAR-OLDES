@@ -1,18 +1,13 @@
 import { z } from "zod";
 
+import { blankText } from "@/lib/validation/form-helpers";
+
 const moneyField = z.coerce
   .number()
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+const optionalText = blankText;
 
 export const vehicleTypeSchema = z.object({
   name: z.string().trim().min(1, "Nombre requerido.").max(120),

@@ -1,13 +1,8 @@
 import { z } from "zod";
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+import { blankText } from "@/lib/validation/form-helpers";
+
+const optionalText = blankText;
 
 const moneyField = z.coerce
   .number()
@@ -21,11 +16,10 @@ export const businessSettingsSchema = z.object({
   address: optionalText(500),
   phone: optionalText(20),
   whatsapp: optionalText(20),
-  email: z
-    .email("Correo inválido.")
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value)),
+  email: z.preprocess(
+    (value) => (value == null || value === "" ? undefined : value),
+    z.email("Correo inválido.").optional(),
+  ),
   currency: z.string().trim().length(3).default("USD"),
   timezone: z.string().trim().min(1).default("America/El_Salvador"),
   quoteTerms: optionalText(10000),

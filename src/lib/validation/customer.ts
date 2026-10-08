@@ -1,41 +1,27 @@
 import { z } from "zod";
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+import { blankText } from "@/lib/validation/form-helpers";
+
+const optionalText = blankText;
 
 const optionalDate = (message: string) =>
-  z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, message)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+  z.preprocess(
+    (value) => (value == null ? undefined : value),
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, message)
+      .optional()
+      .or(z.literal(""))
+      .transform((value) => (value === "" ? undefined : value)),
+  );
 
 const optionalUrl = optionalText(2000);
 
 export const customerSchema = z
   .object({
     customerType: z.enum(["PERSON", "COMPANY"]).default("PERSON"),
-    firstName: z
-      .string()
-      .trim()
-      .max(100)
-      .optional()
-      .or(z.literal(""))
-      .transform((value) => (value === "" ? undefined : value)),
-    lastName: z
-      .string()
-      .trim()
-      .max(100)
-      .optional()
-      .or(z.literal(""))
-      .transform((value) => (value === "" ? undefined : value)),
+    firstName: optionalText(100),
+    lastName: optionalText(100),
     companyName: optionalText(200),
     nit: optionalText(50),
     nrc: optionalText(50),
@@ -48,11 +34,10 @@ export const customerSchema = z
     birthDate: optionalDate("Fecha de nacimiento inválida."),
     phone: z.string().trim().min(7, "Teléfono requerido.").max(20),
     whatsapp: optionalText(20),
-    email: z
-      .email("Correo inválido.")
-      .optional()
-      .or(z.literal(""))
-      .transform((value) => (value === "" ? undefined : value)),
+    email: z.preprocess(
+      (value) => (value == null || value === "" ? undefined : value),
+      z.email("Correo inválido.").optional(),
+    ),
     address: optionalText(500),
     country: optionalText(100),
     additionalDriverName: optionalText(200),
@@ -108,20 +93,8 @@ export const customerSchema = z
 export const customerUpdateSchema = z
   .object({
     customerType: z.enum(["PERSON", "COMPANY"]).optional(),
-    firstName: z
-      .string()
-      .trim()
-      .max(100)
-      .optional()
-      .or(z.literal(""))
-      .transform((value) => (value === "" ? undefined : value)),
-    lastName: z
-      .string()
-      .trim()
-      .max(100)
-      .optional()
-      .or(z.literal(""))
-      .transform((value) => (value === "" ? undefined : value)),
+    firstName: optionalText(100),
+    lastName: optionalText(100),
     companyName: optionalText(200),
     nit: optionalText(50),
     nrc: optionalText(50),
@@ -139,11 +112,10 @@ export const customerUpdateSchema = z
       .max(20)
       .optional(),
     whatsapp: optionalText(20),
-    email: z
-      .email("Correo inválido.")
-      .optional()
-      .or(z.literal(""))
-      .transform((value) => (value === "" ? undefined : value)),
+    email: z.preprocess(
+      (value) => (value == null || value === "" ? undefined : value),
+      z.email("Correo inválido.").optional(),
+    ),
     address: optionalText(500),
     country: optionalText(100),
     additionalDriverName: optionalText(200),

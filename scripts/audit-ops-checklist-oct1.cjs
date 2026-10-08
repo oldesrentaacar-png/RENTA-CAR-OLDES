@@ -130,8 +130,8 @@ function assertOrder(src, first, second, msg) {
   );
   const meta = read("src/lib/pdf/contract-pdf-meta.ts");
   assert(
-    /CONTRACT_PDF_TEMPLATE_VERSION\s*=\s*"2026-10-01/.test(meta),
-    "C6 contract PDF template version 2026-10-01",
+    /CONTRACT_PDF_TEMPLATE_VERSION\s*=\s*"2026-10-05-v1"/.test(meta),
+    "C6 contract PDF template version 2026-10-05-v1",
   );
 }
 
@@ -376,6 +376,61 @@ function assertOrder(src, first, second, msg) {
   assert(
     steps.includes("actionHref: contractPdfHref"),
     "H3 Paso PDF entrega abre documento real",
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// I) Anular contrato visible aunque el paso de entrega esté abierto
+// ═══════════════════════════════════════════════════════════
+{
+  const page = read("src/app/dashboard/contratos/[id]/page.tsx");
+  const actions = read("src/components/contracts/contract-actions.tsx");
+  const server = read("src/app/dashboard/contratos/actions.ts");
+  assert(
+    page.includes("annulmentOnly"),
+    "I1 Detalle del contrato muestra anular fuera de los pasos de entrega",
+  );
+  assert(
+    actions.includes("Anular contrato (el registro se conserva)") &&
+      actions.includes("if (annulmentOnly)"),
+    "I2 Recuadro de anular existe y puede renderizarse solo",
+  );
+  assert(
+    server.includes('type", "CHECK_OUT"') &&
+      server.includes("use «Cerrar renta»"),
+    "I3 Si ya hubo entrega, anular sigue bloqueado y pide Cerrar renta",
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// J) Texto opcional: null de FormData no debe decir Invalid input
+// ═══════════════════════════════════════════════════════════
+{
+  const helpers = read("src/lib/validation/form-helpers.ts");
+  assert(
+    helpers.includes("export function blankText") &&
+      helpers.includes("value == null"),
+    "J1 blankText convierte null de FormData en vacío",
+  );
+  const { z } = require(path.join(root, "node_modules/zod"));
+  const sample = z.preprocess(
+    (value) => (value == null ? undefined : value),
+    z
+      .string()
+      .trim()
+      .max(20)
+      .optional()
+      .or(z.literal(""))
+      .transform((value) => (value === "" ? undefined : value)),
+  );
+  assert(sample.safeParse(null).success, "J2 runtime: null en texto opcional es válido");
+  assert(
+    sample.safeParse("").success && sample.safeParse("").data === undefined,
+    "J3 runtime: cadena vacía queda undefined",
+  );
+  assert(
+    sample.safeParse("hola").success && sample.safeParse("hola").data === "hola",
+    "J4 runtime: texto real se conserva",
   );
 }
 

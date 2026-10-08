@@ -1,6 +1,7 @@
 ﻿import { z } from "zod";
 
 import {
+  blankText,
   optionalDateYmd,
   optionalEnum,
   optionalUuid,
@@ -11,14 +12,7 @@ const moneyField = z.coerce
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+const optionalText = blankText;
 
 export const maintenanceSchema = z.object({
   vehicleId: z.uuid("Vehículo inválido."),
@@ -41,12 +35,10 @@ export const maintenanceSchema = z.object({
   mileage: z.coerce.number().int().min(0).max(9_999_999).optional(),
   cost: moneyField.default(0),
   workshop: optionalText(200),
-  nextDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value)),
+  nextDate: z.preprocess(
+    (value) => (value == null || value === "" ? undefined : value),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  ),
   nextMileage: z.coerce.number().int().min(0).max(9_999_999).optional(),
   status: z
     .enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"])

@@ -1,6 +1,7 @@
 ﻿import { z } from "zod";
 
 import {
+  blankText,
   emptyToUndefined,
   optionalEnum,
   optionalText,
@@ -12,14 +13,7 @@ const moneyField = z.coerce
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
-const optionalNote = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+const optionalNote = blankText;
 
 const reservationFields = z.object({
   customerId: z.uuid("Cliente inválido."),

@@ -1,13 +1,8 @@
 import { z } from "zod";
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+import { blankText } from "@/lib/validation/form-helpers";
+
+const optionalText = blankText;
 
 export const accessoryCatalogSchema = z.object({
   code: z

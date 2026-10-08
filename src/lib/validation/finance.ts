@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  blankText,
   emptyToUndefined,
   optionalDateYmd,
   optionalUuid as optionalUuidField,
@@ -11,21 +12,12 @@ const moneyField = z.coerce
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+const optionalText = blankText;
 
-const optionalUuid = z
-  .string()
-  .optional()
-  .or(z.literal(""))
-  .transform((value) => (value === "" ? undefined : value))
-  .pipe(z.uuid().optional());
+const optionalUuid = z.preprocess(
+  (value) => (value == null || value === "" ? undefined : value),
+  z.string().uuid().optional(),
+);
 
 export const depositStatusEnum = z.enum([
   "RECEIVED",

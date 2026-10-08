@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { blankText } from "@/lib/validation/form-helpers";
+
 const dateString = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida. Use YYYY-MM-DD.");
@@ -8,14 +10,7 @@ const timeString = z
   .string()
   .regex(/^\d{2}:\d{2}$/, "Hora inválida. Use HH:mm.");
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+const optionalText = blankText;
 
 export const publicRequestSchema = z
   .object({
@@ -26,11 +21,10 @@ export const publicRequestSchema = z
       .trim()
       .min(7, "Teléfono inválido.")
       .max(20, "Teléfono demasiado largo."),
-    email: z
-      .email("Correo inválido.")
-      .optional()
-      .or(z.literal(""))
-      .transform((value) => (value === "" ? undefined : value)),
+    email: z.preprocess(
+      (value) => (value == null || value === "" ? undefined : value),
+      z.email("Correo inválido.").optional(),
+    ),
     pickupDate: dateString,
     pickupTime: timeString,
     returnDate: dateString,
@@ -43,11 +37,10 @@ export const publicRequestSchema = z
     returnLocation: optionalText(255),
     notes: optionalText(2000),
     /** Honeypot — must remain empty. Bots often fill hidden fields. */
-    website: z
-      .string()
-      .max(0, "Solicitud rechazada.")
-      .optional()
-      .or(z.literal("")),
+    website: z.preprocess(
+      (value) => (value == null || value === "" ? undefined : value),
+      z.string().max(0, "Solicitud rechazada.").optional(),
+    ),
   })
   .refine(
     (data) => {

@@ -22,6 +22,24 @@ export function optionalText(max: number) {
   );
 }
 
+/**
+ * Optional form text. FormData.get() returns null when the field is missing;
+ * Zod 4 then answers "Invalid input". Null and "" become undefined.
+ * A whitespace-only value also becomes undefined, same as the previous helpers.
+ */
+export function blankText(max: number) {
+  return z.preprocess(
+    (value) => (value == null ? undefined : value),
+    z
+      .string()
+      .trim()
+      .max(max)
+      .optional()
+      .or(z.literal(""))
+      .transform((value) => (value === "" ? undefined : value)),
+  );
+}
+
 export function optionalUuid() {
   return z.preprocess(emptyToUndefined, z.string().uuid().optional());
 }

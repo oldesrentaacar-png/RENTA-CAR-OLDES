@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  blankText,
   optionalEnum,
   optionalUuid as optionalUuidField,
 } from "@/lib/validation/form-helpers";
@@ -10,14 +11,7 @@ const moneyField = z.coerce
   .min(0, "El monto no puede ser negativo.")
   .max(999_999_999.99, "Monto demasiado alto.");
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => (value === "" ? undefined : value));
+const optionalText = blankText;
 
 const optionalUuid = z
   .union([z.uuid(), z.literal(""), z.null(), z.undefined()])
