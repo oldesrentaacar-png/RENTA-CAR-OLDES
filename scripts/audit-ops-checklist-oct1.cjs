@@ -130,8 +130,8 @@ function assertOrder(src, first, second, msg) {
   );
   const meta = read("src/lib/pdf/contract-pdf-meta.ts");
   assert(
-    /CONTRACT_PDF_TEMPLATE_VERSION\s*=\s*"2026-10-05-v1"/.test(meta),
-    "C6 contract PDF template version 2026-10-05-v1",
+    /CONTRACT_PDF_TEMPLATE_VERSION\s*=\s*"2026-10-09-v1"/.test(meta),
+    "C6 contract PDF template version 2026-10-09-v1",
   );
 }
 

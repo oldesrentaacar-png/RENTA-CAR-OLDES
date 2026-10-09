@@ -324,6 +324,7 @@ const styles = StyleSheet.create({
   },
   wireframeDiagram: {
     width: "100%",
+    height: 176,
     objectFit: "contain",
     marginBottom: 2,
   },
@@ -504,11 +505,15 @@ function Field({
 function FuelGauge({
   label,
   activeIndex,
+  width = 200,
 }: {
   label: string;
   activeIndex: number;
+  width?: number;
 }) {
-  return <PdfFuelNeedleGauge label={label} activeIndex={activeIndex} />;
+  return (
+    <PdfFuelNeedleGauge label={label} activeIndex={activeIndex} width={width} />
+  );
 }
 
 export function ContractPdfDocument(props: ContractPdfProps) {
@@ -912,13 +917,12 @@ export function ContractPdfDocument(props: ContractPdfProps) {
                   })}
                 </View>
               </View>
+              <FuelGauge
+                label="NIVEL COMBUSTIBLE (SALIDA)"
+                activeIndex={fuelLevelIndex(props.fuelOutLabel)}
+                width={200}
+              />
             </View>
-          </View>
-          <View style={{ paddingHorizontal: 4, paddingBottom: 4, marginTop: 2 }}>
-            <FuelGauge
-              label="NIVEL COMBUSTIBLE (SALIDA)"
-              activeIndex={fuelLevelIndex(props.fuelOutLabel)}
-            />
           </View>
         </MachoteSection>
 
