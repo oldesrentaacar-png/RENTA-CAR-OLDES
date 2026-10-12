@@ -68,6 +68,9 @@ export function buildContractBillingBreakdown(input: {
     quantity?: number | null;
     unitPrice?: number | null;
   }>;
+  /** Commercial percent/fixed discount already baked into contractTotal. */
+  discountAmount?: number;
+  discountPercent?: number;
   /** Admin courtesy discount already baked into contractTotal. */
   courtesyAmount?: number;
   applyIva?: boolean;
@@ -83,6 +86,8 @@ export function buildContractBillingBreakdown(input: {
   const applyIva = Boolean(input.applyIva);
   const taxRate = Math.max(0, Number(input.taxRate) || 0.13);
   const courtesyAmount = money(Math.max(0, Number(input.courtesyAmount) || 0));
+  const discountAmount = money(Math.max(0, Number(input.discountAmount) || 0));
+  const discountPercent = Math.max(0, Number(input.discountPercent) || 0);
 
   const manual: ContractBillingLine[] = [];
   for (const item of input.manualLines ?? []) {
@@ -125,17 +130,30 @@ export function buildContractBillingBreakdown(input: {
     manual.reduce((sum, line) => toNumber(add(sum, line.amount)), 0),
   );
 
-  // Preferred pretax when we trust line parts: rental + insurance + quote + manual − courtesy.
+  // Preferred pretax: rental + insurance + extras − descuento comercial − cortesía.
   const partsPretax = money(
     Math.max(
       0,
       toNumber(
-        subtract(add(add(base, quoteExtrasSum), manualSum), courtesyAmount),
+        subtract(
+          subtract(add(add(base, quoteExtrasSum), manualSum), discountAmount),
+          courtesyAmount,
+        ),
       ),
     ),
   );
 
   let extraLines: ContractBillingLine[] = [...candidates, ...manual];
+  if (discountAmount > 0) {
+    const percentLabel =
+      discountPercent > 0
+        ? `Descuento (${discountPercent}%)`
+        : "Descuento";
+    extraLines = [
+      ...extraLines,
+      { label: percentLabel, amount: -discountAmount },
+    ];
+  }
   if (courtesyAmount > 0) {
     extraLines = [
       ...extraLines,
@@ -163,7 +181,8 @@ export function buildContractBillingBreakdown(input: {
     almostEqual(partsPretax, contractTotal) ||
     manual.length > 0 ||
     candidates.length > 0 ||
-    courtesyAmount > 0
+    courtesyAmount > 0 ||
+    discountAmount > 0
   ) {
     pretaxTotal = partsPretax;
     // If contract total differs and no manual/quote/courtesy lines, keep legacy adjustment path.
@@ -171,6 +190,7 @@ export function buildContractBillingBreakdown(input: {
       candidates.length === 0 &&
       manual.length === 0 &&
       courtesyAmount <= 0 &&
+      discountAmount <= 0 &&
       !almostEqual(base, contractTotal)
     ) {
       if (contractTotal > base + MONEY_EPS) {

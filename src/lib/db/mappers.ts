@@ -153,6 +153,8 @@ type ReservationRow = {
   }> | null;
   courtesy_amount?: number | null;
   courtesy_detail?: string | null;
+  discount_percent?: number | null;
+  discount_amount?: number | null;
   apply_iva?: boolean | null;
   tax_rate?: number | null;
   tax_amount?: number | null;
@@ -466,6 +468,8 @@ export function mapReservationRow(row: ReservationRow): Reservation {
       : [],
     courtesy_amount: asNumber(row.courtesy_amount, 0),
     courtesy_detail: row.courtesy_detail ?? null,
+    discount_percent: asNumber(row.discount_percent, 0),
+    discount_amount: asNumber(row.discount_amount, 0),
     apply_iva: Boolean(row.apply_iva),
     tax_rate: asNumber(row.tax_rate, 0.13),
     tax_amount: asNumber(row.tax_amount, 0),
@@ -556,6 +560,8 @@ type ContractRow = {
   courtesy_days?: number | null;
   courtesy_amount?: number | null;
   courtesy_detail?: string | null;
+  discount_percent?: number | null;
+  discount_amount?: number | null;
   actual_return_at?: string | null;
   grace_extra_days_waived?: number | null;
   include_pagare?: boolean | null;
@@ -638,6 +644,8 @@ export function mapContractRow(row: ContractRow): Contract {
     courtesy_days: asNumber(row.courtesy_days, 0),
     courtesy_amount: asNumber(row.courtesy_amount, 0),
     courtesy_detail: row.courtesy_detail ?? null,
+    discount_percent: asNumber(row.discount_percent, 0),
+    discount_amount: asNumber(row.discount_amount, 0),
     actual_return_at: row.actual_return_at ?? null,
     grace_extra_days_waived: asNumber(row.grace_extra_days_waived, 0),
     include_pagare:

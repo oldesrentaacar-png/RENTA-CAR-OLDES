@@ -13,7 +13,7 @@ import {
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage, isMissingRelationError } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
-import { calculateReservationTotal, deriveReservationPricingFromQuote, capTotalToQuote } from "@/lib/calculations/quote";
+import { calculateReservationTotal, deriveReservationPricingFromQuote, quoteTaxFraction, isMissingDiscountColumnError, bakeDiscountIntoCourtesy } from "@/lib/calculations/quote";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { parseMoneyInput, parseRateInput } from "@/lib/money";
@@ -333,6 +333,11 @@ export async function createReservation(
     const courtesyDetail = canCourtesy
       ? String(formData.get("courtesyDetail") ?? "").trim() || null
       : null;
+    const discountPercent = Math.min(
+      100,
+      Math.max(0, parseMoneyInput(formData.get("discountPercent") || 0)),
+    );
+    const discountAmount = parseMoneyInput(formData.get("discountAmount") || 0);
     const applyIva =
       formData.get("applyIva") === "true" ||
       formData.get("applyIva") === "on" ||
@@ -346,19 +351,11 @@ export async function createReservation(
       agreedRate,
       insurance,
       additionalCosts,
+      discountPercent,
+      discountAmount,
       courtesyAmount,
     });
-    let pretaxTotal = pretax.total;
-    const quoteIdRaw = String(formData.get("quoteId") ?? "").trim();
-    if (quoteIdRaw) {
-      const supabase = await createClient();
-      const { data: quoteRow } = await supabase
-        .from("quotes")
-        .select("total")
-        .eq("id", quoteIdRaw)
-        .maybeSingle();
-      pretaxTotal = capTotalToQuote(pretaxTotal, quoteRow?.total);
-    }
+    const pretaxTotal = pretax.total;
     const ivaTotals = computeOptionalIvaTotals({
       pretaxTotal,
       applyIva,
@@ -381,6 +378,8 @@ export async function createReservation(
       cashAmount,
       cardAmount,
       additionalCosts,
+      discountPercent: pretax.discountPercent,
+      discountAmount: pretax.discountAmount,
       courtesyAmount,
       courtesyDetail: courtesyDetail ?? "",
       applyIva,
@@ -410,7 +409,7 @@ export async function createReservation(
       );
     }
 
-    const insertPayload: Record<string, unknown> = {
+    let insertPayload: Record<string, unknown> = {
       customer_id: parsed.data.customerId,
       vehicle_id: parsed.data.vehicleId,
       quote_id: parsed.data.quoteId ?? null,
@@ -427,6 +426,8 @@ export async function createReservation(
       card_amount: parsed.data.cardAmount,
       additional_costs: parsed.data.additionalCosts,
       extra_line_items: extraLineItems,
+      discount_percent: pretax.discountPercent,
+      discount_amount: pretax.discountAmount,
       courtesy_amount: parsed.data.courtesyAmount ?? 0,
       courtesy_detail: parsed.data.courtesyDetail ?? null,
       apply_iva: parsed.data.applyIva,
@@ -442,6 +443,15 @@ export async function createReservation(
       .insert(insertPayload)
       .select("id")
       .single();
+
+    if (error && isMissingDiscountColumnError(error)) {
+      insertPayload = bakeDiscountIntoCourtesy(insertPayload);
+      ({ data, error } = await supabase
+        .from("reservations")
+        .insert(insertPayload)
+        .select("id")
+        .single());
+    }
 
     if (error && isMissingRelationError(error)) {
       delete insertPayload.extra_line_items;
@@ -578,15 +588,31 @@ export async function createReservationFromQuote(
       lumpLabel: `Extras desde cotización ${q.code}`,
     });
     const additionalCosts = sumExtraLineItems(extraLineItems);
+    const taxFraction = quoteTaxFraction(q.tax_rate);
     const recomputed = calculateReservationTotal({
       startAt: q.start_at,
       endAt: q.end_at,
       agreedRate: pricing.agreedRate,
       insurance: insuranceAmount,
       additionalCosts,
+      discountPercent: q.discount_percent,
+      discountAmount: q.discount_amount,
     });
+    const ivaTotals = computeOptionalIvaTotals({
+      pretaxTotal: recomputed.total,
+      applyIva: taxFraction > 0,
+      taxRate: taxFraction || 0.13,
+    });
+    let savedTotal = ivaTotals.total;
+    let savedTax = ivaTotals.taxAmount;
+    if (Math.abs(savedTotal - Number(q.total)) <= 0.02) {
+      savedTotal = Number(q.total);
+      savedTax = taxFraction > 0
+        ? Math.round((savedTotal - recomputed.total) * 100) / 100
+        : 0;
+    }
 
-    const insertPayload: Record<string, unknown> = {
+    let insertPayload: Record<string, unknown> = {
       customer_id: q.customer_id,
       vehicle_id: q.vehicle_id,
       quote_id: quoteId,
@@ -595,14 +621,18 @@ export async function createReservationFromQuote(
       agreed_rate: pricing.agreedRate,
       deposit: q.deposit_amount,
       insurance: insuranceAmount,
-      total: recomputed.total,
-      cash_amount: recomputed.total,
+      total: savedTotal,
+      cash_amount: savedTotal,
       card_amount: 0,
       additional_costs: additionalCosts,
       extra_line_items: extraLineItems,
-      apply_iva: false,
-      tax_rate: 0.13,
-      tax_amount: 0,
+      discount_percent: recomputed.discountPercent,
+      discount_amount: recomputed.discountAmount,
+      courtesy_amount: 0,
+      courtesy_detail: null,
+      apply_iva: taxFraction > 0,
+      tax_rate: taxFraction || 0.13,
+      tax_amount: savedTax,
       notes: [q.notes?.trim() || "", extrasNote].filter(Boolean).join("\n\n") || null,
       status: "CONFIRMED",
       created_by: user.id,
@@ -613,6 +643,15 @@ export async function createReservationFromQuote(
       .insert(insertPayload)
       .select("id")
       .single();
+
+    if (error && isMissingDiscountColumnError(error)) {
+      insertPayload = bakeDiscountIntoCourtesy(insertPayload);
+      ({ data, error } = await supabase
+        .from("reservations")
+        .insert(insertPayload)
+        .select("id")
+        .single());
+    }
 
     if (error && isMissingRelationError(error)) {
       delete insertPayload.extra_line_items;
@@ -723,6 +762,15 @@ export async function updateReservation(
           ? parseMoneyInput(cardAmountRaw)
           : undefined,
       additionalCosts: additionalCostsResolved,
+      discountPercent: formData.has("discountPercent")
+        ? Math.min(
+            100,
+            Math.max(0, parseMoneyInput(formData.get("discountPercent") || 0)),
+          )
+        : undefined,
+      discountAmount: formData.has("discountAmount")
+        ? parseMoneyInput(formData.get("discountAmount") || 0)
+        : undefined,
       courtesyAmount:
         canCourtesy &&
         courtesyAmountRaw !== null &&
@@ -811,6 +859,10 @@ export async function updateReservation(
       row.courtesy_amount = parsed.data.courtesyAmount;
     if (canCourtesy && parsed.data.courtesyDetail !== undefined)
       row.courtesy_detail = parsed.data.courtesyDetail ?? null;
+    if (formData.has("discountPercent") || formData.has("discountAmount")) {
+      row.discount_percent = parsed.data.discountPercent ?? 0;
+      row.discount_amount = parsed.data.discountAmount ?? 0;
+    }
     if (parsed.data.applyIva !== undefined) row.apply_iva = parsed.data.applyIva;
     if (parsed.data.taxRate !== undefined) row.tax_rate = parsed.data.taxRate;
     if (parsed.data.notes !== undefined) row.notes = parsed.data.notes ?? null;
@@ -823,19 +875,30 @@ export async function updateReservation(
       parsed.data.agreedRate !== undefined ||
       parsed.data.additionalCosts !== undefined ||
       parsed.data.insurance !== undefined ||
-      (canCourtesy && parsed.data.courtesyAmount !== undefined) ||
+      (formData.has("discountPercent") || formData.has("discountAmount")) ||
       parsed.data.applyIva !== undefined ||
       parsed.data.taxRate !== undefined
     ) {
       const supabaseForRead = await createClient();
-      const { data: current, error: currentError } = await supabaseForRead
+      const withDiscount =
+        "start_at, end_at, agreed_rate, insurance, additional_costs, courtesy_amount, discount_percent, discount_amount, apply_iva, tax_rate, quote_id";
+      let currentResult = await supabaseForRead
         .from("reservations")
-        .select(
-          "start_at, end_at, agreed_rate, insurance, additional_costs, courtesy_amount, apply_iva, tax_rate, quote_id",
-        )
+        .select(withDiscount)
         .eq("id", id)
         .is("deleted_at", null)
         .maybeSingle();
+      if (currentResult.error && isMissingDiscountColumnError(currentResult.error)) {
+        currentResult = await supabaseForRead
+          .from("reservations")
+          .select(
+            "start_at, end_at, agreed_rate, insurance, additional_costs, courtesy_amount, apply_iva, tax_rate, quote_id",
+          )
+          .eq("id", id)
+          .is("deleted_at", null)
+          .maybeSingle();
+      }
+      const { data: current, error: currentError } = currentResult;
 
       if (currentError) throw mapPostgresError(currentError);
       if (!current) return actionError("Reserva no encontrada.");
@@ -847,6 +910,8 @@ export async function updateReservation(
         insurance: number;
         additional_costs: number;
         courtesy_amount?: number;
+        discount_percent?: number;
+        discount_amount?: number;
         apply_iva: boolean;
         tax_rate: number;
         quote_id?: string | null;
@@ -867,20 +932,20 @@ export async function updateReservation(
           parsed.data.additionalCosts !== undefined
             ? parsed.data.additionalCosts
             : currentRow.additional_costs,
+        discountPercent: formData.has("discountPercent")
+          ? parsed.data.discountPercent
+          : currentRow.discount_percent ?? 0,
+        discountAmount: formData.has("discountAmount")
+          ? parsed.data.discountAmount
+          : currentRow.discount_amount ?? 0,
         courtesyAmount:
           canCourtesy && parsed.data.courtesyAmount !== undefined
             ? parsed.data.courtesyAmount
             : Number(currentRow.courtesy_amount ?? 0),
       });
-      let pretaxTotal = pretax.total;
-      if (currentRow.quote_id) {
-        const { data: quoteRow } = await supabaseForRead
-          .from("quotes")
-          .select("total")
-          .eq("id", currentRow.quote_id)
-          .maybeSingle();
-        pretaxTotal = capTotalToQuote(pretaxTotal, quoteRow?.total);
-      }
+      const pretaxTotal = pretax.total;
+      row.discount_percent = pretax.discountPercent;
+      row.discount_amount = pretax.discountAmount;
       const applyIva =
         parsed.data.applyIva !== undefined
           ? Boolean(parsed.data.applyIva)
@@ -901,17 +966,27 @@ export async function updateReservation(
     }
 
     const supabase = await createClient();
+    let updateRow = row;
     let { error } = await supabase
       .from("reservations")
-      .update(row)
+      .update(updateRow)
       .eq("id", id)
       .is("deleted_at", null);
 
-    if (error && isMissingRelationError(error) && "extra_line_items" in row) {
-      delete row.extra_line_items;
+    if (error && isMissingDiscountColumnError(error)) {
+      updateRow = bakeDiscountIntoCourtesy(updateRow);
       ({ error } = await supabase
         .from("reservations")
-        .update(row)
+        .update(updateRow)
+        .eq("id", id)
+        .is("deleted_at", null));
+    }
+
+    if (error && isMissingRelationError(error) && "extra_line_items" in updateRow) {
+      delete updateRow.extra_line_items;
+      ({ error } = await supabase
+        .from("reservations")
+        .update(updateRow)
         .eq("id", id)
         .is("deleted_at", null));
     }

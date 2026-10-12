@@ -4,7 +4,7 @@ import { announceError } from "@/lib/ui/announce";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { createContract } from "@/app/dashboard/contratos/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
@@ -74,6 +74,15 @@ export function ContractForm({
   });
   const namedExtras = draftsToExtraItems(extraLines);
   const additionalCosts = String(sumExtraLineItems(namedExtras));
+  const [discountPercent, setDiscountPercent] = useState(
+    String(reservation.discount_percent ?? 0),
+  );
+  const [discountAmount, setDiscountAmount] = useState(
+    String(reservation.discount_amount ?? 0),
+  );
+  const [discountMode, setDiscountMode] = useState<"percent" | "amount">(
+    Number(reservation.discount_percent ?? 0) > 0 ? "percent" : "amount",
+  );
   const [courtesyAmount, setCourtesyAmount] = useState(
     String(reservation.courtesy_amount ?? 0),
   );
@@ -81,7 +90,9 @@ export function ContractForm({
     reservation.courtesy_detail ?? "",
   );
   const [applyIva, setApplyIva] = useState(
-    Boolean(reservation.apply_iva) || customer.customer_type === "COMPANY",
+    reservation.quote_id
+      ? Boolean(reservation.apply_iva)
+      : Boolean(reservation.apply_iva) || customer.customer_type === "COMPANY",
   );
   const [includePagare, setIncludePagare] = useState(
     shouldIncludePagare({
@@ -101,6 +112,10 @@ export function ContractForm({
         agreedRate: parseMoneyInput(agreedRate),
         insurance: parseMoneyInput(insurance),
         additionalCosts: parseMoneyInput(additionalCosts || 0),
+        discountPercent:
+          discountMode === "percent" ? parseMoneyInput(discountPercent || "0") : 0,
+        discountAmount:
+          discountMode === "amount" ? parseMoneyInput(discountAmount || "0") : 0,
         courtesyAmount: canManageCourtesy
           ? parseMoneyInput(courtesyAmount || 0)
           : Number(reservation.courtesy_amount ?? 0),
@@ -123,11 +138,19 @@ export function ContractForm({
     agreedRate,
     insurance,
     additionalCosts,
+    discountAmount,
+    discountMode,
+    discountPercent,
     courtesyAmount,
     canManageCourtesy,
     reservation.courtesy_amount,
     applyIva,
   ]);
+
+  useEffect(() => {
+    if (discountMode !== "percent" || !preview) return;
+    setDiscountAmount(String(preview.discountAmount));
+  }, [discountMode, preview?.discountAmount]);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -140,6 +163,18 @@ export function ContractForm({
       String(parseMoneyInput(additionalCosts || 0)),
     );
     formData.set("extraLineItems", JSON.stringify(namedExtras));
+    formData.set(
+      "discountPercent",
+      discountMode === "percent" ? discountPercent || "0" : "0",
+    );
+    formData.set(
+      "discountAmount",
+      String(
+        discountMode === "percent"
+          ? (preview?.discountAmount ?? 0)
+          : parseMoneyInput(discountAmount || 0),
+      ),
+    );
     if (canManageCourtesy) {
       formData.set(
         "courtesyAmount",
@@ -258,6 +293,45 @@ export function ContractForm({
         />
       </div>
 
+      <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
+        <p className="text-sm font-medium text-zinc-900">Descuento comercial</p>
+        <p className="text-xs text-muted">
+          El mismo descuento de la cotización y de la reserva. El porcentaje
+          se calcula sobre tarifa × días + seguro + extras. Si escribe un
+          monto, se usa ese monto.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input
+            name="discountPercent"
+            label="Descuento (%)"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            inputMode="decimal"
+            value={discountPercent}
+            onChange={(e) => {
+              setDiscountMode("percent");
+              setDiscountPercent(e.target.value);
+            }}
+          />
+          <Input
+            name="discountAmount"
+            label="Descuento (USD)"
+            type="number"
+            step="0.01"
+            min="0"
+            inputMode="decimal"
+            value={discountAmount}
+            onChange={(e) => {
+              setDiscountMode("amount");
+              setDiscountPercent("0");
+              setDiscountAmount(e.target.value);
+            }}
+          />
+        </div>
+      </div>
+
       {canManageCourtesy ? (
         <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
           <p className="text-sm font-medium text-amber-950">
@@ -312,6 +386,12 @@ export function ContractForm({
             insurance={preview.insurance}
             extras={namedExtras.length > 0 ? 0 : preview.additionalCosts}
             extrasLabel="Cobros extras"
+            discount={preview.discountAmount}
+            discountLabel={
+              preview.discountPercent > 0
+                ? `Descuento (${preview.discountPercent}%)`
+                : "Descuento"
+            }
             courtesy={preview.courtesyAmount}
             courtesyDetail={
               canManageCourtesy

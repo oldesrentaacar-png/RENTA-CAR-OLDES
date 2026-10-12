@@ -6,6 +6,10 @@ import {
   type ExtraLineItem,
 } from "@/lib/billing/extra-lines";
 import { isMissingRelationError, mapPostgresError } from "@/lib/errors";
+import {
+  bakeDiscountIntoCourtesy,
+  isMissingDiscountColumnError,
+} from "@/lib/calculations/quote";
 
 /**
  * After a contract exists, it is the operational source of truth.
@@ -24,6 +28,8 @@ export async function syncReservationFromContract(
     total?: number | null;
     courtesyAmount?: number | null;
     courtesyDetail?: string | null;
+    discountPercent?: number | null;
+    discountAmount?: number | null;
     vehicleId?: string | null;
     status?: "CONFIRMED" | "ACTIVE" | "COMPLETED" | "CANCELLED" | null;
     additionalCosts?: number | null;
@@ -53,6 +59,12 @@ export async function syncReservationFromContract(
   if (input.courtesyDetail !== undefined) {
     patch.courtesy_detail = input.courtesyDetail;
   }
+  if (input.discountPercent != null && Number.isFinite(input.discountPercent)) {
+    patch.discount_percent = input.discountPercent;
+  }
+  if (input.discountAmount != null && Number.isFinite(input.discountAmount)) {
+    patch.discount_amount = input.discountAmount;
+  }
   if (input.vehicleId) patch.vehicle_id = input.vehicleId;
   if (input.status) patch.status = input.status;
 
@@ -67,17 +79,27 @@ export async function syncReservationFromContract(
     patch.additional_costs = input.additionalCosts;
   }
 
+  let working = patch;
   let { error } = await supabase
     .from("reservations")
-    .update(patch)
+    .update(working)
     .eq("id", input.reservationId)
     .is("deleted_at", null);
 
-  if (error && isMissingRelationError(error) && "extra_line_items" in patch) {
-    delete patch.extra_line_items;
+  if (error && isMissingDiscountColumnError(error)) {
+    working = bakeDiscountIntoCourtesy(working);
     ({ error } = await supabase
       .from("reservations")
-      .update(patch)
+      .update(working)
+      .eq("id", input.reservationId)
+      .is("deleted_at", null));
+  }
+
+  if (error && isMissingRelationError(error) && "extra_line_items" in working) {
+    delete working.extra_line_items;
+    ({ error } = await supabase
+      .from("reservations")
+      .update(working)
       .eq("id", input.reservationId)
       .is("deleted_at", null));
   }

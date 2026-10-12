@@ -6,7 +6,7 @@ import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { loadBillingCatalogItems } from "@/lib/billing/load-catalog";
-import { deriveReservationPricingFromQuote } from "@/lib/calculations/quote";
+import { deriveReservationPricingFromQuote, quoteTaxFraction } from "@/lib/calculations/quote";
 import { toCustomerSelectOption } from "@/lib/customers";
 import { isSupabaseConfigured } from "@/lib/env";
 import { asNumber } from "@/lib/safe-number";
@@ -48,6 +48,10 @@ export default async function NuevaReservaPage({
     deposit?: number;
     cashAmount?: number;
     additionalCosts?: number;
+    insurance?: number;
+    discountPercent?: number;
+    discountAmount?: number;
+    applyIva?: boolean;
     total?: number;
     vehicleType?: string;
     notes?: string;
@@ -161,9 +165,13 @@ export default async function NuevaReservaPage({
         defaults.endAt = q.end_at;
         defaults.agreedRate = pricing.agreedRate;
         defaults.deposit = q.deposit_amount;
+        defaults.insurance = q.insurance_amount;
         defaults.additionalCosts = pricing.additionalCosts;
-        defaults.total = pricing.total;
-        defaults.cashAmount = pricing.total;
+        defaults.discountPercent = q.discount_percent;
+        defaults.discountAmount = q.discount_amount;
+        defaults.applyIva = quoteTaxFraction(q.tax_rate) > 0;
+        defaults.total = q.total;
+        defaults.cashAmount = q.total;
         defaults.quoteExtraLines = pricing.extraLines;
         defaults.notes = [q.notes?.trim() || "", extrasNote]
           .filter(Boolean)

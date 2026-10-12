@@ -150,6 +150,18 @@ export default async function ReservaDetailPage({
                     contrato sección 1 antes de firmar).
                   </p>
                 )}
+                {Number(reservation.discount_amount ?? 0) > 0 ? (
+                  <p>
+                    <span className="text-muted">
+                      Descuento
+                      {Number(reservation.discount_percent ?? 0) > 0
+                        ? ` (${reservation.discount_percent}%)`
+                        : ""}
+                      :
+                    </span>{" "}
+                    −{formatMoney(reservation.discount_amount ?? 0)}
+                  </p>
+                ) : null}
                 {Number(reservation.courtesy_amount ?? 0) > 0 ? (
                   <>
                     <p>

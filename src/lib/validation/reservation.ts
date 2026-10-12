@@ -31,6 +31,8 @@ const reservationFields = z.object({
   cashAmount: moneyField.default(0),
   cardAmount: moneyField.default(0),
   additionalCosts: moneyField.default(0),
+  discountPercent: z.coerce.number().min(0).max(100).default(0),
+  discountAmount: moneyField.default(0),
   courtesyAmount: moneyField.default(0),
   courtesyDetail: optionalNote(1000),
   applyIva: z

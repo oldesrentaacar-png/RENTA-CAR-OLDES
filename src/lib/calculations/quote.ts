@@ -164,7 +164,42 @@ export function normalizeQuoteVehicleLines<
   });
 }
 
-/** Reservation pretax = (tarifa × días) + seguro + costos adicionales − cortesía.
+/** Same rule as the quote: a percent discount wins over a fixed USD amount. */
+export function resolveCommercialDiscount(input: {
+  base: MoneyInput;
+  discountPercent?: MoneyInput;
+  discountAmount?: MoneyInput;
+}): { discountPercent: number; discountAmount: number } {
+  const base = Math.max(0, parseMoneyInput(input.base));
+  let percent = parseMoneyInput(input.discountPercent);
+  if (!Number.isFinite(percent) || percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+  if (percent > 0) {
+    return {
+      discountPercent: percent,
+      discountAmount: Math.min(
+        base,
+        toNumber(multiply(base, percent / 100)),
+      ),
+    };
+  }
+  return {
+    discountPercent: 0,
+    discountAmount: Math.min(
+      base,
+      Math.max(0, parseMoneyInput(input.discountAmount)),
+    ),
+  };
+}
+
+/** Quote tax_rate is stored as a fraction (0.13). Values above 1 are percents. */
+export function quoteTaxFraction(taxRate: MoneyInput | null | undefined): number {
+  const raw = parseMoneyInput(taxRate);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return raw > 1 ? raw / 100 : raw;
+}
+
+/** Reservation pretax = (tarifa × días) + seguro + costos adicionales − descuento − cortesía.
  * Depósito no se suma. IVA opcional se aplica aparte (apply_iva). */
 export function calculateReservationTotal(input: {
   startAt: Date | string;
@@ -172,6 +207,10 @@ export function calculateReservationTotal(input: {
   agreedRate: MoneyInput;
   insurance?: MoneyInput;
   additionalCosts?: MoneyInput;
+  /** Percent discount, same base as the quote (tarifa × días + seguro + extras). */
+  discountPercent?: MoneyInput;
+  /** Fixed USD discount. Ignored when discountPercent is greater than 0. */
+  discountAmount?: MoneyInput;
   /** Admin courtesy discount (USD). Never exceeds pretax before courtesy. */
   courtesyAmount?: MoneyInput;
 }): {
@@ -179,6 +218,8 @@ export function calculateReservationTotal(input: {
   rentalSubtotal: number;
   insurance: number;
   additionalCosts: number;
+  discountPercent: number;
+  discountAmount: number;
   courtesyAmount: number;
   total: number;
 } {
@@ -187,23 +228,34 @@ export function calculateReservationTotal(input: {
   const insurance = parseMoneyInput(input.insurance);
   const additionalCosts = parseMoneyInput(input.additionalCosts);
   const rentalSubtotal = toNumber(multiply(agreedRate, rentalDays));
-  const beforeCourtesy = toNumber(
+  const beforeDiscount = toNumber(
     add(rentalSubtotal, add(insurance, additionalCosts)),
+  );
+  const commercial = resolveCommercialDiscount({
+    base: beforeDiscount,
+    discountPercent: input.discountPercent,
+    discountAmount: input.discountAmount,
+  });
+  const afterDiscount = Math.max(
+    0,
+    toNumber(subtract(beforeDiscount, commercial.discountAmount)),
   );
   const courtesyRaw = parseMoneyInput(input.courtesyAmount);
   const courtesyAmount = Math.min(
     Math.max(0, courtesyRaw),
-    Math.max(0, beforeCourtesy),
+    afterDiscount,
   );
   const total = Math.max(
     0,
-    toNumber(subtract(beforeCourtesy, courtesyAmount)),
+    toNumber(subtract(afterDiscount, courtesyAmount)),
   );
   return {
     rentalDays,
     rentalSubtotal,
     insurance,
     additionalCosts,
+    discountPercent: commercial.discountPercent,
+    discountAmount: commercial.discountAmount,
     courtesyAmount,
     total,
   };
@@ -255,18 +307,19 @@ export function deriveReservationPricingFromQuote(input: {
       };
     });
 
-  // Keep reservation total identical to quote total; extras absorb
-  // non-rental lines plus tax/discount adjustments on the quote.
-  const additionalCosts = Math.max(
+  // Extras are only the non-vehicle lines. A percent discount must not be
+  // turned into a fake extra, and it must not be dropped when the quote
+  // total is lower than tarifa × días.
+  const additionalCosts = extraLines.reduce(
+    (sum, line) => toNumber(add(sum, line.amount)),
     0,
-    toNumber(subtract(quoteTotal, rentalSubtotal)),
   );
 
   return {
     agreedRate,
     rentalSubtotal,
     additionalCosts,
-    total: toNumber(add(rentalSubtotal, additionalCosts)),
+    total: quoteTotal,
     extraLines,
   };
 }
@@ -286,4 +339,37 @@ export function capTotalToQuote(
   const capped = parseMoneyInput(quoteTotal);
   if (!Number.isFinite(capped) || capped < 0) return pretax;
   return pretax > capped ? capped : pretax;
+}
+
+export function isMissingDiscountColumnError(error: unknown): boolean {
+  const message = String(
+    (error as { message?: string })?.message ??
+      (error as { details?: string })?.details ??
+      "",
+  ).toLowerCase();
+  return (
+    message.includes("discount_percent") || message.includes("discount_amount")
+  );
+}
+
+/** Keep the charged total correct on databases that do not have the new columns yet. */
+export function bakeDiscountIntoCourtesy(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...payload };
+  const discount = Math.round((Number(next.discount_amount) || 0) * 100) / 100;
+  const courtesy = Math.round((Number(next.courtesy_amount) || 0) * 100) / 100;
+  if (discount > 0) {
+    next.courtesy_amount = Math.round((courtesy + discount) * 100) / 100;
+    const percent = Number(next.discount_percent) || 0;
+    const note =
+      percent > 0
+        ? `Descuento ${percent}% ($${discount.toFixed(2)})`
+        : `Descuento $${discount.toFixed(2)}`;
+    const detail = String(next.courtesy_detail ?? "").trim();
+    next.courtesy_detail = detail ? `${note}. ${detail}` : note;
+  }
+  delete next.discount_percent;
+  delete next.discount_amount;
+  return next;
 }

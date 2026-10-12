@@ -565,6 +565,10 @@ export interface Reservation {
     quantity?: number;
     unitPrice?: number;
   }>;
+  /** Commercial discount percent (0–100), same rule as quotes. */
+  discount_percent?: number;
+  /** USD discount. When discount_percent > 0 this is the calculated amount. */
+  discount_amount?: number;
   /** Admin-only courtesy discount (USD). */
   courtesy_amount?: number;
   /** Justification for courtesy discount. */
@@ -613,6 +617,10 @@ export interface Contract {
   courtesy_days?: number;
   /** Admin-only courtesy discount (USD). */
   courtesy_amount?: number;
+  /** Commercial discount percent copied from the reservation (0–100). */
+  discount_percent?: number;
+  /** USD commercial discount copied from the reservation. */
+  discount_amount?: number;
   courtesy_detail?: string | null;
   actual_return_at?: string | null;
   grace_extra_days_waived?: number;

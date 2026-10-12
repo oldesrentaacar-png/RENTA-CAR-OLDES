@@ -42,7 +42,11 @@ import {
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
-import { calculateReservationTotal } from "@/lib/calculations/quote";
+import {
+  bakeDiscountIntoCourtesy,
+  calculateReservationTotal,
+  isMissingDiscountColumnError,
+} from "@/lib/calculations/quote";
 import {
   extraLinesFromQuoteItems,
   normalizeExtraLineItems,
@@ -964,12 +968,26 @@ export async function createContract(
         r.courtesy_detail ||
         null
       : r.courtesy_detail ?? null;
+    const discountPercent = Math.min(
+      100,
+      Math.max(
+        0,
+        parseMoneyInput(
+          formData.get("discountPercent") ?? r.discount_percent ?? 0,
+        ),
+      ),
+    );
+    const discountAmount = parseMoneyInput(
+      formData.get("discountAmount") ?? r.discount_amount ?? 0,
+    );
     const computed = calculateReservationTotal({
       startAt,
       endAt,
       agreedRate,
       insurance,
       additionalCosts,
+      discountPercent,
+      discountAmount,
       courtesyAmount,
     });
 
@@ -1006,34 +1024,47 @@ export async function createContract(
       taxRate,
     });
 
-    const { data, error } = await supabase
+    let contractPayload: Record<string, unknown> = {
+      reservation_id: parsed.data.reservationId,
+      customer_id: r.customer_id,
+      vehicle_id: r.vehicle_id,
+      start_at: startAt,
+      end_at: endAt,
+      agreed_rate: agreedRate,
+      deposit,
+      insurance,
+      total: ivaTotals.total,
+      subtotal: ivaTotals.pretaxTotal,
+      apply_iva: applyIva,
+      tax_rate: ivaTotals.taxRate,
+      tax_amount: ivaTotals.taxAmount,
+      courtesy_amount: courtesyAmount,
+      courtesy_detail: courtesyDetail,
+      discount_percent: computed.discountPercent,
+      discount_amount: computed.discountAmount,
+      extra_line_items: extraLineItems,
+      terms: parsed.data.terms ?? null,
+      clauses: parsed.data.clauses ?? null,
+      notes: parsed.data.notes ?? null,
+      status: parsed.data.status,
+      include_pagare: includePagare,
+      created_by: user.id,
+    };
+
+    let { data, error } = await supabase
       .from("contracts")
-      .insert({
-        reservation_id: parsed.data.reservationId,
-        customer_id: r.customer_id,
-        vehicle_id: r.vehicle_id,
-        start_at: startAt,
-        end_at: endAt,
-        agreed_rate: agreedRate,
-        deposit,
-        insurance,
-        total: ivaTotals.total,
-        subtotal: ivaTotals.pretaxTotal,
-        apply_iva: applyIva,
-        tax_rate: ivaTotals.taxRate,
-        tax_amount: ivaTotals.taxAmount,
-        courtesy_amount: courtesyAmount,
-        courtesy_detail: courtesyDetail,
-        extra_line_items: extraLineItems,
-        terms: parsed.data.terms ?? null,
-        clauses: parsed.data.clauses ?? null,
-        notes: parsed.data.notes ?? null,
-        status: parsed.data.status,
-        include_pagare: includePagare,
-        created_by: user.id,
-      })
+      .insert(contractPayload)
       .select("id")
       .single();
+
+    if (error && isMissingDiscountColumnError(error)) {
+      contractPayload = bakeDiscountIntoCourtesy(contractPayload);
+      ({ data, error } = await supabase
+        .from("contracts")
+        .insert(contractPayload)
+        .select("id")
+        .single());
+    }
 
     if (error) throw mapPostgresError(error);
 
@@ -1049,6 +1080,8 @@ export async function createContract(
       total: ivaTotals.total,
       courtesyAmount,
       courtesyDetail,
+      discountPercent: computed.discountPercent,
+      discountAmount: computed.discountAmount,
       vehicleId: r.vehicle_id,
       status: "CONFIRMED",
       additionalCosts,
@@ -1088,14 +1121,28 @@ export async function updateContract(
     }
 
     const supabase = await createClient();
-    const { data: existing, error: existingError } = await supabase
+    const columnsWithDiscount =
+      "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, discount_percent, discount_amount, vehicle_id, extra_line_items, apply_iva, tax_rate";
+    let existingResult = await supabase
       .from("contracts")
-      .select(
-        "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, vehicle_id, extra_line_items, apply_iva, tax_rate",
-      )
+      .select(columnsWithDiscount)
       .eq("id", id)
       .is("deleted_at", null)
       .maybeSingle();
+    if (
+      existingResult.error &&
+      isMissingDiscountColumnError(existingResult.error)
+    ) {
+      existingResult = await supabase
+        .from("contracts")
+        .select(
+          "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, vehicle_id, extra_line_items, apply_iva, tax_rate",
+        )
+        .eq("id", id)
+        .is("deleted_at", null)
+        .maybeSingle();
+    }
+    const { data: existing, error: existingError } = existingResult;
 
     if (existingError) throw mapPostgresError(existingError);
     if (!existing) return actionError("Contrato no encontrado.");
@@ -1111,6 +1158,8 @@ export async function updateContract(
       total: number;
       courtesy_amount?: number | null;
       courtesy_detail?: string | null;
+      discount_percent?: number | null;
+      discount_amount?: number | null;
       vehicle_id: string;
       extra_line_items?: ExtraLineItem[] | null;
       apply_iva?: boolean;
@@ -1169,6 +1218,8 @@ export async function updateContract(
         agreedRate: nextRate,
         insurance: nextInsurance,
         additionalCosts,
+        discountPercent: Number(current.discount_percent ?? 0),
+        discountAmount: Number(current.discount_amount ?? 0),
         courtesyAmount: Number(current.courtesy_amount ?? 0),
       });
       const ivaTotals = computeOptionalIvaTotals({
@@ -1306,14 +1357,28 @@ export async function setContractApplyIva(
     }
 
     const supabase = await createClient();
-    const { data: existing, error: existingError } = await supabase
+    let existingResult = await supabase
       .from("contracts")
       .select(
-        "status, agreed_rate, insurance, start_at, end_at, total, apply_iva, tax_rate, tax_amount, subtotal, extra_line_items, reservation_id, courtesy_amount",
+        "status, agreed_rate, insurance, start_at, end_at, total, apply_iva, tax_rate, tax_amount, subtotal, extra_line_items, reservation_id, courtesy_amount, discount_amount, discount_percent",
       )
       .eq("id", contractId)
       .is("deleted_at", null)
       .maybeSingle();
+    if (
+      existingResult.error &&
+      isMissingDiscountColumnError(existingResult.error)
+    ) {
+      existingResult = await supabase
+        .from("contracts")
+        .select(
+          "status, agreed_rate, insurance, start_at, end_at, total, apply_iva, tax_rate, tax_amount, subtotal, extra_line_items, reservation_id, courtesy_amount",
+        )
+        .eq("id", contractId)
+        .is("deleted_at", null)
+        .maybeSingle();
+    }
+    const { data: existing, error: existingError } = existingResult;
 
     if (existingError) throw mapPostgresError(existingError);
     if (!existing) return actionError("Contrato no encontrado.");
@@ -1356,7 +1421,8 @@ export async function setContractApplyIva(
         (Number(row.agreed_rate) * days +
           Number(row.insurance ?? 0) +
           manualSum -
-          Number(row.courtesy_amount ?? 0)) *
+          Number(row.courtesy_amount ?? 0) -
+          Number((row as { discount_amount?: number }).discount_amount ?? 0)) *
           100,
       ) / 100,
     );
@@ -1439,14 +1505,28 @@ export async function setContractExtraLineItems(
     const cleaned = normalizeExtraLineItems(lines);
 
     const supabase = await createClient();
-    const { data: existing, error: existingError } = await supabase
+    let existingResult = await supabase
       .from("contracts")
       .select(
-        "status, agreed_rate, insurance, start_at, end_at, apply_iva, tax_rate, reservation_id, courtesy_amount",
+        "status, agreed_rate, insurance, start_at, end_at, apply_iva, tax_rate, reservation_id, courtesy_amount, discount_amount",
       )
       .eq("id", contractId)
       .is("deleted_at", null)
       .maybeSingle();
+    if (
+      existingResult.error &&
+      isMissingDiscountColumnError(existingResult.error)
+    ) {
+      existingResult = await supabase
+        .from("contracts")
+        .select(
+          "status, agreed_rate, insurance, start_at, end_at, apply_iva, tax_rate, reservation_id, courtesy_amount",
+        )
+        .eq("id", contractId)
+        .is("deleted_at", null)
+        .maybeSingle();
+    }
+    const { data: existing, error: existingError } = existingResult;
 
     if (existingError) throw mapPostgresError(existingError);
     if (!existing) return actionError("Contrato no encontrado.");
@@ -1474,9 +1554,15 @@ export async function setContractExtraLineItems(
     const insurance = Number(row.insurance ?? 0);
     const manualSum = sumExtraLineItems(cleaned);
     const courtesyAmount = Number(row.courtesy_amount ?? 0);
+    const commercialDiscount = Number(
+      (row as { discount_amount?: number }).discount_amount ?? 0,
+    );
     const pretaxBase = Math.max(
       0,
-      Math.round((rental + insurance + manualSum - courtesyAmount) * 100) / 100,
+      Math.round(
+        (rental + insurance + manualSum - courtesyAmount - commercialDiscount) *
+          100,
+      ) / 100,
     );
 
     const ivaTotals = computeOptionalIvaTotals({
@@ -3149,6 +3235,8 @@ export async function getContractPdfData(contractId: string) {
     quoteLines,
     manualLines: mapped.extra_line_items ?? [],
     courtesyAmount: Number(mapped.courtesy_amount ?? 0),
+    discountAmount: Number(mapped.discount_amount ?? 0),
+    discountPercent: Number(mapped.discount_percent ?? 0),
     applyIva,
     taxRate,
     taxAmount: Number(mapped.tax_amount ?? 0),

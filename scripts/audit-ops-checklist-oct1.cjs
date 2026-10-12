@@ -518,6 +518,90 @@ function assertOrder(src, first, second, msg) {
     credito === -56.5,
     `K7 runtime: 2 días no usados restan $56.50 con IVA (obtuvo ${credito})`,
   );
+
+  const quoteMod = require(path.join(root, "src/lib/calculations/quote.ts"));
+  const billingMod = require(path.join(root, "src/lib/pdf/contract-billing.ts"));
+  const start = new Date("2026-10-01T18:00:00.000Z");
+  const end = new Date("2026-10-11T18:00:00.000Z");
+  const quoted = quoteMod.calculateQuoteLineTotals({
+    startAt: start,
+    endAt: end,
+    lines: [{ quantity: 10, unit_price: 25, item_type: "VEHICLE" }],
+    discountPercent: 10,
+    taxRatePercent: 0,
+  });
+  const reserved = quoteMod.calculateReservationTotal({
+    startAt: start,
+    endAt: end,
+    agreedRate: 25,
+    discountPercent: 10,
+  });
+  assert(
+    quoted.total === 225 && reserved.total === 225 && reserved.discountAmount === 25,
+    `L1 10 días × $25 con 10% = $225 en cotización y reserva (cotización ${quoted.total}, reserva ${reserved.total})`,
+  );
+  const quotedTax = quoteMod.calculateQuoteLineTotals({
+    startAt: start,
+    endAt: end,
+    lines: [
+      { quantity: 10, unit_price: 25, item_type: "VEHICLE" },
+      { quantity: 1, unit_price: 40, item_type: "SERVICE" },
+    ],
+    discountPercent: 10,
+    taxRatePercent: 13,
+  });
+  const reservedTax = quoteMod.calculateReservationTotal({
+    startAt: start,
+    endAt: end,
+    agreedRate: 25,
+    additionalCosts: 40,
+    discountPercent: 10,
+  });
+  const withIva = billingMod.computeOptionalIvaTotals({
+    pretaxTotal: reservedTax.total,
+    applyIva: true,
+    taxRate: 0.13,
+  });
+  assert(
+    quotedTax.total === withIva.total && withIva.total === 294.93,
+    `L2 cotización con extra y 10% + IVA cuadra con reserva/contrato (cotización ${quotedTax.total}, reserva ${withIva.total})`,
+  );
+  const fixed = quoteMod.calculateReservationTotal({
+    startAt: start,
+    endAt: end,
+    agreedRate: 25,
+    discountPercent: 0,
+    discountAmount: 30,
+  });
+  assert(
+    fixed.discountAmount === 30 && fixed.total === 220,
+    `L3 monto fijo de $30 deja la reserva en $220 (obtuvo ${fixed.total})`,
+  );
+  const derived = quoteMod.deriveReservationPricingFromQuote({
+    dailyRate: 25,
+    rentalDays: 10,
+    quoteTotal: 225,
+    lines: [],
+  });
+  assert(
+    derived.additionalCosts === 0,
+    `L4 un descuento no se convierte en costo extra (obtuvo ${derived.additionalCosts})`,
+  );
+  const reservationForm = fs.readFileSync(
+    path.join(root, "src/components/forms/reservation-form.tsx"),
+    "utf8",
+  );
+  const contractForm = fs.readFileSync(
+    path.join(root, "src/components/contracts/contract-form.tsx"),
+    "utf8",
+  );
+  assert(
+    reservationForm.includes('label="Descuento (%)"') &&
+      reservationForm.includes('label="Descuento (USD)"') &&
+      contractForm.includes('label="Descuento (%)"') &&
+      contractForm.includes('label="Descuento (USD)"'),
+    "L5 reserva y contrato muestran descuento en porcentaje y en monto",
+  );
 }
 
 console.log("\n=== OLDES ops checklist audit (zero margin) ===\n");

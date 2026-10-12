@@ -67,6 +67,10 @@ type ReservationFormProps = {
     cashAmount?: number;
     cardAmount?: number;
     additionalCosts?: number;
+    insurance?: number;
+    discountPercent?: number;
+    discountAmount?: number;
+    applyIva?: boolean;
     vehicleType?: string;
     total?: number;
     pickupLocation?: string;
@@ -145,7 +149,7 @@ export function ReservationForm({
     String(reservation?.card_amount ?? defaults?.cardAmount ?? 0),
   );
   const [insurance, setInsurance] = useState(
-    String(reservation?.insurance ?? 0),
+    String(reservation?.insurance ?? defaults?.insurance ?? 0),
   );
   const initialExtraLines: ExtraLineDraft[] = (() => {
     const fromReservation = draftsFromExtraItems(reservation?.extra_line_items);
@@ -174,6 +178,17 @@ export function ReservationForm({
   const [extraLines, setExtraLines] = useState(initialExtraLines);
   const namedExtraItems = draftsToExtraItems(extraLines);
   const additionalCosts = String(sumExtraLineItems(namedExtraItems));
+  const [discountPercent, setDiscountPercent] = useState(
+    String(reservation?.discount_percent ?? defaults?.discountPercent ?? 0),
+  );
+  const [discountAmount, setDiscountAmount] = useState(
+    String(reservation?.discount_amount ?? defaults?.discountAmount ?? 0),
+  );
+  const [discountMode, setDiscountMode] = useState<"percent" | "amount">(
+    Number(reservation?.discount_percent ?? defaults?.discountPercent ?? 0) > 0
+      ? "percent"
+      : "amount",
+  );
   const [courtesyAmount, setCourtesyAmount] = useState(
     String(reservation?.courtesy_amount ?? 0),
   );
@@ -181,7 +196,7 @@ export function ReservationForm({
     reservation?.courtesy_detail ?? "",
   );
   const [applyIva, setApplyIva] = useState(
-    Boolean(reservation?.apply_iva),
+    Boolean(reservation?.apply_iva ?? defaults?.applyIva),
   );
   const taxRate = 0.13;
 
@@ -201,32 +216,20 @@ export function ReservationForm({
         agreedRate: parseRateInput(agreedRate),
         insurance: parseMoneyInput(insurance || 0),
         additionalCosts: parseMoneyInput(additionalCosts || 0),
+        discountPercent:
+          discountMode === "percent" ? parseMoneyInput(discountPercent || "0") : 0,
+        discountAmount:
+          discountMode === "amount" ? parseMoneyInput(discountAmount || "0") : 0,
         courtesyAmount: canManageCourtesy
           ? parseMoneyInput(courtesyAmount || 0)
-          : 0,
+          : Number(reservation?.courtesy_amount ?? 0),
       });
-      // Cotización aceptada: el total del PDF manda (incluye descuento).
-      const quoteTotal =
-        fromQuote && defaults?.total != null
-          ? Number(defaults.total)
-          : null;
-      const discountFromQuote =
-        quoteTotal != null && Number.isFinite(quoteTotal)
-          ? Math.max(
-              0,
-              Math.round((base.total - quoteTotal) * 100) / 100,
-            )
-          : 0;
-      const pretaxTotal =
-        quoteTotal != null && discountFromQuote > 0
-          ? quoteTotal
-          : base.total;
+      const pretaxTotal = base.total;
       const taxAmount = applyIva
         ? Math.round(pretaxTotal * taxRate * 100) / 100
         : 0;
       return {
         ...base,
-        discountFromQuote,
         pretaxTotal,
         taxAmount,
         totalWithIva: Math.round((pretaxTotal + taxAmount) * 100) / 100,
@@ -240,10 +243,12 @@ export function ReservationForm({
     applyIva,
     canManageCourtesy,
     courtesyAmount,
-    defaults?.total,
+    discountAmount,
+    discountMode,
+    discountPercent,
     endAt,
-    fromQuote,
     insurance,
+    reservation?.courtesy_amount,
     startAt,
     taxRate,
   ]);
@@ -253,6 +258,11 @@ export function ReservationForm({
     if (!fromQuote || !preview) return;
     setCashAmount(String(preview.totalWithIva));
   }, [fromQuote, preview?.totalWithIva]);
+
+  useEffect(() => {
+    if (discountMode !== "percent" || !preview) return;
+    setDiscountAmount(String(preview.discountAmount));
+  }, [discountMode, preview?.discountAmount]);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -265,9 +275,17 @@ export function ReservationForm({
             agreedRate: parseRateInput(agreedRate),
             insurance: parseMoneyInput(insurance || 0),
             additionalCosts: parseMoneyInput(additionalCosts || 0),
+            discountPercent:
+              discountMode === "percent"
+                ? parseMoneyInput(discountPercent || "0")
+                : 0,
+            discountAmount:
+              discountMode === "amount"
+                ? parseMoneyInput(discountAmount || "0")
+                : 0,
             courtesyAmount: canManageCourtesy
               ? parseMoneyInput(courtesyAmount || 0)
-              : 0,
+              : Number(reservation?.courtesy_amount ?? 0),
           });
           const taxAmount = applyIva
             ? Math.round(base.total * taxRate * 100) / 100
@@ -289,6 +307,18 @@ export function ReservationForm({
     formData.set(
       "additionalCosts",
       String(parseMoneyInput(additionalCosts || 0)),
+    );
+    formData.set(
+      "discountPercent",
+      discountMode === "percent" ? discountPercent || "0" : "0",
+    );
+    formData.set(
+      "discountAmount",
+      String(
+        discountMode === "percent"
+          ? (preview?.discountAmount ?? 0)
+          : parseMoneyInput(discountAmount || 0),
+      ),
     );
     formData.set("extraLineItems", JSON.stringify(namedExtraItems));
     if (canManageCourtesy) {
@@ -326,8 +356,9 @@ export function ReservationForm({
       {fromQuote ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950">
           Datos de la cotización{" "}
-          <strong>{defaults?.quoteCode ?? ""}</strong>. El total del PDF (con
-          descuento) se respeta al crear la reserva.
+          <strong>{defaults?.quoteCode ?? ""}</strong>. El descuento y el
+          total del PDF se pasan a esta reserva. Si cambia el porcentaje, el
+          monto se recalcula con la misma regla.
         </div>
       ) : (
         <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-950">
@@ -475,6 +506,46 @@ export function ReservationForm({
           value={deposit}
           onChange={(e) => setDeposit(e.target.value)}
         />
+        <div className="sm:col-span-2 space-y-3 rounded-xl border border-border bg-surface p-4">
+          <p className="text-sm font-medium text-zinc-900">
+            Descuento comercial
+          </p>
+          <p className="text-xs text-muted">
+            Igual que en la cotización. El porcentaje se calcula sobre tarifa
+            × días + seguro + extras. Si escribe un monto, se usa ese monto y
+            el porcentaje queda en cero.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              name="discountPercent"
+              label="Descuento (%)"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              inputMode="decimal"
+              value={discountPercent}
+              onChange={(e) => {
+                setDiscountMode("percent");
+                setDiscountPercent(e.target.value);
+              }}
+            />
+            <Input
+              name="discountAmount"
+              label="Descuento (USD)"
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              value={discountAmount}
+              onChange={(e) => {
+                setDiscountMode("amount");
+                setDiscountPercent("0");
+                setDiscountAmount(e.target.value);
+              }}
+            />
+          </div>
+        </div>
         {canManageCourtesy ? (
           <div className="sm:col-span-2 space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
             <p className="text-sm font-medium text-amber-950">
@@ -554,7 +625,12 @@ export function ReservationForm({
             insurance={preview.insurance}
             extras={quoteExtraLines.length > 0 ? 0 : preview.additionalCosts}
             extrasLabel="Costos adicionales"
-            discount={preview.discountFromQuote ?? 0}
+            discount={preview.discountAmount}
+            discountLabel={
+              preview.discountPercent > 0
+                ? `Descuento (${preview.discountPercent}%)`
+                : "Descuento"
+            }
             courtesy={preview.courtesyAmount}
             courtesyDetail={
               canManageCourtesy ? courtesyDetail.trim() || null : null
