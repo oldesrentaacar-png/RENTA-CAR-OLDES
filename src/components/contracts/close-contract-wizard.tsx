@@ -28,6 +28,7 @@ import {
   calculateReturnSettlement,
   calculateSuggestedExtraDayCharge,
 } from "@/lib/calculations/rental-close";
+import { applyContractIvaToAmount } from "@/lib/pdf/contract-billing";
 import {
   formatAppDateTime,
   normalizeFormDateTimeToIso,
@@ -199,6 +200,15 @@ export function CloseContractWizard({
     graceExtraDaysWaived,
   ]);
 
+  const taxedDayAdjustment = useMemo(() => {
+    if (!returnSettlement) return 0;
+    return applyContractIvaToAmount(
+      returnSettlement.dayAdjustment,
+      Boolean(contract.apply_iva),
+      contract.tax_rate,
+    );
+  }, [contract.apply_iva, contract.tax_rate, returnSettlement]);
+
   const billing = useMemo(() => {
     const extra = parseMoneyInput(extraCharges);
     const damage = parseMoneyInput(damageCharges);
@@ -209,7 +219,7 @@ export function CloseContractWizard({
       ? parseMoneyInput(courtesyAmount || 0)
       : priorCourtesy;
     const additionalCourtesy = Math.max(0, courtesy - priorCourtesy);
-    const dayAdjustment = returnSettlement?.dayAdjustment ?? 0;
+    const dayAdjustment = taxedDayAdjustment;
     const owed = Math.max(
       0,
       Number(contract.total) +
@@ -243,7 +253,7 @@ export function CloseContractWizard({
     finalPayment,
     fuelCharges,
     priorCourtesy,
-    returnSettlement,
+    taxedDayAdjustment,
   ]);
 
   const closeConformitySigned = contract.signatures.some(
@@ -1223,9 +1233,9 @@ export function CloseContractWizard({
                       Días reales de uso:{" "}
                       <strong>{returnSettlement.actualDays}</strong>
                       {returnSettlement.returnedEarly
-                        ? ` · se restan ${returnSettlement.unusedDays} día(s) no usados (${formatMoney(returnSettlement.earlyCredit)})`
+                        ? ` · se restan ${returnSettlement.unusedDays} día(s) no usados (${formatMoney(applyContractIvaToAmount(returnSettlement.earlyCredit, Boolean(contract.apply_iva), contract.tax_rate))}${contract.apply_iva ? ", con IVA" : ""})`
                         : returnSettlement.extraDays > 0
-                          ? ` · se suman ${returnSettlement.extraDays} día(s) (${formatMoney(returnSettlement.extraCharge)})`
+                          ? ` · se suman ${returnSettlement.extraDays} día(s) (${formatMoney(applyContractIvaToAmount(returnSettlement.extraCharge, Boolean(contract.apply_iva), contract.tax_rate))}${contract.apply_iva ? ", con IVA" : ""})`
                           : " · sin cambio de días"}
                     </p>
                     <p className="mt-1 text-xs">

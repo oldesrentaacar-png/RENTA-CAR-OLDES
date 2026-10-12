@@ -223,6 +223,24 @@ export function buildContractBillingBreakdown(input: {
   };
 }
 
+/**
+ * Extra or unused days are calculated on the pretax daily rate.
+ * When the contract total already includes IVA, the day difference must too.
+ * $25 × 3 = $75; with 13% that is $84.75, so $141.25 + $84.75 = $226.00.
+ */
+export function applyContractIvaToAmount(
+  netAmount: number,
+  applyIva: boolean,
+  taxRate?: number | null,
+): number {
+  const net = Math.round((Number(netAmount) || 0) * 100) / 100;
+  if (!applyIva || net === 0) return net;
+  let rate = Number(taxRate);
+  if (!Number.isFinite(rate) || rate <= 0) rate = 0.13;
+  if (rate > 1) rate = rate / 100;
+  return Math.round(net * (1 + rate) * 100) / 100;
+}
+
 /** Compute pretax + tax + total when applying optional IVA. */
 export function computeOptionalIvaTotals(input: {
   pretaxTotal: number;

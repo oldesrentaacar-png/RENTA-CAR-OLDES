@@ -75,6 +75,7 @@ import {
 } from "@/lib/inspections/defaults";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
 import {
+  applyContractIvaToAmount,
   buildContractBillingBreakdown,
   computeOptionalIvaTotals,
 } from "@/lib/pdf/contract-billing";
@@ -2417,7 +2418,26 @@ export async function closeContract(
             manualExtraDaysWaived: graceExtraDaysWaived,
           })
         : null;
-    const dayAdjustment = settlement?.dayAdjustment ?? 0;
+    const dayAdjustment = applyContractIvaToAmount(
+      settlement?.dayAdjustment ?? 0,
+      Boolean(contract.apply_iva),
+      contract.tax_rate,
+    );
+    const extraDayAmount = settlement
+      ? applyContractIvaToAmount(
+          settlement.extraCharge,
+          Boolean(contract.apply_iva),
+          contract.tax_rate,
+        )
+      : 0;
+    const earlyCreditAmount = settlement
+      ? applyContractIvaToAmount(
+          settlement.earlyCredit,
+          Boolean(contract.apply_iva),
+          contract.tax_rate,
+        )
+      : 0;
+    const ivaNote = contract.apply_iva ? " con IVA" : "";
 
     const owed = Math.max(
       0,
@@ -2440,10 +2460,10 @@ export async function closeContract(
         ? `Pactado ${settlement.agreedDays} días hasta ${formatAppDateTime(contract.end_at)} por ${contract.total}. Devolución real ${formatAppDateTime(actualReturnAt ?? contract.end_at)} (${settlement.actualDays} días).`
         : null,
       settlement && settlement.extraDays > 0
-        ? `Se suman ${settlement.extraDays} día(s): ${settlement.extraCharge}.`
+        ? `Se suman ${settlement.extraDays} día(s): ${extraDayAmount}${ivaNote}.`
         : null,
       settlement && settlement.unusedDays > 0
-        ? `Se restan ${settlement.unusedDays} día(s) no usados: ${settlement.earlyCredit}.`
+        ? `Se restan ${settlement.unusedDays} día(s) no usados: ${earlyCreditAmount}${ivaNote}.`
         : null,
       fuelCharges > 0 ? `Combustible extra: ${fuelCharges}.` : null,
       damageCharges > 0 ? `Daños: ${damageCharges}.` : null,
@@ -3533,12 +3553,40 @@ export async function getContractCloseActPdfData(contractId: string) {
   const damageCharges = Number(contract.damage_charges ?? 0);
   const fuelCharges = Number(contract.fuel_charges ?? 0);
   const complementaryAmount = Number(contract.complementary_amount ?? 0);
+  const { data: closeSettings } = await supabase
+    .from("business_settings")
+    .select("policies")
+    .limit(1)
+    .maybeSingle();
+  const closeGrace = coerceGraceHours(
+    (closeSettings as { policies?: { extraDayGraceHours?: unknown } } | null)
+      ?.policies?.extraDayGraceHours,
+    2,
+  );
+  const closeSettlement = contract.actual_return_at
+    ? calculateReturnSettlement({
+        startAt: contract.start_at,
+        scheduledEndAt: contract.end_at,
+        actualReturnAt: contract.actual_return_at,
+        dailyRate: contract.agreed_rate,
+        graceHours: closeGrace,
+        courtesyHours: Number(contract.courtesy_hours ?? 0),
+        courtesyDays: Number(contract.courtesy_days ?? 0),
+        manualExtraDaysWaived: Number(contract.grace_extra_days_waived ?? 0),
+      })
+    : null;
+  const dayAdjustment = applyContractIvaToAmount(
+    closeSettlement?.dayAdjustment ?? 0,
+    Boolean(contract.apply_iva),
+    contract.tax_rate,
+  );
   const totalOwed =
     Number(contract.total) +
     extraCharges +
     damageCharges +
     fuelCharges +
-    complementaryAmount;
+    complementaryAmount +
+    dayAdjustment;
   const amountPaid = Number(contract.amount_paid ?? 0);
   const balanceDue =
     contract.balance_due != null
@@ -3568,6 +3616,21 @@ export async function getContractCloseActPdfData(contractId: string) {
     null;
 
   const chargeLines = [
+    dayAdjustment > 0.009
+      ? {
+          label: contract.apply_iva
+            ? "Días de más (con IVA)"
+            : "Días de más",
+          amount: dayAdjustment,
+        }
+      : dayAdjustment < -0.009
+        ? {
+            label: contract.apply_iva
+              ? "Días no usados (con IVA)"
+              : "Días no usados",
+            amount: dayAdjustment,
+          }
+        : null,
     extraCharges > 0
       ? { label: "Días extra / cargos extra", amount: extraCharges }
       : null,
