@@ -447,6 +447,79 @@ function assertOrder(src, first, second, msg) {
     "F8 Wireframe PDF: phase OUT en gris #64748b",
   );
 
+// ═══════════════════════════════════════════════════════════
+// K) Cierre: días extra/no usados llevan el IVA del contrato
+// Caso real: 5×$25 con IVA = $141.25; +3 días debe dar $226.00, no $216.25
+// ═══════════════════════════════════════════════════════════
+{
+  const wizard = read("src/components/contracts/close-contract-wizard.tsx");
+  const server = read("src/app/dashboard/contratos/actions.ts");
+  const billing = read("src/lib/pdf/contract-billing.ts");
+  assert(
+    billing.includes("export function applyContractIvaToAmount"),
+    "K1 Existe el recargo de IVA sobre la diferencia de días",
+  );
+  assert(
+    wizard.includes("taxedDayAdjustment") &&
+      wizard.includes("applyContractIvaToAmount(") &&
+      wizard.includes("returnSettlement.dayAdjustment") &&
+      wizard.includes("const dayAdjustment = taxedDayAdjustment"),
+    "K2 La pantalla de cierre suma los días con IVA",
+  );
+  assert(
+    server.includes("applyContractIvaToAmount(") &&
+      server.includes("settlement?.dayAdjustment ?? 0"),
+    "K3 El servidor guarda el saldo con IVA, no la tarifa neta",
+  );
+  assert(
+    !wizard.includes("const dayAdjustment = returnSettlement?.dayAdjustment"),
+    "K4 La pantalla ya no suma la diferencia de días sin IVA",
+  );
+
+  const ts = require(path.join(root, "node_modules/typescript"));
+  const Module = require("module");
+  if (!Module._extensions[".ts"]) {
+    Module._extensions[".ts"] = function (mod, filename) {
+      const src = fs.readFileSync(filename, "utf8");
+      let out = ts.transpileModule(src, {
+        compilerOptions: {
+          module: ts.ModuleKind.CommonJS,
+          target: ts.ScriptTarget.ES2022,
+          esModuleInterop: true,
+        },
+        fileName: filename,
+      }).outputText;
+      out = out.replace(/require\("(@\/[^"]+)"\)/g, (_, spec) => {
+        const abs = path.join(root, "src", spec.slice(2));
+        return `require(${JSON.stringify(abs)})`;
+      });
+      mod._compile(out, filename);
+    };
+  }
+  const { applyContractIvaToAmount } = require(path.join(
+    root,
+    "src/lib/pdf/contract-billing.ts",
+  ));
+  const pactado = 141.25;
+  const extraNeto = 75;
+  const extraConIva = applyContractIvaToAmount(extraNeto, true, 0.13);
+  const saldo = Math.round((pactado + extraConIva) * 100) / 100;
+  assert(
+    extraConIva === 84.75 && saldo === 226,
+    `K5 runtime: $141.25 + 3 días con IVA = $226 (obtuvo extra ${extraConIva}, saldo ${saldo})`,
+  );
+  const sinIva = applyContractIvaToAmount(extraNeto, false, 0.13);
+  assert(
+    sinIva === 75,
+    `K6 runtime: sin IVA los 3 días siguen en $75 (obtuvo ${sinIva})`,
+  );
+  const credito = applyContractIvaToAmount(-50, true, 0.13);
+  assert(
+    credito === -56.5,
+    `K7 runtime: 2 días no usados restan $56.50 con IVA (obtuvo ${credito})`,
+  );
+}
+
 console.log("\n=== OLDES ops checklist audit (zero margin) ===\n");
 for (const m of ok) console.log("  PASS  " + m);
 for (const m of bad) console.log("  FAIL  " + m);
