@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   wireframeDiagram: {
     width: "100%",
-    height: 248,
+    height: 262,
     objectFit: "contain",
     marginBottom: 2,
   },
@@ -927,7 +927,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
         </MachoteSection>
 
         <MachoteSection title="4. Observaciones">
-          <View style={{ paddingHorizontal: 5, paddingVertical: 3, minHeight: 28 }}>
+          <View style={{ paddingHorizontal: 5, paddingVertical: 2, minHeight: 16 }}>
             <Text style={{ fontSize: 7.5, lineHeight: 1.35 }}>
               {(props.observations || props.notes || "").trim() ||
                 "Sin observaciones registradas."}
