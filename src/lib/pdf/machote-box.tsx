@@ -84,7 +84,7 @@ export function MachoteSection({
   children: ReactNode;
 }) {
   return (
-    <View style={machoteStyles.section}>
+    <View style={machoteStyles.section} wrap={false}>
       <Text style={machoteStyles.sectionTitle}>{title}</Text>
       {children}
     </View>

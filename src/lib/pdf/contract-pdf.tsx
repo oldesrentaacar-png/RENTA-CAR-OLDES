@@ -305,15 +305,15 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   twoColMain: {
-    flexDirection: "row",
-    gap: 8,
+    flexDirection: "column",
+    gap: 6,
     marginTop: 4,
   },
   photoPanel: {
-    width: "48%",
+    width: "100%",
     borderWidth: 1,
     borderColor: LINE,
-    padding: 3,
+    padding: 4,
     alignItems: "center",
   },
   heroPhoto: {
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   wireframeDiagram: {
     width: "100%",
-    height: 176,
+    height: 390,
     objectFit: "contain",
     marginBottom: 2,
   },
@@ -339,10 +339,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   checklistPanel: {
-    width: "52%",
+    width: "100%",
     borderWidth: 1,
     borderColor: LINE,
-    padding: 3,
+    padding: 4,
   },
   checklistColumns: {
     flexDirection: "row",
@@ -608,7 +608,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
       subject="Contrato de alquiler de vehículo OLDES"
     >
       {/* ===================== ANVERSO (una sola página, sin wrap) ===================== */}
-      <Page size="LETTER" style={styles.page} wrap={false}>
+      <Page size="LETTER" style={styles.page}>
         <View style={styles.headerRow}>
           <View style={styles.companyBlock}>
             <View style={styles.brandRow}>
@@ -807,6 +807,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
           </Text>
         </MachoteSection>
 
+        <View break />
         <MachoteSection title="3. Inspección de estado del vehículo y combustible">
           <Text style={{ fontSize: 6.5, color: MUTED, paddingHorizontal: 6, paddingTop: 3 }}>
             Simbología: (0) Golpe · (+) Rayón · (x) Faltante · (·) Libre · color
@@ -920,7 +921,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               <FuelGauge
                 label="NIVEL COMBUSTIBLE (SALIDA)"
                 activeIndex={fuelLevelIndex(props.fuelOutLabel)}
-                width={200}
+                width={280}
               />
             </View>
           </View>
