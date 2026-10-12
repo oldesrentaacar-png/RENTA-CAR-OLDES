@@ -1,5 +1,5 @@
 /** Bump when the contract PDF layout changes (forces fresh downloads). */
-export const CONTRACT_PDF_TEMPLATE_VERSION = "2026-10-12-v4";
+export const CONTRACT_PDF_TEMPLATE_VERSION = "2026-10-12-v5";
 
 export function contractPdfHref(
   contractId: string,

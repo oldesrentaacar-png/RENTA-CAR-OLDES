@@ -154,7 +154,7 @@ const LIGHT = "#f1f5f9";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 14,
+    paddingTop: 10,
     paddingBottom: 36,
     paddingHorizontal: 20,
     fontSize: 8,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   twoColMain: {
     flexDirection: "row",
     gap: 6,
-    marginTop: 4,
+    marginTop: 2,
   },
   photoPanel: {
     width: "56%",
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   wireframeDiagram: {
     width: "100%",
-    height: 262,
+    height: 274,
     objectFit: "contain",
     marginBottom: 2,
   },
