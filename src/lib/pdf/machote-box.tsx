@@ -11,7 +11,7 @@ export const machoteStyles = StyleSheet.create({
   section: {
     borderWidth: 1,
     borderColor: LINE,
-    marginBottom: 5,
+    marginBottom: 3,
   },
   sectionTitle: {
     backgroundColor: NAVY,
@@ -25,16 +25,16 @@ export const machoteStyles = StyleSheet.create({
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    padding: 3,
-    gap: 3,
+    padding: 2,
+    gap: 2,
   },
   cell: {
     width: "48%",
     borderWidth: 0.8,
     borderColor: LINE,
-    paddingVertical: 2.5,
+    paddingVertical: 1.5,
     paddingHorizontal: 4,
-    minHeight: 22,
+    minHeight: 18,
   },
   cellFull: {
     width: "100%",

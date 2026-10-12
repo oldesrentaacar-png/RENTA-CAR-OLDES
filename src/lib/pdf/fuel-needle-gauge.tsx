@@ -16,7 +16,7 @@ export function PdfFuelNeedleGauge({
   activeIndex: number;
   width?: number;
 }) {
-  const height = 78;
+  const height = Math.min(78, Math.round(width * 0.46));
   const cx = width / 2;
   const cy = height - 8;
   const r = Math.min(width * 0.42, 58);

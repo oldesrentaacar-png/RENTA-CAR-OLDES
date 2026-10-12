@@ -306,11 +306,11 @@ const styles = StyleSheet.create({
   },
   twoColMain: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
     marginTop: 4,
   },
   photoPanel: {
-    width: "48%",
+    width: "56%",
     borderWidth: 1,
     borderColor: LINE,
     padding: 3,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   wireframeDiagram: {
     width: "100%",
-    height: 210,
+    height: 248,
     objectFit: "contain",
     marginBottom: 2,
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   checklistPanel: {
-    width: "52%",
+    width: "42%",
     borderWidth: 1,
     borderColor: LINE,
     padding: 3,
@@ -920,7 +920,7 @@ export function ContractPdfDocument(props: ContractPdfProps) {
               <FuelGauge
                 label="NIVEL COMBUSTIBLE (SALIDA)"
                 activeIndex={fuelLevelIndex(props.fuelOutLabel)}
-                width={200}
+                width={130}
               />
             </View>
           </View>
