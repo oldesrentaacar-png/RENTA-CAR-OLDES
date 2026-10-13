@@ -1,6 +1,6 @@
 "use client";
 
-import { announceError } from "@/lib/ui/announce";
+import { announceError, announceWarn } from "@/lib/ui/announce";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -208,6 +208,44 @@ export function CloseContractWizard({
       contract.tax_rate,
     );
   }, [contract.apply_iva, contract.tax_rate, returnSettlement]);
+
+  const dayChangeNotice = useMemo(() => {
+    if (!returnSettlement) return null;
+    const ivaNote = contract.apply_iva ? ", con IVA" : "";
+    if (returnSettlement.extraDays > 0) {
+      const amount = formatMoney(
+        applyContractIvaToAmount(
+          returnSettlement.extraCharge,
+          Boolean(contract.apply_iva),
+          contract.tax_rate,
+        ),
+      );
+      const delay = extraDayPreview?.delayHours ?? 0;
+      return `El sistema sumó ${returnSettlement.extraDays} día(s) extra (${amount}${ivaNote}) porque la devolución fue ${delay} h después del vencimiento. El margen gratuito es ${extraDayGraceHours} h.`;
+    }
+    if (returnSettlement.unusedDays > 0) {
+      const amount = formatMoney(
+        applyContractIvaToAmount(
+          returnSettlement.earlyCredit,
+          Boolean(contract.apply_iva),
+          contract.tax_rate,
+        ),
+      );
+      return `El sistema restó ${returnSettlement.unusedDays} día(s) no usados (${amount}${ivaNote}) porque el carro regresó antes del vencimiento.`;
+    }
+    return null;
+  }, [
+    contract.apply_iva,
+    contract.tax_rate,
+    extraDayGraceHours,
+    extraDayPreview?.delayHours,
+    returnSettlement,
+  ]);
+
+  useEffect(() => {
+    if (!dayChangeNotice) return;
+    announceWarn(dayChangeNotice);
+  }, [dayChangeNotice]);
 
   const billing = useMemo(() => {
     const extra = parseMoneyInput(extraCharges);
@@ -1243,6 +1281,11 @@ export function CloseContractWizard({
                       {extraDayGraceHours} h. Si no debe cobrarse, use «Días
                       extra a no cobrar» o la cortesía manual.
                     </p>
+                    {dayChangeNotice ? (
+                      <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                        {dayChangeNotice}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1492,6 +1535,11 @@ export function CloseContractWizard({
               Esta acción marca el contrato como <strong>COMPLETADO</strong> y
               libera el vehículo.
             </p>
+            {dayChangeNotice ? (
+              <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                {dayChangeNotice}
+              </p>
+            ) : null}
             <ul className="mt-3 space-y-1 text-sm">
               <li>
                 Contrato: <strong>{contract.code}</strong>

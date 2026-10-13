@@ -675,6 +675,11 @@ function assertOrder(src, first, second, msg) {
       wizardClose.includes("Días extra a no cobrar"),
     "M6 el día extra se cobra solo y se puede quitar a mano",
   );
+  assert(
+    wizardClose.includes("El sistema sumó") &&
+      wizardClose.includes("announceWarn(dayChangeNotice)"),
+    "M7 cada día extra automático avisa qué se sumó y por qué",
+  );
 }
 
 console.log("\n=== OLDES ops checklist audit (zero margin) ===\n");
