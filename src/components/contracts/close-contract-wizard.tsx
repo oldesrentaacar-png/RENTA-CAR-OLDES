@@ -144,7 +144,7 @@ export function CloseContractWizard({
   const [, setChecklistReady] = useState(
     Boolean(checkIn && checkIn.checklist.length > 0),
   );
-  const [showOptionalClose, setShowOptionalClose] = useState(false);
+  const [approveExtraDays, setApproveExtraDays] = useState(false);
 
   const amountPaidBase = Number(contract.amount_paid ?? 0);
 
@@ -200,14 +200,27 @@ export function CloseContractWizard({
     graceExtraDaysWaived,
   ]);
 
+  useEffect(() => {
+    setApproveExtraDays(false);
+  }, [actualReturnAt]);
+
   const taxedDayAdjustment = useMemo(() => {
     if (!returnSettlement) return 0;
+    const net =
+      returnSettlement.extraDays > 0 && !approveExtraDays
+        ? -returnSettlement.earlyCredit
+        : returnSettlement.dayAdjustment;
     return applyContractIvaToAmount(
-      returnSettlement.dayAdjustment,
+      net,
       Boolean(contract.apply_iva),
       contract.tax_rate,
     );
-  }, [contract.apply_iva, contract.tax_rate, returnSettlement]);
+  }, [
+    approveExtraDays,
+    contract.apply_iva,
+    contract.tax_rate,
+    returnSettlement,
+  ]);
 
   const billing = useMemo(() => {
     const extra = parseMoneyInput(extraCharges);
@@ -500,6 +513,10 @@ export function CloseContractWizard({
         formData.set("courtesyDetail", courtesyDetail.trim());
       }
       formData.set("graceExtraDaysWaived", graceExtraDaysWaived);
+      formData.set(
+        "approveExtraDays",
+        approveExtraDays ? "true" : "false",
+      );
       formData.set("actualReturnAt", actualReturnAt);
       formData.set("deliveredByName", deliveredByName);
       formData.set("receivedByName", receivedByName);
@@ -1234,15 +1251,47 @@ export function CloseContractWizard({
                       <strong>{returnSettlement.actualDays}</strong>
                       {returnSettlement.returnedEarly
                         ? ` · se restan ${returnSettlement.unusedDays} día(s) no usados (${formatMoney(applyContractIvaToAmount(returnSettlement.earlyCredit, Boolean(contract.apply_iva), contract.tax_rate))}${contract.apply_iva ? ", con IVA" : ""})`
-                        : returnSettlement.extraDays > 0
+                        : returnSettlement.extraDays > 0 && approveExtraDays
                           ? ` · se suman ${returnSettlement.extraDays} día(s) (${formatMoney(applyContractIvaToAmount(returnSettlement.extraCharge, Boolean(contract.apply_iva), contract.tax_rate))}${contract.apply_iva ? ", con IVA" : ""})`
-                          : " · sin cambio de días"}
+                          : returnSettlement.extraDays > 0
+                            ? " · hay día de más, pero no se suma hasta que lo apruebe"
+                            : " · sin cambio de días"}
                     </p>
                     <p className="mt-1 text-xs">
                       Margen de cortesía antes de cobrar día extra:{" "}
                       {extraDayGraceHours} h. Devolver más tarde el mismo día
                       del vencimiento no suma otro día.
                     </p>
+                    {returnSettlement.extraDays > 0 ? (
+                      <label className="mt-3 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-950">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-amber-400"
+                          checked={approveExtraDays}
+                          onChange={(event) =>
+                            setApproveExtraDays(event.target.checked)
+                          }
+                        />
+                        <span>
+                          <span className="font-semibold">
+                            Aprobar día adicional
+                          </span>
+                          <span className="mt-1 block">
+                            La devolución cae después del vencimiento. La regla
+                            indica {returnSettlement.extraDays} día(s) de más (
+                            {formatMoney(
+                              applyContractIvaToAmount(
+                                returnSettlement.extraCharge,
+                                Boolean(contract.apply_iva),
+                                contract.tax_rate,
+                              ),
+                            )}
+                            {contract.apply_iva ? ", con IVA" : ""}). No se
+                            suma al saldo hasta que marque esta casilla.
+                          </span>
+                        </span>
+                      </label>
+                    ) : null}
                   </div>
                 ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">

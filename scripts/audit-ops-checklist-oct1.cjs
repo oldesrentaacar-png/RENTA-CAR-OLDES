@@ -662,6 +662,21 @@ function assertOrder(src, first, second, msg) {
     early.returnedEarly && early.unusedDays === 1 && early.dayAdjustment === -44,
     `M5 devolver antes sigue restando el día no usado (ajuste ${early.dayAdjustment})`,
   );
+  const wizardClose = fs.readFileSync(
+    path.join(root, "src/components/contracts/close-contract-wizard.tsx"),
+    "utf8",
+  );
+  const closeServer = fs.readFileSync(
+    path.join(root, "src/app/dashboard/contratos/actions.ts"),
+    "utf8",
+  );
+  assert(
+    wizardClose.includes("Aprobar día adicional") &&
+      wizardClose.includes('"approveExtraDays"') &&
+      closeServer.includes('formData.get("approveExtraDays") === "true"') &&
+      closeServer.includes("no se cobraron"),
+    "M6 el día extra no se cobra hasta que el operador lo aprueba",
+  );
 }
 
 console.log("\n=== OLDES ops checklist audit (zero margin) ===\n");

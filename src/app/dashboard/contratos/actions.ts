@@ -2491,7 +2491,9 @@ export async function closeContract(
       settingsRow as { policies?: Record<string, unknown> } | null
     )?.policies;
     const graceHours = coerceGraceHours(policies?.extraDayGraceHours, 2);
-    const settlement =
+    const approveExtraDays = formData.get("approveExtraDays") === "true";
+    let waivedDays = graceExtraDaysWaived;
+    let settlement =
       actualReturnAt && contract.start_at
         ? calculateReturnSettlement({
             startAt: contract.start_at,
@@ -2501,9 +2503,23 @@ export async function closeContract(
             graceHours,
             courtesyHours,
             courtesyDays,
-            manualExtraDaysWaived: graceExtraDaysWaived,
+            manualExtraDaysWaived: waivedDays,
           })
         : null;
+    const detectedExtraDays = settlement?.extraDays ?? 0;
+    if (settlement && detectedExtraDays > 0 && !approveExtraDays) {
+      waivedDays += detectedExtraDays;
+      settlement = calculateReturnSettlement({
+        startAt: contract.start_at,
+        scheduledEndAt: contract.end_at,
+        actualReturnAt: actualReturnAt ?? contract.end_at,
+        dailyRate: contract.agreed_rate,
+        graceHours,
+        courtesyHours,
+        courtesyDays,
+        manualExtraDaysWaived: waivedDays,
+      });
+    }
     const dayAdjustment = applyContractIvaToAmount(
       settlement?.dayAdjustment ?? 0,
       Boolean(contract.apply_iva),
@@ -2544,6 +2560,9 @@ export async function closeContract(
     const closeMetaBits = [
       settlement
         ? `Pactado ${settlement.agreedDays} días hasta ${formatAppDateTime(contract.end_at)} por ${contract.total}. Devolución real ${formatAppDateTime(actualReturnAt ?? contract.end_at)} (${settlement.actualDays} días).`
+        : null,
+      settlement && detectedExtraDays > 0 && !approveExtraDays
+        ? `Días de más detectados (${detectedExtraDays}) no aprobados: no se cobraron.`
         : null,
       settlement && settlement.extraDays > 0
         ? `Se suman ${settlement.extraDays} día(s): ${extraDayAmount}${ivaNote}.`
@@ -2591,7 +2610,7 @@ export async function closeContract(
       courtesy_days: courtesyDays,
       courtesy_amount: courtesyAmount,
       courtesy_detail: courtesyDetail,
-      grace_extra_days_waived: graceExtraDaysWaived,
+      grace_extra_days_waived: waivedDays,
       actual_return_at: actualReturnAt,
     };
 
