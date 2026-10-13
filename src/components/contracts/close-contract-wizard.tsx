@@ -1240,7 +1240,8 @@ export function CloseContractWizard({
                     </p>
                     <p className="mt-1 text-xs">
                       Margen de cortesía antes de cobrar día extra:{" "}
-                      {extraDayGraceHours} h.
+                      {extraDayGraceHours} h. Devolver más tarde el mismo día
+                      del vencimiento no suma otro día.
                     </p>
                   </div>
                 ) : null}

@@ -602,6 +602,66 @@ function assertOrder(src, first, second, msg) {
       contractForm.includes('label="Descuento (USD)"'),
     "L5 reserva y contrato muestran descuento en porcentaje y en monto",
   );
+
+  const closeMod = require(path.join(root, "src/lib/calculations/rental-close.ts"));
+  const zachary = closeMod.calculateReturnSettlement({
+    startAt: "2026-10-09T02:00:00.000Z",
+    scheduledEndAt: "2026-10-12T12:00:00.000Z",
+    actualReturnAt: "2026-10-13T02:00:00.000Z",
+    dailyRate: 44,
+    graceHours: 2,
+  });
+  assert(
+    zachary.agreedDays === 4 &&
+      zachary.actualDays === 4 &&
+      zachary.extraDays === 0 &&
+      zachary.dayAdjustment === 0,
+    `M1 devolver el mismo día del vencimiento sigue en 4 días (pactado ${zachary.agreedDays}, reales ${zachary.actualDays}, extra ${zachary.extraDays})`,
+  );
+  const nextDay = closeMod.calculateReturnSettlement({
+    startAt: "2026-10-09T02:00:00.000Z",
+    scheduledEndAt: "2026-10-12T12:00:00.000Z",
+    actualReturnAt: "2026-10-13T14:00:00.000Z",
+    dailyRate: 44,
+    graceHours: 2,
+  });
+  assert(
+    nextDay.extraDays === 1 && nextDay.dayAdjustment === 44 && nextDay.actualDays === 5,
+    `M2 el día calendario siguiente sí suma 1 día (extra ${nextDay.extraDays}, ajuste ${nextDay.dayAdjustment})`,
+  );
+  const graceMidnight = closeMod.calculateReturnSettlement({
+    startAt: "2026-10-09T02:00:00.000Z",
+    scheduledEndAt: "2026-10-13T05:00:00.000Z",
+    actualReturnAt: "2026-10-13T06:30:00.000Z",
+    dailyRate: 44,
+    graceHours: 2,
+  });
+  assert(
+    graceMidnight.extraDays === 0,
+    `M3 1.5 h después de medianoche sigue dentro de las 2 h (extra ${graceMidnight.extraDays})`,
+  );
+  const twoDates = closeMod.calculateReturnSettlement({
+    startAt: "2026-10-09T02:00:00.000Z",
+    scheduledEndAt: "2026-10-12T12:00:00.000Z",
+    actualReturnAt: "2026-10-14T14:00:00.000Z",
+    dailyRate: 44,
+    graceHours: 2,
+  });
+  assert(
+    twoDates.extraDays === 2 && twoDates.dayAdjustment === 88,
+    `M4 dos fechas después suman 2 días, no un redondeo de horas (extra ${twoDates.extraDays})`,
+  );
+  const early = closeMod.calculateReturnSettlement({
+    startAt: "2026-10-09T02:00:00.000Z",
+    scheduledEndAt: "2026-10-12T12:00:00.000Z",
+    actualReturnAt: "2026-10-11T12:00:00.000Z",
+    dailyRate: 44,
+    graceHours: 2,
+  });
+  assert(
+    early.returnedEarly && early.unusedDays === 1 && early.dayAdjustment === -44,
+    `M5 devolver antes sigue restando el día no usado (ajuste ${early.dayAdjustment})`,
+  );
 }
 
 console.log("\n=== OLDES ops checklist audit (zero margin) ===\n");
