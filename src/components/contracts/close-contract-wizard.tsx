@@ -144,6 +144,7 @@ export function CloseContractWizard({
   const [, setChecklistReady] = useState(
     Boolean(checkIn && checkIn.checklist.length > 0),
   );
+  const [showOptionalClose, setShowOptionalClose] = useState(false);
   const [approveExtraDays, setApproveExtraDays] = useState(false);
 
   const amountPaidBase = Number(contract.amount_paid ?? 0);
