@@ -613,10 +613,9 @@ function assertOrder(src, first, second, msg) {
   });
   assert(
     zachary.agreedDays === 4 &&
-      zachary.actualDays === 4 &&
-      zachary.extraDays === 0 &&
-      zachary.dayAdjustment === 0,
-    `M1 devolver el mismo día del vencimiento sigue en 4 días (pactado ${zachary.agreedDays}, reales ${zachary.actualDays}, extra ${zachary.extraDays})`,
+      zachary.extraDays === 1 &&
+      zachary.dayAdjustment === 44,
+    `M1 devolver 14 h después de las 6:00 a.m. suma 1 día (pactado ${zachary.agreedDays}, extra ${zachary.extraDays}, ajuste ${zachary.dayAdjustment})`,
   );
   const nextDay = closeMod.calculateReturnSettlement({
     startAt: "2026-10-09T02:00:00.000Z",
@@ -671,11 +670,10 @@ function assertOrder(src, first, second, msg) {
     "utf8",
   );
   assert(
-    wizardClose.includes("Aprobar día adicional") &&
-      wizardClose.includes('"approveExtraDays"') &&
-      closeServer.includes('formData.get("approveExtraDays") === "true"') &&
-      closeServer.includes("no se cobraron"),
-    "M6 el día extra no se cobra hasta que el operador lo aprueba",
+    !wizardClose.includes("Aprobar día adicional") &&
+      !closeServer.includes('formData.get("approveExtraDays")') &&
+      wizardClose.includes("Días extra a no cobrar"),
+    "M6 el día extra se cobra solo y se puede quitar a mano",
   );
 }
 

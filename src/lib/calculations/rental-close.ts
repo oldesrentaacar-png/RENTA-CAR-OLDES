@@ -1,11 +1,6 @@
 import { parseISO } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
 
-import {
-  APP_TIMEZONE,
-  normalizeFormDateTimeToIso,
-  rentalDaysBetween,
-} from "@/lib/dates";
+import { normalizeFormDateTimeToIso, rentalDaysBetween } from "@/lib/dates";
 import { parseMoneyInput } from "@/lib/money";
 
 /** Settings JSON may store the grace window as number or string. */
@@ -14,20 +9,6 @@ export function coerceGraceHours(value: unknown, fallback = 2): number {
   const hours = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(hours)) return fallback;
   return Math.min(24, Math.max(0, hours));
-}
-
-function appCalendarDate(value: Date): string {
-  return formatInTimeZone(value, APP_TIMEZONE, "yyyy-MM-dd");
-}
-
-/** Whole calendar dates in El Salvador from the due date to the return date. */
-function calendarDaysAfter(dueDate: string, returnDate: string): number {
-  const [yearDue, monthDue, dayDue] = dueDate.split("-").map(Number);
-  const [yearBack, monthBack, dayBack] = returnDate.split("-").map(Number);
-  const diffMs =
-    Date.UTC(yearBack, monthBack - 1, dayBack) -
-    Date.UTC(yearDue, monthDue - 1, dayDue);
-  return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
 function asInstant(value: Date | string): Date {
@@ -86,20 +67,9 @@ export function calculateSuggestedExtraDayCharge(
     input.actualReturnAt,
   );
 
-  // A return later the same calendar day is still the day already paid.
-  // One extra day is charged only for each later calendar date in El Salvador.
-  // The grace window only forgives a return that crosses midnight by a few hours.
-  const scheduled = asInstant(input.scheduledEndAt);
-  const actual = asInstant(input.actualReturnAt);
-  const calendarLate =
-    Number.isFinite(scheduled.getTime()) && Number.isFinite(actual.getTime())
-      ? Math.max(
-          0,
-          calendarDaysAfter(appCalendarDate(scheduled), appCalendarDate(actual)),
-        )
-      : 0;
-  const withinGrace = delayHours <= graceHours + courtesyHours;
-  let billedExtraDays = withinGrace ? 0 : calendarLate;
+  const hoursPastGrace = Math.max(0, delayHours - graceHours - courtesyHours);
+  let billedExtraDays =
+    hoursPastGrace > 0 ? Math.max(1, Math.ceil(hoursPastGrace / 24)) : 0;
   const courtesyHoursAsDays =
     courtesyHours >= 24 ? Math.floor(courtesyHours / 24) : 0;
   const totalCourtesyDays = courtesyDays + courtesyHoursAsDays;
