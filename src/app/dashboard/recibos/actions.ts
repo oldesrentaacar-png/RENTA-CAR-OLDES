@@ -5,7 +5,14 @@ import { revalidatePath } from "next/cache";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
-import { formatAppDate } from "@/lib/dates";
+import {
+  balanceAfterPayment,
+  owedAfterCourtesy,
+  unappliedCourtesyAmount,
+} from "@/lib/contracts/amount-owed";
+import { applyContractIvaToAmount } from "@/lib/pdf/contract-billing";
+import { calculateReturnSettlement } from "@/lib/calculations/rental-close";
+import { formatAppDate, rentalDaysBetween } from "@/lib/dates";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
@@ -64,6 +71,93 @@ type ContractBillingSnapshot = {
   paymentStatus: "PENDING" | "PARTIAL" | "PAID";
 };
 
+const CONTRACT_BILLING_COLUMNS =
+  "total, subtotal, tax_amount, apply_iva, tax_rate, agreed_rate, insurance, start_at, end_at, actual_return_at, courtesy_amount, courtesy_hours, courtesy_days, grace_extra_days_waived, extra_line_items, amount_paid, extra_charges, damage_charges, fuel_charges, complementary_amount";
+
+type ContractBillingRow = {
+  total: number;
+  subtotal?: number | null;
+  tax_amount?: number | null;
+  apply_iva?: boolean | null;
+  tax_rate?: number | null;
+  agreed_rate?: number | null;
+  insurance?: number | null;
+  start_at?: string | null;
+  end_at?: string | null;
+  actual_return_at?: string | null;
+  courtesy_amount?: number | null;
+  courtesy_hours?: number | null;
+  courtesy_days?: number | null;
+  grace_extra_days_waived?: number | null;
+  extra_line_items?: Array<{ label?: string | null; amount?: number | null }> | null;
+  amount_paid?: number | null;
+  extra_charges?: number | null;
+  damage_charges?: number | null;
+  fuel_charges?: number | null;
+  complementary_amount?: number | null;
+};
+
+function snapshotFromBillingRow(
+  row: ContractBillingRow,
+  paid: number,
+): ContractBillingSnapshot {
+  const charges =
+    Number(row.extra_charges ?? 0) +
+    Number(row.damage_charges ?? 0) +
+    Number(row.fuel_charges ?? 0) +
+    Number(row.complementary_amount ?? 0);
+  const extraLines = (row.extra_line_items ?? []).reduce((sum, item) => {
+    const amount = Number(item?.amount ?? 0);
+    return sum + (amount > 0 ? amount : 0);
+  }, 0);
+  const rentalDays =
+    row.start_at && row.end_at ? rentalDaysBetween(row.start_at, row.end_at) : 1;
+  const settlement =
+    row.actual_return_at && row.start_at && row.end_at
+      ? calculateReturnSettlement({
+          startAt: row.start_at,
+          scheduledEndAt: row.end_at,
+          actualReturnAt: row.actual_return_at,
+          dailyRate: Number(row.agreed_rate ?? 0),
+          courtesyHours: Number(row.courtesy_hours ?? 0),
+          courtesyDays: Number(row.courtesy_days ?? 0),
+          manualExtraDaysWaived: Number(row.grace_extra_days_waived ?? 0),
+        })
+      : null;
+  const dayAdjustment = applyContractIvaToAmount(
+    settlement?.dayAdjustment ?? 0,
+    Boolean(row.apply_iva),
+    row.tax_rate,
+  );
+  const unappliedCourtesy = unappliedCourtesyAmount({
+    agreedRate: Number(row.agreed_rate ?? 0),
+    rentalDays,
+    insurance: Number(row.insurance ?? 0),
+    extraLinesTotal: extraLines,
+    subtotal: row.subtotal,
+    total: Number(row.total ?? 0),
+    taxAmount: Number(row.tax_amount ?? 0),
+    applyIva: Boolean(row.apply_iva),
+    courtesyAmount: Number(row.courtesy_amount ?? 0),
+  });
+  const owed = owedAfterCourtesy({
+    total: Number(row.total ?? 0),
+    charges,
+    dayAdjustment,
+    unappliedCourtesy,
+  });
+  const balanceDue = balanceAfterPayment(owed, paid);
+  const paymentStatus =
+    balanceDue <= 0 ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING";
+  return {
+    owed,
+    previousPaid: Number(row.amount_paid ?? 0),
+    newPaid: paid,
+    balanceDue,
+    paymentStatus,
+  };
+}
+
 async function readContractBilling(
   supabase: Awaited<ReturnType<typeof createClient>>,
   contractId: string,
@@ -72,9 +166,7 @@ async function readContractBilling(
   try {
     const { data, error } = await supabase
       .from("contracts")
-      .select(
-        "total, amount_paid, extra_charges, damage_charges, fuel_charges, complementary_amount",
-      )
+      .select(CONTRACT_BILLING_COLUMNS)
       .eq("id", contractId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -85,28 +177,10 @@ async function readContractBilling(
     }
     if (!data) return null;
 
-    const row = data as {
-      total: number;
-      amount_paid?: number | null;
-      extra_charges?: number | null;
-      damage_charges?: number | null;
-      fuel_charges?: number | null;
-      complementary_amount?: number | null;
-    };
-
-    const charges =
-      Number(row.extra_charges ?? 0) +
-      Number(row.damage_charges ?? 0) +
-      Number(row.fuel_charges ?? 0) +
-      Number(row.complementary_amount ?? 0);
-    const owed = Number(row.total ?? 0) + charges;
+    const row = data as ContractBillingRow;
     const previousPaid = Number(row.amount_paid ?? 0);
     const newPaid = toNumber(previousPaid + abonoAmount);
-    const balanceDue = Math.max(0, toNumber(owed - newPaid));
-    const paymentStatus =
-      balanceDue <= 0 ? "PAID" : newPaid > 0 ? "PARTIAL" : "PENDING";
-
-    return { owed, previousPaid, newPaid, balanceDue, paymentStatus };
+    return snapshotFromBillingRow(row, newPaid);
   } catch (error) {
     if (isMissingColumnError(error)) return null;
     throw error;
@@ -121,9 +195,7 @@ async function readContractBillingForRefund(
   try {
     const { data, error } = await supabase
       .from("contracts")
-      .select(
-        "total, amount_paid, extra_charges, damage_charges, fuel_charges, complementary_amount",
-      )
+      .select(CONTRACT_BILLING_COLUMNS)
       .eq("id", contractId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -134,28 +206,10 @@ async function readContractBillingForRefund(
     }
     if (!data) return null;
 
-    const row = data as {
-      total: number;
-      amount_paid?: number | null;
-      extra_charges?: number | null;
-      damage_charges?: number | null;
-      fuel_charges?: number | null;
-      complementary_amount?: number | null;
-    };
-
-    const charges =
-      Number(row.extra_charges ?? 0) +
-      Number(row.damage_charges ?? 0) +
-      Number(row.fuel_charges ?? 0) +
-      Number(row.complementary_amount ?? 0);
-    const owed = Number(row.total ?? 0) + charges;
+    const row = data as ContractBillingRow;
     const previousPaid = Number(row.amount_paid ?? 0);
     const newPaid = Math.max(0, toNumber(previousPaid - refundAmount));
-    const balanceDue = Math.max(0, toNumber(owed - newPaid));
-    const paymentStatus =
-      balanceDue <= 0 ? "PAID" : newPaid > 0 ? "PARTIAL" : "PENDING";
-
-    return { owed, previousPaid, newPaid, balanceDue, paymentStatus };
+    return snapshotFromBillingRow(row, newPaid);
   } catch (error) {
     if (isMissingColumnError(error)) return null;
     throw error;

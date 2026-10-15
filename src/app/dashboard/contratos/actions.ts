@@ -32,6 +32,10 @@ import {
   type ContractDisplayPhase,
 } from "@/lib/contracts/display-phase";
 import { mergeObservationTexts } from "@/lib/contracts/observations";
+import {
+  owedAfterCourtesy,
+  unappliedCourtesyAmount,
+} from "@/lib/contracts/amount-owed";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
@@ -3668,13 +3672,28 @@ export async function getContractCloseActPdfData(contractId: string) {
     Boolean(contract.apply_iva),
     contract.tax_rate,
   );
-  const totalOwed =
-    Number(contract.total) +
-    extraCharges +
-    damageCharges +
-    fuelCharges +
-    complementaryAmount +
-    dayAdjustment;
+  const extraLinesTotal = (contract.extra_line_items ?? []).reduce(
+    (sum, item) => sum + Math.max(0, Number(item?.amount ?? 0)),
+    0,
+  );
+  const unappliedCourtesy = unappliedCourtesyAmount({
+    agreedRate: Number(contract.agreed_rate ?? 0),
+    rentalDays: rentalDaysBetween(contract.start_at, contract.end_at),
+    insurance: Number(contract.insurance ?? 0),
+    extraLinesTotal,
+    discountAmount: Number(contract.discount_amount ?? 0),
+    subtotal: contract.subtotal,
+    total: Number(contract.total),
+    taxAmount: Number(contract.tax_amount ?? 0),
+    applyIva: Boolean(contract.apply_iva),
+    courtesyAmount: Number(contract.courtesy_amount ?? 0),
+  });
+  const totalOwed = owedAfterCourtesy({
+    total: Number(contract.total),
+    charges: extraCharges + damageCharges + fuelCharges + complementaryAmount,
+    dayAdjustment,
+    unappliedCourtesy,
+  });
   const amountPaid = Number(contract.amount_paid ?? 0);
   const balanceDue =
     contract.balance_due != null
