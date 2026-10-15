@@ -89,7 +89,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
 
   return (
     <header
-      className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-border bg-surface/95 px-3 pt-[env(safe-area-inset-top,0px)] backdrop-blur supports-[backdrop-filter]:bg-surface/80 md:min-h-16 md:gap-4 md:px-4 md:pt-0 lg:px-6"
+      className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-border bg-surface/95 px-3 pt-[env(safe-area-inset-top,0px)] backdrop-blur supports-[backdrop-filter]:bg-surface/80 md:min-h-16 md:gap-4 md:px-4 md:pt-0 lg:px-6 print:hidden"
     >
       <Button
         type="button"

@@ -21,7 +21,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           "min-h-0 w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4",
           "[-webkit-overflow-scrolling:touch] touch-pan-y sm:px-4 lg:p-6",
           // Espacio para barra inferior tipo app (solo móvil)
-          "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:pb-4 lg:pb-6",
+          "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:pb-4 lg:pb-6 print:h-auto print:overflow-visible print:pb-0",
         ].join(" ")}
       >
         {children}

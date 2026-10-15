@@ -157,10 +157,10 @@ export function PartnerRentalForm({
 
       <div className="rounded-xl border border-border bg-surface p-4">
         <p className="mb-3 text-sm text-muted">
-          Opcional: escriba el código del contrato o renta (ej. CTR-2026-000015)
-          para traer fechas, cliente y vehículo. Luego solo edite parte socio,
-          parte OLDES y estado. El dinero queda en Socios, no se mezcla con
-          abonos del contrato.
+          Opcional: escriba el código del contrato y pulse Traer datos para
+          cargar fechas, cliente y vehículo. Los campos se llenan al pulsar el
+          botón. Luego edite parte socio, parte OLDES y estado. El dinero queda
+          en Socios, no se mezcla con abonos del contrato.
         </p>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <Input
@@ -168,7 +168,7 @@ export function PartnerRentalForm({
             label="Código de contrato / renta"
             value={contractCode}
             onChange={(event) => setContractCode(event.target.value)}
-            placeholder="CTR-2026-000015"
+            placeholder="Código del contrato"
           />
           <button
             type="button"

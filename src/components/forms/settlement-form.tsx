@@ -16,6 +16,7 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { matchVendorIdByName } from "@/lib/finance/vendor-rental";
 import { formatMoney } from "@/lib/money";
 import type { MonthlySettlement, Vendor } from "@/types/database";
 
@@ -118,6 +119,11 @@ export function SettlementForm({
   const [extraCosts, setExtraCosts] = useState(
     String(settlement?.extra_costs ?? 0),
   );
+  const [vendorId, setVendorId] = useState(
+    settlement?.vendor_id ??
+      matchVendorIdByName(initialContract?.subleasePayeeName, vendors) ??
+      "",
+  );
 
   const ownProfit = useMemo(
     () =>
@@ -152,11 +158,25 @@ export function SettlementForm({
       setPlate(result.data.plate ?? "");
       setBilledAmount(String(result.data.total));
       setPaymentsReceived(String(result.data.amountPaid));
-      setLookupMessage(
-        result.data.isSubleased
-          ? "Contrato subarrendado cargado. Indique cuánto es suyo y cuánto del proveedor."
-          : "Contrato cargado para la liquidación.",
+      const matchedVendorId = matchVendorIdByName(
+        result.data.subleasePayeeName,
+        vendors,
       );
+      if (matchedVendorId) setVendorId(matchedVendorId);
+      const matchedVendor = vendors.find((vendor) => vendor.id === matchedVendorId);
+      if (result.data.isSubleased && matchedVendor) {
+        setLookupMessage(
+          `Contrato subarrendado cargado. Proveedor seleccionado: ${matchedVendor.name}. El total cobrado ya incluye el IVA del contrato. Indique la parte del proveedor.`,
+        );
+      } else if (result.data.isSubleased && result.data.subleasePayeeName) {
+        setLookupMessage(
+          `Contrato subarrendado cargado. ${result.data.subleasePayeeName} no está en Proveedores: agréguelo para que el cargo quede a su nombre. El total cobrado ya incluye el IVA del contrato.`,
+        );
+      } else {
+        setLookupMessage(
+          "Contrato cargado. El total cobrado ya incluye el IVA si el contrato lo tiene.",
+        );
+      }
     });
   }
 
@@ -274,7 +294,8 @@ export function SettlementForm({
         <Select
           name="vendorId"
           label="Proveedor / tercero"
-          defaultValue={settlement?.vendor_id ?? ""}
+          value={vendorId}
+          onChange={(event) => setVendorId(event.target.value)}
           options={[
             { value: "", label: "Sin proveedor" },
             ...vendors.map((vendor) => ({
@@ -294,8 +315,8 @@ export function SettlementForm({
               {contract?.subleasePayeeName ||
                 initialContract?.subleasePayeeName}
             </strong>
-            . Del total cobrado, indique cuánto le corresponde a usted y cuánto
-            al proveedor.
+            . El total cobrado ya trae el IVA del contrato. Indique la parte
+            del proveedor. Su ganancia queda en el recuadro de abajo.
           </p>
         ) : null}
         <Input
@@ -310,7 +331,7 @@ export function SettlementForm({
         />
         <Input
           name="oldesCost"
-          label="Parte OLDES / mía (USD)"
+          label="Costo extra OLDES (USD)"
           type="number"
           min="0"
           step="0.01"
@@ -337,7 +358,7 @@ export function SettlementForm({
         />
         <Input
           name="taxAmount"
-          label="Impuestos"
+          label="Impuestos extra (USD)"
           type="number"
           min="0"
           step="0.01"
@@ -361,8 +382,9 @@ export function SettlementForm({
             {formatMoney(ownProfit)}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Facturado − parte OLDES − parte proveedor − comisión − impuestos −
-            extras.
+            Cobrado − costo extra OLDES − parte del proveedor − comisión −
+            impuestos extra − otros extras. El IVA del contrato ya está dentro
+            del cobrado. Costo extra OLDES puede quedar en cero.
           </p>
         </div>
       </div>

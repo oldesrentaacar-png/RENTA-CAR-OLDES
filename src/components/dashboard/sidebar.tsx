@@ -42,7 +42,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg transition-[width] duration-200 md:flex",
+        "hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg transition-[width] duration-200 md:flex print:hidden",
         collapsed ? "w-[4.5rem]" : "w-64",
         className,
       )}

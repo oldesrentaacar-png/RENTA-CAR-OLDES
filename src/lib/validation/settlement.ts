@@ -109,7 +109,7 @@ export const vendorLedgerEntrySchema = z.object({
     "El monto debe ser mayor a cero.",
   ),
   entryDate: dateYmd,
-  concept: z.string().trim().min(1, "Concepto requerido.").max(200),
+  concept: z.string().trim().min(1, "Concepto requerido.").max(400),
   settlementId: optionalUuid(),
   contractId: optionalUuid(),
   notes: optionalText(1000),

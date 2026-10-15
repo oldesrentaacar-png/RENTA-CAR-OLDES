@@ -14,6 +14,7 @@ import {
   vendorSchema,
   vendorUpdateSchema,
 } from "@/lib/validation/settlement";
+import { buildVendorRentalConcept, formatRentalDate } from "@/lib/finance/vendor-rental";
 import type { Vendor, VendorLedgerEntry } from "@/types/database";
 
 export type VendorSummary = Vendor & {
@@ -22,9 +23,68 @@ export type VendorSummary = Vendor & {
   balanceOwed: number;
 };
 
-export type VendorDetail = VendorSummary & {
-  ledger: VendorLedgerEntry[];
+export type VendorLedgerLine = VendorLedgerEntry & {
+  contractCode: string | null;
+  vehicleLabel: string | null;
+  plate: string | null;
+  rentalDays: number | null;
+  startAt: string | null;
+  endAt: string | null;
+  periodLabel: string | null;
 };
+
+export type VendorDetail = VendorSummary & {
+  ledger: VendorLedgerLine[];
+};
+
+type SettlementEmbed = {
+  contract_code: string | null;
+  vehicle_label: string | null;
+  plate: string | null;
+  rental_days: number | null;
+  start_at: string | null;
+  end_at: string | null;
+};
+
+function firstSettlement(
+  value: SettlementEmbed | SettlementEmbed[] | null | undefined,
+): SettlementEmbed | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+function mapLedgerLine(
+  row: VendorLedgerEntry & {
+    monthly_settlements?: SettlementEmbed | SettlementEmbed[] | null;
+  },
+): VendorLedgerLine {
+  const settlement = firstSettlement(row.monthly_settlements);
+  const startAt = settlement?.start_at ?? null;
+  const endAt = settlement?.end_at ?? null;
+  const start = formatRentalDate(startAt);
+  const end = formatRentalDate(endAt);
+  const { monthly_settlements: _settlement, ...entry } = row;
+  return {
+    ...entry,
+    contractCode: settlement?.contract_code ?? null,
+    vehicleLabel: settlement?.vehicle_label ?? null,
+    plate: settlement?.plate ?? null,
+    rentalDays: settlement?.rental_days ?? null,
+    startAt,
+    endAt,
+    periodLabel: start && end ? `${start} – ${end}` : start ?? end,
+    concept:
+      entry.concept ||
+      buildVendorRentalConcept({
+        contractCode: settlement?.contract_code,
+        vehicleLabel: settlement?.vehicle_label,
+        plate: settlement?.plate,
+        rentalDays: settlement?.rental_days,
+        startAt,
+        endAt,
+      }),
+  };
+}
 
 function parseVendorForm(formData: FormData) {
   return {
@@ -144,7 +204,9 @@ export async function getVendor(id: string): Promise<ActionResult<VendorDetail>>
         .maybeSingle(),
       supabase
         .from("vendor_ledger_entries")
-        .select("*")
+        .select(
+          "*, monthly_settlements(contract_code, vehicle_label, plate, rental_days, start_at, end_at)",
+        )
         .eq("vendor_id", id)
         .is("deleted_at", null)
         .order("entry_date", { ascending: false }),
@@ -155,7 +217,11 @@ export async function getVendor(id: string): Promise<ActionResult<VendorDetail>>
     if (!vendorRes.data) return actionError("Proveedor no encontrado.");
 
     const vendor = vendorRes.data as Vendor;
-    const ledger = (ledgerRes.data ?? []) as VendorLedgerEntry[];
+    const ledger = ((ledgerRes.data ?? []) as Array<
+      VendorLedgerEntry & {
+        monthly_settlements?: SettlementEmbed | SettlementEmbed[] | null;
+      }
+    >).map(mapLedgerLine);
     return actionSuccess({ ...summarizeVendor(vendor, ledger), ledger });
   } catch (error) {
     return actionError(toUserMessage(error));

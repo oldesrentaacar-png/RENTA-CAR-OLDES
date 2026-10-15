@@ -6,6 +6,7 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/typ
 import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
 import { rentalDaysBetween } from "@/lib/dates";
+import { buildVendorRentalConcept } from "@/lib/finance/vendor-rental";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { toNumber } from "@/lib/money";
@@ -374,22 +375,16 @@ export async function createMonthlySettlement(
     if (error) throw mapPostgresError(error);
     const id = (data as { id: string }).id;
 
-    if (parsed.data.providerCost > 0 && parsed.data.vendorId) {
-      const { error: ledgerError } = await supabase
-        .from("vendor_ledger_entries")
-        .insert({
-          vendor_id: parsed.data.vendorId,
-          kind: "CHARGE",
-          amount: parsed.data.providerCost,
-          entry_date: parsed.data.periodMonth,
-          concept: `Cargo por liquidación ${parsed.data.contractCode ?? id}`,
-          settlement_id: id,
-          contract_id: parsed.data.contractId ?? null,
-          notes: parsed.data.notes ?? null,
-          created_by: user.id,
-        });
-      if (ledgerError) throw mapPostgresError(ledgerError);
-    }
+    await syncVendorSettlementCharge(supabase, {
+      userId: user.id,
+      settlementId: id,
+      vendorId: parsed.data.vendorId ?? null,
+      providerCost: parsed.data.providerCost,
+      entryDate: parsed.data.periodMonth,
+      concept: vendorChargeConcept(parsed.data),
+      contractId: parsed.data.contractId ?? null,
+      notes: parsed.data.notes ?? null,
+    });
 
     await writeAuditLog({
       userId: user.id,
@@ -428,13 +423,39 @@ export async function updateMonthlySettlement(
     }
 
     const supabase = await createClient();
+    let vendorName: string | null = null;
+    if (parsed.data.vendorId) {
+      const { data: vendor, error: vendorError } = await supabase
+        .from("vendors")
+        .select("name")
+        .eq("id", parsed.data.vendorId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (vendorError) throw mapPostgresError(vendorError);
+      vendorName = (vendor as { name: string } | null)?.name ?? null;
+    }
+
     const { error } = await supabase
       .from("monthly_settlements")
-      .update(settlementInputToRow(parsed.data))
+      .update({
+        ...settlementInputToRow(parsed.data),
+        vendor_name: vendorName,
+      })
       .eq("id", id)
       .is("deleted_at", null);
 
     if (error) throw mapPostgresError(error);
+
+    await syncVendorSettlementCharge(supabase, {
+      userId: user.id,
+      settlementId: id,
+      vendorId: parsed.data.vendorId ?? null,
+      providerCost: parsed.data.providerCost,
+      entryDate: parsed.data.periodMonth,
+      concept: vendorChargeConcept(parsed.data),
+      contractId: parsed.data.contractId ?? null,
+      notes: parsed.data.notes ?? null,
+    });
 
     await writeAuditLog({
       userId: user.id,
@@ -444,10 +465,101 @@ export async function updateMonthlySettlement(
     });
 
     revalidatePath("/dashboard/liquidacion");
+    revalidatePath("/dashboard/proveedores");
     revalidatePath("/dashboard/balance");
     return actionSuccess({ id });
   } catch (error) {
     return actionError(toUserMessage(error));
+  }
+}
+
+function vendorChargeConcept(input: {
+  contractCode?: string | null;
+  vehicleLabel?: string | null;
+  plate?: string | null;
+  rentalDays?: number | null;
+  startAt?: string | null;
+  endAt?: string | null;
+}): string {
+  return (
+    buildVendorRentalConcept(input) || "Cargo por liquidación"
+  );
+}
+
+async function syncVendorSettlementCharge(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: {
+    userId: string;
+    settlementId: string;
+    vendorId: string | null;
+    providerCost: number;
+    entryDate: string;
+    concept: string;
+    contractId: string | null;
+    notes: string | null;
+  },
+): Promise<void> {
+  const { data: existing, error: existingError } = await supabase
+    .from("vendor_ledger_entries")
+    .select("id")
+    .eq("settlement_id", input.settlementId)
+    .eq("kind", "CHARGE")
+    .is("deleted_at", null);
+  if (existingError) throw mapPostgresError(existingError);
+
+  const rows = (existing ?? []) as Array<{ id: string }>;
+  const now = new Date().toISOString();
+
+  if (!input.vendorId || input.providerCost <= 0) {
+    if (rows.length === 0) return;
+    const { error } = await supabase
+      .from("vendor_ledger_entries")
+      .update({ deleted_at: now })
+      .in(
+        "id",
+        rows.map((row) => row.id),
+      );
+    if (error) throw mapPostgresError(error);
+    return;
+  }
+
+  const payload = {
+    vendor_id: input.vendorId,
+    amount: input.providerCost,
+    entry_date: input.entryDate,
+    concept: input.concept,
+    contract_id: input.contractId,
+    notes: input.notes,
+    updated_at: now,
+  };
+
+  if (rows.length === 0) {
+    const { error } = await supabase.from("vendor_ledger_entries").insert({
+      ...payload,
+      kind: "CHARGE",
+      settlement_id: input.settlementId,
+      created_by: input.userId,
+    });
+    if (error) throw mapPostgresError(error);
+    return;
+  }
+
+  const [keep, ...duplicates] = rows;
+  const { error: updateError } = await supabase
+    .from("vendor_ledger_entries")
+    .update(payload)
+    .eq("id", keep.id);
+  if (updateError) throw mapPostgresError(updateError);
+
+  if (duplicates.length > 0) {
+    const { error } = await supabase
+      .from("vendor_ledger_entries")
+      .update({ deleted_at: now })
+      .in(
+        "id",
+        duplicates.map((row) => row.id),
+      );
+    if (error) throw mapPostgresError(error);
   }
 }
 
@@ -468,6 +580,14 @@ export async function deleteMonthlySettlement(
       .is("deleted_at", null);
 
     if (error) throw mapPostgresError(error);
+
+    const { error: ledgerError } = await supabase
+      .from("vendor_ledger_entries")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("settlement_id", id)
+      .eq("kind", "CHARGE")
+      .is("deleted_at", null);
+    if (ledgerError) throw mapPostgresError(ledgerError);
 
     await writeAuditLog({
       userId: user.id,
