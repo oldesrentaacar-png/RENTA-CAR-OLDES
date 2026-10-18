@@ -9,8 +9,12 @@ import { rentalDaysBetween } from "@/lib/dates";
 import { buildVendorRentalConcept } from "@/lib/finance/vendor-rental";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
-import { toNumber } from "@/lib/money";
 import { asNumber } from "@/lib/safe-number";
+import { appYearMonth } from "@/lib/dates";
+import {
+  settlementOwnProfit,
+  summarizeSettlementParts,
+} from "@/lib/calculations/settlement-balance";
 import { createClient } from "@/lib/supabase/server";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { firstRelation } from "@/lib/validation/form-helpers";
@@ -48,7 +52,7 @@ export type ContractLookupResult = {
 };
 
 function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return appYearMonth();
 }
 
 function parseSettlementForm(formData: FormData) {
@@ -77,14 +81,14 @@ function parseSettlementForm(formData: FormData) {
 }
 
 function settlementInputToRow(input: ReturnType<typeof settlementSchema.parse>) {
-  const ownProfit = toNumber(
-    input.billedAmount -
-      input.oldesCost -
-      input.providerCost -
-      input.commission -
-      input.taxAmount -
-      input.extraCosts,
-  );
+  const ownProfit = settlementOwnProfit({
+    billedAmount: input.billedAmount,
+    providerCost: input.providerCost,
+    oldesCost: input.oldesCost,
+    commission: input.commission,
+    taxAmount: input.taxAmount,
+    extraCosts: input.extraCosts,
+  });
 
   return {
     period_month: input.periodMonth,
@@ -184,15 +188,25 @@ export async function listMonthlySettlements(
     if (error) throw mapPostgresError(error);
 
     const items = (data ?? []) as MonthlySettlement[];
-    const totals = items.reduce(
-      (acc, item) => ({
-        billedAmount: acc.billedAmount + asNumber(item.billed_amount, 0),
-        providerCost: acc.providerCost + asNumber(item.provider_cost, 0),
-        extraCosts: acc.extraCosts + asNumber(item.extra_costs, 0),
-        ownProfit: acc.ownProfit + asNumber(item.own_profit, 0),
-      }),
-      { billedAmount: 0, providerCost: 0, extraCosts: 0, ownProfit: 0 },
+    const balance = summarizeSettlementParts(
+      items.map((item) => ({
+        billedAmount: item.billed_amount,
+        providerCost: item.provider_cost,
+        oldesCost: item.oldes_cost,
+        commission: item.commission,
+        taxAmount: item.tax_amount,
+        extraCosts: item.extra_costs,
+      })),
     );
+    const totals = {
+      billedAmount: balance.billedAmount,
+      providerCost: balance.providerCost,
+      extraCosts: items.reduce(
+        (sum, item) => sum + asNumber(item.extra_costs, 0),
+        0,
+      ),
+      ownProfit: balance.settlementProfit,
+    };
 
     return actionSuccess({ items, totals, month });
   } catch (error) {

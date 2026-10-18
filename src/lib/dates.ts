@@ -124,8 +124,13 @@ export function formatRelativeAppDate(date: Date | string): string {
 }
 
 /** Today's calendar date (YYYY-MM-DD) in America/El_Salvador. */
-export function appTodayDateString(): string {
-  return formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");
+export function appTodayDateString(date = new Date()): string {
+  return formatInTimeZone(date, APP_TIMEZONE, "yyyy-MM-dd");
+}
+
+/** Calendar month YYYY-MM in America/El_Salvador, not UTC. */
+export function appYearMonth(date = new Date()): string {
+  return formatInTimeZone(date, APP_TIMEZONE, "yyyy-MM");
 }
 
 /**

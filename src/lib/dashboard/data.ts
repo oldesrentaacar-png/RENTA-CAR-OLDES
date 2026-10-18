@@ -2,10 +2,12 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import {
   getMonthBounds,
-  sumRealIncome,
   type ExpenseRow,
-  type IncomeRow,
 } from "@/lib/calculations/profitability";
+import {
+  netAfterOperatingCosts,
+  summarizeSettlementParts,
+} from "@/lib/calculations/settlement-balance";
 import { formatAppTime, getAppDayBounds } from "@/lib/dates";
 
 export type FetchListResult<T> = {
@@ -64,6 +66,7 @@ export type DashboardMetrics = {
   totalCustomers: number;
   monthlyIncome: number;
   monthlyExpenses: number;
+  monthlyNet: number;
   activeAlerts: number;
   vehiclesByStatus: { status: string; count: number }[];
   requestsByStatus: { status: string; count: number }[];
@@ -232,6 +235,7 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
     totalCustomers: 0,
     monthlyIncome: 0,
     monthlyExpenses: 0,
+    monthlyNet: 0,
     activeAlerts: 0,
     vehiclesByStatus: [],
     requestsByStatus: [],
@@ -250,8 +254,9 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
       reservationsRes,
       vehiclesRes,
       customersRes,
-      incomeRes,
       expenseRes,
+      maintenanceRes,
+      settlementsRes,
       allVehiclesRes,
       allRequestsRes,
       alertsRes,
@@ -274,17 +279,25 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
         .select("id", { count: "exact", head: true })
         .eq("is_active", true),
       supabase
-        .from("income_transactions")
-        .select("type, amount, deposit_status, vehicle_id, transaction_date")
-        .is("deleted_at", null)
-        .gte("transaction_date", from)
-        .lte("transaction_date", to),
-      supabase
         .from("expense_transactions")
-        .select("amount, vehicle_id, expense_date")
+        .select("amount, expense_date")
         .is("deleted_at", null)
         .gte("expense_date", from)
         .lte("expense_date", to),
+      supabase
+        .from("maintenance_records")
+        .select("cost")
+        .is("deleted_at", null)
+        .gte("maintenance_date", from)
+        .lte("maintenance_date", to),
+      supabase
+        .from("monthly_settlements")
+        .select(
+          "billed_amount, provider_cost, oldes_cost, commission, tax_amount, extra_costs, period_month",
+        )
+        .is("deleted_at", null)
+        .gte("period_month", from)
+        .lte("period_month", to),
       supabase.from("vehicles").select("status").eq("is_active", true),
       supabase.from("web_requests").select("status"),
       supabase
@@ -297,7 +310,13 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
       requestsRes.error ??
       reservationsRes.error ??
       vehiclesRes.error ??
-      customersRes.error;
+      customersRes.error ??
+      expenseRes.error ??
+      maintenanceRes.error ??
+      settlementsRes.error ??
+      allVehiclesRes.error ??
+      allRequestsRes.error ??
+      alertsRes.error;
 
     if (firstError) {
       return { ...empty, configured: true, error: firstError.message };
@@ -314,8 +333,31 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
       return [...map.entries()].map(([status, count]) => ({ status, count }));
     };
 
-    const incomeRows = (incomeRes.data ?? []) as IncomeRow[];
     const expenseRows = (expenseRes.data ?? []) as ExpenseRow[];
+    const maintenanceCost = (
+      (maintenanceRes.data ?? []) as Array<{ cost: number }>
+    ).reduce((sum, row) => sum + Number(row.cost ?? 0), 0);
+    const monthBalance = summarizeSettlementParts(
+      (
+        (settlementsRes.data ?? []) as Array<{
+          billed_amount: number;
+          provider_cost: number;
+          oldes_cost: number;
+          commission: number;
+          tax_amount: number;
+          extra_costs: number;
+        }>
+      ).map((row) => ({
+        billedAmount: row.billed_amount,
+        providerCost: row.provider_cost,
+        oldesCost: row.oldes_cost,
+        commission: row.commission,
+        taxAmount: row.tax_amount,
+        extraCosts: row.extra_costs,
+      })),
+    );
+    const monthlyExpenses =
+      expenseRows.reduce((sum, row) => sum + row.amount, 0) + maintenanceCost;
 
     return {
       configured: true,
@@ -324,8 +366,12 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
       activeReservations: reservationsRes.count ?? 0,
       availableVehicles: vehiclesRes.count ?? 0,
       totalCustomers: customersRes.count ?? 0,
-      monthlyIncome: sumRealIncome(incomeRows),
-      monthlyExpenses: expenseRows.reduce((sum, row) => sum + row.amount, 0),
+      monthlyIncome: monthBalance.billedAmount,
+      monthlyExpenses,
+      monthlyNet: netAfterOperatingCosts(
+        monthBalance.settlementProfit,
+        monthlyExpenses,
+      ),
       activeAlerts: alertsRes.count ?? 0,
       vehiclesByStatus: countBy(vehicleRows),
       requestsByStatus: countBy(requestRows),

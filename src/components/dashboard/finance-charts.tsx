@@ -68,7 +68,7 @@ export function FinanceCharts({ chartData }: FinanceChartsProps) {
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Ingresos vs gastos (línea)</CardTitle>
+          <CardTitle className="text-base">Caja: ingresos vs gastos (línea)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={280}>
@@ -101,7 +101,7 @@ export function FinanceCharts({ chartData }: FinanceChartsProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Ingresos vs gastos (barras)</CardTitle>
+          <CardTitle className="text-base">Caja: ingresos vs gastos (barras)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={280}>

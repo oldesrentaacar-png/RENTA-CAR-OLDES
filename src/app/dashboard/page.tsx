@@ -503,16 +503,16 @@ export default async function DashboardPage() {
         <PermissionGuard permission="finance.view">
           <div className="grid gap-4 sm:grid-cols-2">
             <MetricCard
-              title="Ingresos del mes"
+              title="Facturado del mes"
               value={formatMoney(metrics.monthlyIncome)}
               icon={DollarSign}
-              subtitle="Utilidad real (depósitos reembolsables excluidos)"
+              subtitle="Liquidaciones. Ganancia = facturado − proveedor − otros costos."
             />
             <MetricCard
-              title="Gastos del mes"
-              value={formatMoney(metrics.monthlyExpenses)}
+              title="Ganancia neta del mes"
+              value={formatMoney(metrics.monthlyNet)}
               icon={DollarSign}
-              subtitle="Transacciones registradas este mes"
+              subtitle="Esa ganancia menos gastos y mantenimiento."
             />
           </div>
         </PermissionGuard>

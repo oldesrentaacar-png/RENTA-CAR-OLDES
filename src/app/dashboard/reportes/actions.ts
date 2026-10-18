@@ -7,9 +7,9 @@ import {
   countsAsRealIncome,
   filterExpenseByDateRange,
   filterIncomeByDateRange,
+  fleetOccupancyPercent,
   isOwnFleet,
   rankVehiclesByProfitability,
-  sumRealIncome,
   summarizeOwnFleetMovement,
   type ExpenseRow,
   type IncomeRow,
@@ -19,6 +19,11 @@ import {
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { asNumber } from "@/lib/safe-number";
+import {
+  netAfterOperatingCosts,
+  settlementOwnProfit,
+  summarizeSettlementParts,
+} from "@/lib/calculations/settlement-balance";
 import { createClient } from "@/lib/supabase/server";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { reportFiltersSchema } from "@/lib/validation/finance";
@@ -145,7 +150,7 @@ export async function fetchReportData(
         supabase
           .from("monthly_settlements")
           .select(
-            "vehicle_id, vehicle_label, plate, rental_days, billed_amount, provider_cost, own_profit, period_month, vendor_name",
+            "vehicle_id, vehicle_label, plate, rental_days, billed_amount, provider_cost, oldes_cost, commission, tax_amount, extra_costs, own_profit, period_month, vendor_name",
           )
           .is("deleted_at", null),
       ]);
@@ -236,7 +241,6 @@ export async function fetchReportData(
       ...filteredMaintenanceExpenses,
     ];
 
-    const totalRealIncome = sumRealIncome(filteredIncome);
     const totalExpenses = filteredExpenses.reduce(
       (sum, row) => sum + row.amount,
       0,
@@ -251,12 +255,12 @@ export async function fetchReportData(
         ? vehicles.filter((vehicle) => isOwnFleet(vehicle.ownership_type))
         : vehicles
     );
-    const fleetIds = new Set(totalFleet.map((vehicle) => vehicle.id));
-    const occupiedNow = reservations.filter(
-      (row) => row.status === "ACTIVE" && fleetIds.has(row.vehicle_id),
-    ).length;
-    const occupancyRate = Math.round(
-      (occupiedNow / (totalFleet.length || 1)) * 100,
+    const fleetIds = totalFleet.map((vehicle) => vehicle.id);
+    const occupancyRate = fleetOccupancyPercent(
+      fleetIds,
+      reservationRows,
+      filters.from,
+      filters.to,
     );
 
     const maintenanceCost = filteredMaintenanceExpenses.reduce(
@@ -288,7 +292,10 @@ export async function fetchReportData(
         rental_days: number | null;
         billed_amount: number;
         provider_cost: number;
-        own_profit: number;
+        oldes_cost: number;
+        commission: number;
+        tax_amount: number;
+        extra_costs: number;
         period_month: string;
         vendor_name: string | null;
       }>
@@ -351,7 +358,14 @@ export async function fetchReportData(
       current.rentalDays += asNumber(row.rental_days, 0);
       current.subleaseTotal += asNumber(row.provider_cost, 0);
       current.realIncome += asNumber(row.billed_amount, 0);
-      current.netRealUtility += asNumber(row.own_profit, 0);
+      current.netRealUtility += settlementOwnProfit({
+        billedAmount: row.billed_amount,
+        providerCost: row.provider_cost,
+        oldesCost: row.oldes_cost,
+        commission: row.commission,
+        taxAmount: row.tax_amount,
+        extraCosts: row.extra_costs,
+      });
       if (current.rentalDays > 0) {
         current.dailyCost = current.subleaseTotal / current.rentalDays;
       }
@@ -374,6 +388,17 @@ export async function fetchReportData(
       filters.to,
     );
 
+    const monthBalance = summarizeSettlementParts(
+      settlements.map((row) => ({
+        billedAmount: row.billed_amount,
+        providerCost: row.provider_cost,
+        oldesCost: row.oldes_cost,
+        commission: row.commission,
+        taxAmount: row.tax_amount,
+        extraCosts: row.extra_costs,
+      })),
+    );
+
     return actionSuccess({
       incomes,
       expenses,
@@ -381,10 +406,12 @@ export async function fetchReportData(
       maintenance,
       vehicles: vehicles.map(({ id, label }) => ({ id, label })),
       summary: {
-        totalRealIncome,
+        totalRealIncome: monthBalance.billedAmount,
         totalExpenses,
-        /** Utilidad neta descontando costo a proveedores de subarrendo (evita ganancias ficticias). */
-        netUtility: totalRealIncome - totalExpenses - totalSubleaseCost,
+        netUtility: netAfterOperatingCosts(
+          monthBalance.settlementProfit,
+          totalExpenses,
+        ),
         subleaseProviderCost: totalSubleaseCost,
         depositMetrics: computeDepositMetrics(filteredIncome),
         reservationCount: reservations.length,
@@ -465,7 +492,9 @@ export async function fetchFinanceSummary(
           .in("status", ["ACTIVE", "COMPLETED"]),
         supabase
           .from("monthly_settlements")
-          .select("provider_cost, period_month, vehicle_id")
+          .select(
+            "billed_amount, provider_cost, oldes_cost, commission, tax_amount, extra_costs, period_month, vehicle_id",
+          )
           .is("deleted_at", null),
       ]);
 
@@ -518,9 +547,14 @@ export async function fetchFinanceSummary(
       to,
     );
 
-    const providerRows = (
+    const settlementRows = (
       (settlementsRes.data ?? []) as Array<{
+        billed_amount: number;
         provider_cost: number;
+        oldes_cost: number;
+        commission: number;
+        tax_amount: number;
+        extra_costs: number;
         period_month: string;
         vehicle_id: string | null;
       }>
@@ -528,15 +562,25 @@ export async function fetchFinanceSummary(
       const period = String(row.period_month).slice(0, 10);
       if (from && period < from) return false;
       if (to && period > to) return false;
-      return asNumber(row.provider_cost, 0) > 0;
+      return true;
     });
     const providerVehicleIds = new Set(
-      providerRows
-        .map((row) => row.vehicle_id)
-        .filter((id): id is string => Boolean(id)),
+      settlementRows
+        .filter((row) => asNumber(row.provider_cost, 0) > 0 && row.vehicle_id)
+        .map((row) => row.vehicle_id as string),
     );
-    const providerCost = providerRows.reduce(
-      (sum, row) => sum + asNumber(row.provider_cost, 0),
+    const monthBalance = summarizeSettlementParts(
+      settlementRows.map((row) => ({
+        billedAmount: row.billed_amount,
+        providerCost: row.provider_cost,
+        oldesCost: row.oldes_cost,
+        commission: row.commission,
+        taxAmount: row.tax_amount,
+        extraCosts: row.extra_costs,
+      })),
+    );
+    const operatingExpenses = allExpenseRows.reduce(
+      (sum, row) => sum + row.amount,
       0,
     );
     const ownRanking = ranking.filter((row) => {
@@ -547,9 +591,8 @@ export async function fetchFinanceSummary(
       );
     });
 
-    const monthIncome = sumRealIncome(incomeRows);
-    const monthExpenses =
-      allExpenseRows.reduce((sum, row) => sum + row.amount, 0) + providerCost;
+    const monthIncome = monthBalance.billedAmount;
+    const monthExpenses = operatingExpenses;
 
     const chartMap = new Map<string, { income: number; expense: number }>();
     for (const row of incomeRows) {
@@ -564,12 +607,6 @@ export async function fetchFinanceSummary(
       entry.expense += row.amount;
       chartMap.set(key, entry);
     }
-    for (const row of providerRows) {
-      const key = String(row.period_month).slice(0, 10);
-      const entry = chartMap.get(key) ?? { income: 0, expense: 0 };
-      entry.expense += asNumber(row.provider_cost, 0);
-      chartMap.set(key, entry);
-    }
 
     const chartData = [...chartMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -578,7 +615,7 @@ export async function fetchFinanceSummary(
     return actionSuccess({
       monthIncome,
       monthExpenses,
-      net: monthIncome - monthExpenses,
+      net: netAfterOperatingCosts(monthBalance.settlementProfit, operatingExpenses),
       depositMetrics: computeDepositMetrics(incomeRows),
       topVehicle: ownRanking[0] ?? null,
       chartData,

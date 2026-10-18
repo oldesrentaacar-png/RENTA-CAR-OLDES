@@ -66,8 +66,8 @@ export function BalanceCharts({ data }: BalanceChartsProps) {
         <CardHeader>
           <CardTitle className="text-base">Composición del mes</CardTitle>
           <p className="text-xs text-muted">
-            Reparte la liquidación: su ganancia, lo que debe a proveedores
-            (pagado o no) y los otros costos.
+            Facturado = ganancia propia + costo a proveedores + otros costos.
+            El costo al proveedor entra aunque no esté pagado.
           </p>
         </CardHeader>
         <CardContent>

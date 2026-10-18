@@ -42,7 +42,7 @@ export default async function FinanzasPage() {
       <div className="space-y-6">
         <PageHeader
           title="Finanzas"
-          description="Resumen mensual de ingresos, gastos y utilidad. El costo a proveedores entra aunque no se haya pagado."
+          description="El facturado, los gastos y la ganancia neta salen de las liquidaciones del mes. La gráfica de abajo es el movimiento de caja, aparte de esa ganancia."
           actions={
             <div className="flex flex-wrap gap-2">
               <Link href="/dashboard/ingresos/nuevo">
@@ -71,19 +71,19 @@ export default async function FinanzasPage() {
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            title="Ingresos del mes"
+            title="Facturado del mes"
             value={formatMoney(summary.monthIncome)}
-            subtitle="Utilidad real (sin depósitos reembolsables)"
+            subtitle="Liquidaciones del mes. No incluye depósitos."
             icon={TrendingUp}
           />
           <MetricCard
             title="Gastos del mes"
             value={formatMoney(summary.monthExpenses)}
-            subtitle="Incluye lo que debe a proveedores, pagado o no"
+            subtitle="Gastos y mantenimiento. El proveedor ya salió de la ganancia."
             icon={TrendingDown}
           />
           <MetricCard
-            title="Utilidad neta"
+            title="Ganancia neta"
             value={formatMoney(summary.net)}
             icon={Wallet}
           />

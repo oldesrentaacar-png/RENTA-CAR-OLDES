@@ -9,9 +9,10 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { formatAppDate } from "@/lib/dates";
+import { appYearMonth, formatAppDate } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
+import { settlementOwnProfit } from "@/lib/calculations/settlement-balance";
 
 export default async function LiquidacionPage({
   searchParams,
@@ -34,7 +35,7 @@ export default async function LiquidacionPage({
     : { billedAmount: 0, providerCost: 0, extraCosts: 0, ownProfit: 0 };
   const month = result?.success
     ? result.data.month
-    : String(params.month ?? new Date().toISOString().slice(0, 7));
+    : String(params.month ?? appYearMonth());
   const error = result && !result.success ? result.error : null;
 
   return (
@@ -117,7 +118,17 @@ export default async function LiquidacionPage({
           {
             key: "profit",
             header: "Ganancia",
-            cell: (row) => formatMoney(row.own_profit),
+            cell: (row) =>
+              formatMoney(
+                settlementOwnProfit({
+                  billedAmount: row.billed_amount,
+                  providerCost: row.provider_cost,
+                  oldesCost: row.oldes_cost,
+                  commission: row.commission,
+                  taxAmount: row.tax_amount,
+                  extraCosts: row.extra_costs,
+                }),
+              ),
           },
           {
             key: "actions",

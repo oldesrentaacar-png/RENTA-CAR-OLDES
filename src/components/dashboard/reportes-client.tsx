@@ -129,13 +129,13 @@ export function ReportesClient({
 
   const summaryCards = useMemo(
     () => [
-      { title: "Ingresos reales", value: formatMoney(data.summary.totalRealIncome) },
-      { title: "Gastos", value: formatMoney(data.summary.totalExpenses) },
+      { title: "Facturado", value: formatMoney(data.summary.totalRealIncome) },
+      { title: "Gastos y mantenimiento", value: formatMoney(data.summary.totalExpenses) },
       {
         title: "Costo proveedores (subarrendo)",
         value: formatMoney(data.summary.subleaseProviderCost ?? 0),
       },
-      { title: "Utilidad neta real", value: formatMoney(data.summary.netUtility) },
+      { title: "Ganancia neta", value: formatMoney(data.summary.netUtility) },
       { title: "Reservas", value: String(data.summary.reservationCount) },
       {
         title: data.summary.ownFleetOnly

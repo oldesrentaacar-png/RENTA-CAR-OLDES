@@ -1,3 +1,6 @@
+import { fromZonedTime } from "date-fns-tz";
+
+import { APP_TIMEZONE, appYearMonth } from "@/lib/dates";
 import type { DepositStatus, IncomeType } from "@/types/database";
 
 export type IncomeRow = {
@@ -144,47 +147,76 @@ export function computeDepositMetrics(rows: IncomeRow[]): DepositMetrics {
   };
 }
 
-function overlapDays(
-  startA: Date,
-  endA: Date,
-  startB: Date,
-  endB: Date,
-): number {
-  const start = Math.max(startA.getTime(), startB.getTime());
-  const end = Math.min(endA.getTime(), endB.getTime());
-  if (end <= start) return 0;
-  return Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+function nextCalendarDate(ymd: string): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
 }
 
+function appDayStartMs(ymd: string): number {
+  return fromZonedTime(`${ymd}T00:00:00`, APP_TIMEZONE).getTime();
+}
+
+/** Días ocupados de un vehículo. Intervalos que se pisan se cuentan una sola vez. */
 export function countRentalDays(
   reservations: ProfitabilityReservationRow[],
   vehicleId: string,
   from?: string,
   to?: string,
 ): number {
-  const rangeStart = from ? new Date(`${from}T00:00:00`) : null;
-  const rangeEnd = to ? new Date(`${to}T23:59:59`) : null;
+  const rangeStart = from ? appDayStartMs(from) : null;
+  const rangeEnd = to ? appDayStartMs(nextCalendarDate(to)) : null;
+  const intervals: Array<[number, number]> = [];
 
-  return reservations
-    .filter(
-      (row) =>
-        row.vehicle_id === vehicleId &&
-        (row.status === "ACTIVE" || row.status === "COMPLETED"),
-    )
-    .reduce((total, row) => {
-      const start = new Date(row.start_at);
-      const end = new Date(row.end_at);
-      if (rangeStart && rangeEnd) {
-        return total + overlapDays(start, end, rangeStart, rangeEnd);
-      }
-      return (
-        total +
-        Math.max(
-          1,
-          Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)),
-        )
-      );
-    }, 0);
+  for (const row of reservations) {
+    if (row.vehicle_id !== vehicleId) continue;
+    if (row.status !== "ACTIVE" && row.status !== "COMPLETED") continue;
+    let start = new Date(row.start_at).getTime();
+    let end = new Date(row.end_at).getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    if (rangeStart != null && rangeEnd != null) {
+      start = Math.max(start, rangeStart);
+      end = Math.min(end, rangeEnd);
+      if (end <= start) continue;
+    }
+    intervals.push([start, end]);
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+  let totalMs = 0;
+  let blockStart = -1;
+  let blockEnd = -1;
+  for (const [start, end] of intervals) {
+    if (blockStart < 0) {
+      blockStart = start;
+      blockEnd = end;
+      continue;
+    }
+    if (start <= blockEnd) {
+      blockEnd = Math.max(blockEnd, end);
+      continue;
+    }
+    totalMs += blockEnd - blockStart;
+    blockStart = start;
+    blockEnd = end;
+  }
+  if (blockStart >= 0) totalMs += blockEnd - blockStart;
+  if (totalMs <= 0) return 0;
+  return Math.ceil(totalMs / 86_400_000);
+}
+
+export function fleetOccupancyPercent(
+  vehicleIds: string[],
+  reservations: ProfitabilityReservationRow[],
+  from?: string,
+  to?: string,
+): number {
+  if (vehicleIds.length === 0) return 0;
+  const rented = vehicleIds.reduce(
+    (sum, vehicleId) => sum + countRentalDays(reservations, vehicleId, from, to),
+    0,
+  );
+  const periodDays = inclusiveDayCount(from, to);
+  return Math.round((rented / (vehicleIds.length * periodDays)) * 100);
 }
 
 export function computeVehicleProfitability(
@@ -238,11 +270,12 @@ export function rankVehiclesByProfitability(
 }
 
 export function getMonthBounds(date = new Date()): { from: string; to: string } {
-  const from = new Date(date.getFullYear(), date.getMonth(), 1);
-  const to = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const month = appYearMonth(date);
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
   return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
+    from: `${month}-01`,
+    to: `${month}-${String(lastDay).padStart(2, "0")}`,
   };
 }
 

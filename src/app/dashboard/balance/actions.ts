@@ -6,8 +6,13 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
+import { appYearMonth } from "@/lib/dates";
+import {
+  netAfterOperatingCosts,
+  summarizeSettlementParts,
+} from "@/lib/calculations/settlement-balance";
 import { monthFilterSchema } from "@/lib/validation/settlement";
-import type { ExpenseTransaction, MonthlySettlement } from "@/types/database";
+import type { ExpenseTransaction } from "@/types/database";
 
 export type BalanceSummary = {
   month: string;
@@ -34,7 +39,7 @@ export type BalanceDashboardData = BalanceSummary & {
 };
 
 function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return appYearMonth();
 }
 
 function nextMonth(month: string): string {
@@ -66,11 +71,11 @@ async function summarizeMonth(
   const endExclusive = nextMonth(month);
   const supabase = await createClient();
 
-  const [settlementsRes, expensesRes] = await Promise.all([
+  const [settlementsRes, expensesRes, maintenanceRes] = await Promise.all([
     supabase
       .from("monthly_settlements")
       .select(
-        "billed_amount, own_profit, provider_cost, oldes_cost, commission, tax_amount, extra_costs",
+        "billed_amount, provider_cost, oldes_cost, commission, tax_amount, extra_costs",
       )
       .eq("period_month", start)
       .is("deleted_at", null),
@@ -80,47 +85,47 @@ async function summarizeMonth(
       .gte("expense_date", start)
       .lt("expense_date", endExclusive)
       .is("deleted_at", null),
+    supabase
+      .from("maintenance_records")
+      .select("cost, maintenance_date")
+      .gte("maintenance_date", start)
+      .lt("maintenance_date", endExclusive)
+      .is("deleted_at", null),
   ]);
 
-  const firstError = settlementsRes.error ?? expensesRes.error;
+  const firstError =
+    settlementsRes.error ?? expensesRes.error ?? maintenanceRes.error;
   if (firstError) throw mapPostgresError(firstError);
 
-  const settlements = (settlementsRes.data ?? []) as MonthlySettlement[];
-  const expenses = (expensesRes.data ?? []) as ExpenseTransaction[];
-
-  const billedAmount = settlements.reduce(
-    (sum, item) => sum + asNumber(item.billed_amount, 0),
-    0,
+  const rows = (settlementsRes.data ?? []) as Array<{
+    billed_amount: number;
+    provider_cost: number;
+    oldes_cost: number;
+    commission: number;
+    tax_amount: number;
+    extra_costs: number;
+  }>;
+  const balance = summarizeSettlementParts(
+    rows.map((item) => ({
+      billedAmount: item.billed_amount,
+      providerCost: item.provider_cost,
+      oldesCost: item.oldes_cost,
+      commission: item.commission,
+      taxAmount: item.tax_amount,
+      extraCosts: item.extra_costs,
+    })),
   );
-  const settlementProfit = settlements.reduce(
-    (sum, item) => sum + asNumber(item.own_profit, 0),
-    0,
-  );
-  const providerCost = settlements.reduce(
-    (sum, item) => sum + asNumber(item.provider_cost, 0),
-    0,
-  );
-  const otherSettlementCosts = settlements.reduce(
-    (sum, item) =>
-      sum +
-      asNumber(item.oldes_cost, 0) +
-      asNumber(item.commission, 0) +
-      asNumber(item.tax_amount, 0) +
-      asNumber(item.extra_costs, 0),
-    0,
-  );
-  const operatingExpenses = expenses.reduce(
-    (sum, item) => sum + asNumber(item.amount, 0),
+  const expenseRows = (expensesRes.data ?? []) as ExpenseTransaction[];
+  const maintenanceRows = (maintenanceRes.data ?? []) as Array<{ cost: number }>;
+  const operatingExpenses = [...expenseRows.map((item) => item.amount), ...maintenanceRows.map((item) => item.cost)].reduce(
+    (sum, amount) => sum + asNumber(amount, 0),
     0,
   );
 
   return {
-    billedAmount,
-    settlementProfit,
-    providerCost,
-    otherSettlementCosts,
+    ...balance,
     operatingExpenses,
-    realNetProfit: settlementProfit - operatingExpenses,
+    realNetProfit: netAfterOperatingCosts(balance.settlementProfit, operatingExpenses),
   };
 }
 
@@ -163,10 +168,9 @@ export async function getBalanceDashboard(
     );
 
     const composition = [
-      { name: "Ganancia propia", value: Math.max(0, summary.settlementProfit) },
-      { name: "Costo proveedores", value: Math.max(0, summary.providerCost) },
-      { name: "Otros costos", value: Math.max(0, summary.otherSettlementCosts) },
-      { name: "Gastos operativos", value: Math.max(0, summary.operatingExpenses) },
+      { name: "Ganancia propia", value: summary.settlementProfit },
+      { name: "Costo proveedores", value: summary.providerCost },
+      { name: "Otros costos", value: summary.otherSettlementCosts },
     ];
 
     const breakdown = [

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { matchVendorIdByName } from "@/lib/finance/vendor-rental";
+import { appYearMonth } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import type { MonthlySettlement, Vendor } from "@/types/database";
 
@@ -30,7 +31,7 @@ type SettlementFormProps = {
 };
 
 function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return appYearMonth();
 }
 
 function money(value: string): number {

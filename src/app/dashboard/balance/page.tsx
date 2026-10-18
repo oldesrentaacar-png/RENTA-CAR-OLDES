@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { isSupabaseConfigured } from "@/lib/env";
 import { toUserMessage } from "@/lib/errors";
+import { appYearMonth } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import type { BalanceDashboardData } from "@/app/dashboard/balance/actions";
 
@@ -41,7 +42,7 @@ export default async function BalancePage({
 
   const month =
     summary?.month ??
-    String(params.month ?? new Date().toISOString().slice(0, 7));
+    String(params.month ?? appYearMonth());
 
   return (
     <PermissionGuard permission="finance.view">
@@ -123,6 +124,7 @@ export default async function BalancePage({
               <MetricCard
                 title="Gastos operativos"
                 value={formatMoney(summary.operatingExpenses)}
+                subtitle="Gastos y mantenimiento"
                 icon={TrendingDown}
               />
               <MetricCard
