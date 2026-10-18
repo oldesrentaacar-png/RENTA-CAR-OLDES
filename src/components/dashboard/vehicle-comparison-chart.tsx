@@ -24,7 +24,7 @@ export function VehicleComparisonChart({
   title = "Comparación de vehículos (días rentados vs ingresos)",
 }: VehicleComparisonChartProps) {
   const chartData = [...data]
-    .sort((a, b) => b.realIncome - a.realIncome)
+    .sort((a, b) => b.rentalDays - a.rentalDays)
     .slice(0, 12)
     .map((row) => ({
       name: row.vehicleLabel.length > 18

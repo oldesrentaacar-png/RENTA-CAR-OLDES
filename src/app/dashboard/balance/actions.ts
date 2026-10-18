@@ -7,19 +7,15 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { asNumber } from "@/lib/safe-number";
 import { createClient } from "@/lib/supabase/server";
 import { monthFilterSchema } from "@/lib/validation/settlement";
-import type {
-  ExpenseTransaction,
-  MonthlySettlement,
-  PartnerRental,
-  VendorLedgerEntry,
-} from "@/types/database";
+import type { ExpenseTransaction, MonthlySettlement } from "@/types/database";
 
 export type BalanceSummary = {
   month: string;
   billedAmount: number;
   settlementProfit: number;
-  partnerProfit: number;
-  vendorPayments: number;
+  /** Costo al proveedor en la liquidación del mes, pagado o pendiente. */
+  providerCost: number;
+  otherSettlementCosts: number;
   operatingExpenses: number;
   realNetProfit: number;
 };
@@ -70,44 +66,26 @@ async function summarizeMonth(
   const endExclusive = nextMonth(month);
   const supabase = await createClient();
 
-  const [settlementsRes, partnersRes, paymentsRes, expensesRes] =
-    await Promise.all([
-      supabase
-        .from("monthly_settlements")
-        .select("billed_amount, own_profit")
-        .eq("period_month", start)
-        .is("deleted_at", null),
-      supabase
-        .from("partner_rentals")
-        .select("own_share, status, start_date")
-        .gte("start_date", start)
-        .lt("start_date", endExclusive)
-        .is("deleted_at", null),
-      supabase
-        .from("vendor_ledger_entries")
-        .select("amount, kind, entry_date")
-        .eq("kind", "PAYMENT")
-        .gte("entry_date", start)
-        .lt("entry_date", endExclusive)
-        .is("deleted_at", null),
-      supabase
-        .from("expense_transactions")
-        .select("amount, expense_date")
-        .gte("expense_date", start)
-        .lt("expense_date", endExclusive)
-        .is("deleted_at", null),
-    ]);
+  const [settlementsRes, expensesRes] = await Promise.all([
+    supabase
+      .from("monthly_settlements")
+      .select(
+        "billed_amount, own_profit, provider_cost, oldes_cost, commission, tax_amount, extra_costs",
+      )
+      .eq("period_month", start)
+      .is("deleted_at", null),
+    supabase
+      .from("expense_transactions")
+      .select("amount, expense_date")
+      .gte("expense_date", start)
+      .lt("expense_date", endExclusive)
+      .is("deleted_at", null),
+  ]);
 
-  const firstError =
-    settlementsRes.error ??
-    partnersRes.error ??
-    paymentsRes.error ??
-    expensesRes.error;
+  const firstError = settlementsRes.error ?? expensesRes.error;
   if (firstError) throw mapPostgresError(firstError);
 
   const settlements = (settlementsRes.data ?? []) as MonthlySettlement[];
-  const partners = (partnersRes.data ?? []) as PartnerRental[];
-  const payments = (paymentsRes.data ?? []) as VendorLedgerEntry[];
   const expenses = (expensesRes.data ?? []) as ExpenseTransaction[];
 
   const billedAmount = settlements.reduce(
@@ -118,11 +96,17 @@ async function summarizeMonth(
     (sum, item) => sum + asNumber(item.own_profit, 0),
     0,
   );
-  const partnerProfit = partners
-    .filter((item) => !["CANCELLED", "ANNULLED"].includes(item.status))
-    .reduce((sum, item) => sum + asNumber(item.own_share, 0), 0);
-  const vendorPayments = payments.reduce(
-    (sum, item) => sum + asNumber(item.amount, 0),
+  const providerCost = settlements.reduce(
+    (sum, item) => sum + asNumber(item.provider_cost, 0),
+    0,
+  );
+  const otherSettlementCosts = settlements.reduce(
+    (sum, item) =>
+      sum +
+      asNumber(item.oldes_cost, 0) +
+      asNumber(item.commission, 0) +
+      asNumber(item.tax_amount, 0) +
+      asNumber(item.extra_costs, 0),
     0,
   );
   const operatingExpenses = expenses.reduce(
@@ -133,11 +117,10 @@ async function summarizeMonth(
   return {
     billedAmount,
     settlementProfit,
-    partnerProfit,
-    vendorPayments,
+    providerCost,
+    otherSettlementCosts,
     operatingExpenses,
-    realNetProfit:
-      settlementProfit + partnerProfit - vendorPayments - operatingExpenses,
+    realNetProfit: settlementProfit - operatingExpenses,
   };
 }
 
@@ -180,23 +163,22 @@ export async function getBalanceDashboard(
     );
 
     const composition = [
-      { name: "Ganancia liquidación", value: Math.max(0, summary.settlementProfit) },
-      { name: "Ganancia socios", value: Math.max(0, summary.partnerProfit) },
-      { name: "Pagos proveedores", value: Math.max(0, summary.vendorPayments) },
+      { name: "Ganancia propia", value: Math.max(0, summary.settlementProfit) },
+      { name: "Costo proveedores", value: Math.max(0, summary.providerCost) },
+      { name: "Otros costos", value: Math.max(0, summary.otherSettlementCosts) },
       { name: "Gastos operativos", value: Math.max(0, summary.operatingExpenses) },
     ];
 
     const breakdown = [
       { name: "Facturado", value: summary.billedAmount, color: "#004A99" },
       {
-        name: "Liq. propia",
+        name: "Ganancia propia",
         value: summary.settlementProfit,
         color: "#16a34a",
       },
-      { name: "Socios", value: summary.partnerProfit, color: "#0284c7" },
       {
         name: "Proveedores",
-        value: summary.vendorPayments,
+        value: summary.providerCost,
         color: "#D32F2F",
       },
       {
@@ -211,8 +193,8 @@ export async function getBalanceDashboard(
       month: item.month,
       label: monthLabel(item.month),
       billed: item.billedAmount,
-      profit: item.settlementProfit + item.partnerProfit,
-      costs: item.vendorPayments + item.operatingExpenses,
+      profit: item.settlementProfit,
+      costs: item.providerCost + item.operatingExpenses,
       net: item.realNetProfit,
     }));
 

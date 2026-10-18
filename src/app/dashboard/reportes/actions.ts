@@ -7,8 +7,10 @@ import {
   countsAsRealIncome,
   filterExpenseByDateRange,
   filterIncomeByDateRange,
+  isOwnFleet,
   rankVehiclesByProfitability,
   sumRealIncome,
+  summarizeOwnFleetMovement,
   type ExpenseRow,
   type IncomeRow,
   type ProfitabilityReservationRow,
@@ -42,9 +44,13 @@ export type ReportData = {
     reservationCount: number;
     completedReservations: number;
     occupancyRate: number;
+    ownFleetOnly: boolean;
     maintenanceCost: number;
   };
-  profitability: ReturnType<typeof rankVehiclesByProfitability>;
+  profitability: VehicleProfitability[];
+  /** Días rentados de todos los vehículos, incluidos los de proveedores. */
+  movement: VehicleProfitability[];
+  typeMovement: ReturnType<typeof summarizeOwnFleetMovement>;
   subleaseReport: Array<{
     vehicleId: string;
     vehicleLabel: string;
@@ -73,6 +79,7 @@ export async function fetchReportData(
       vehicleId: params.vehicleId,
       category: params.category,
     });
+    const ownFleetOnly = params.ownFleet !== "0";
 
     const supabase = await createClient();
 
@@ -122,7 +129,7 @@ export async function fetchReportData(
       expenseQuery = expenseQuery.eq("category", filters.category);
     }
 
-    const [incomeRes, expenseRes, reservationRes, maintenanceRes, vehiclesRes] =
+    const [incomeRes, expenseRes, reservationRes, maintenanceRes, vehiclesRes, settlementsRes] =
       await Promise.all([
         incomeQuery,
         expenseQuery,
@@ -131,10 +138,16 @@ export async function fetchReportData(
         supabase
           .from("vehicles")
           .select(
-            "id, brand, model, plate, ownership_type, sublease_daily_cost, sublease_payee_name",
+            "id, brand, model, plate, category, ownership_type, sublease_daily_cost, sublease_payee_name",
           )
           .is("deleted_at", null)
           .eq("is_active", true),
+        supabase
+          .from("monthly_settlements")
+          .select(
+            "vehicle_id, vehicle_label, plate, rental_days, billed_amount, provider_cost, own_profit, period_month, vendor_name",
+          )
+          .is("deleted_at", null),
       ]);
 
     const firstError =
@@ -142,7 +155,8 @@ export async function fetchReportData(
       expenseRes.error ??
       reservationRes.error ??
       maintenanceRes.error ??
-      vehiclesRes.error;
+      vehiclesRes.error ??
+      settlementsRes.error;
     if (firstError) throw mapPostgresError(firstError);
 
     const incomes = (incomeRes.data ?? []) as IncomeTransaction[];
@@ -156,6 +170,7 @@ export async function fetchReportData(
         brand: string;
         model: string;
         plate: string;
+        category?: string | null;
         ownership_type?: string;
         sublease_daily_cost?: number | null;
         sublease_payee_name?: string | null;
@@ -163,6 +178,7 @@ export async function fetchReportData(
       return {
         id: v.id,
         label: formatVehicleLabel(v),
+        category: v.category ?? null,
         ownership_type: v.ownership_type,
         sublease_daily_cost: v.sublease_daily_cost,
         sublease_payee_name: v.sublease_payee_name,
@@ -230,9 +246,18 @@ export async function fetchReportData(
       (row) => row.status === "COMPLETED",
     ).length;
 
-    const totalFleet = vehicles.length || 1;
-    const occupiedNow = reservations.filter((row) => row.status === "ACTIVE").length;
-    const occupancyRate = Math.round((occupiedNow / totalFleet) * 100);
+    const totalFleet = (
+      ownFleetOnly
+        ? vehicles.filter((vehicle) => isOwnFleet(vehicle.ownership_type))
+        : vehicles
+    );
+    const fleetIds = new Set(totalFleet.map((vehicle) => vehicle.id));
+    const occupiedNow = reservations.filter(
+      (row) => row.status === "ACTIVE" && fleetIds.has(row.vehicle_id),
+    ).length;
+    const occupancyRate = Math.round(
+      (occupiedNow / (totalFleet.length || 1)) * 100,
+    );
 
     const maintenanceCost = filteredMaintenanceExpenses.reduce(
       (sum, row) => sum + row.amount,
@@ -248,36 +273,105 @@ export async function fetchReportData(
       reservationRows,
       filters.from,
       filters.to,
+    ).map((row) => ({
+      ...row,
+      ownershipType:
+        vehicles.find((vehicle) => vehicle.id === row.vehicleId)
+          ?.ownership_type ?? "OWN",
+    }));
+
+    const settlements = (
+      (settlementsRes.data ?? []) as Array<{
+        vehicle_id: string | null;
+        vehicle_label: string | null;
+        plate: string | null;
+        rental_days: number | null;
+        billed_amount: number;
+        provider_cost: number;
+        own_profit: number;
+        period_month: string;
+        vendor_name: string | null;
+      }>
+    ).filter((row) => {
+      const period = String(row.period_month).slice(0, 10);
+      if (filters.from && period < filters.from) return false;
+      if (filters.to && period > filters.to) return false;
+      if (filters.vehicleId && row.vehicle_id !== filters.vehicleId) return false;
+      return asNumber(row.provider_cost, 0) > 0 || asNumber(row.billed_amount, 0) > 0;
+    });
+
+    const providerVehicleIds = new Set(
+      settlements
+        .filter((row) => asNumber(row.provider_cost, 0) > 0 && row.vehicle_id)
+        .map((row) => row.vehicle_id as string),
+    );
+    const ownProfitability = profitability.filter(
+      (row) =>
+        isOwnFleet(row.ownershipType) && !providerVehicleIds.has(row.vehicleId),
     );
 
-    const subleaseReport = vehicles
-      .filter(
-        (vehicle) =>
-          vehicle.ownership_type === "SUBLEASED" &&
-          vehicle.sublease_daily_cost != null &&
-          vehicle.sublease_daily_cost > 0,
-      )
-      .map((vehicle) => {
-        const prof = profitability.find((row) => row.vehicleId === vehicle.id);
-        const rentalDays = prof?.rentalDays ?? 0;
-        const subleaseTotal =
-          rentalDays * asNumber(vehicle.sublease_daily_cost, 0);
-        const realIncome = prof?.realIncome ?? 0;
-        return {
-          vehicleId: vehicle.id,
-          vehicleLabel: vehicle.label,
-          payeeName: vehicle.sublease_payee_name ?? "—",
-          dailyCost: asNumber(vehicle.sublease_daily_cost, 0),
-          rentalDays,
-          subleaseTotal,
-          realIncome,
-          netRealUtility: realIncome - subleaseTotal - (prof?.expenses ?? 0),
-        };
-      });
+    const subleaseByVehicle = new Map<
+      string,
+      {
+        vehicleId: string;
+        vehicleLabel: string;
+        payeeName: string;
+        dailyCost: number;
+        rentalDays: number;
+        subleaseTotal: number;
+        realIncome: number;
+        netRealUtility: number;
+      }
+    >();
 
+    for (const row of settlements) {
+      const vehicle = vehicles.find((item) => item.id === row.vehicle_id);
+      const subleased = vehicle
+        ? !isOwnFleet(vehicle.ownership_type)
+        : asNumber(row.provider_cost, 0) > 0;
+      if (!subleased) continue;
+
+      const key = row.vehicle_id ?? row.vehicle_label ?? row.plate ?? "sin-vehiculo";
+      const current = subleaseByVehicle.get(key) ?? {
+        vehicleId: key,
+        vehicleLabel:
+          vehicle?.label ??
+          ([row.vehicle_label, row.plate].filter(Boolean).join(" · ") ||
+            "Vehículo de proveedor"),
+        payeeName:
+          row.vendor_name?.trim() ||
+          vehicle?.sublease_payee_name?.trim() ||
+          "—",
+        dailyCost: asNumber(vehicle?.sublease_daily_cost, 0),
+        rentalDays: 0,
+        subleaseTotal: 0,
+        realIncome: 0,
+        netRealUtility: 0,
+      };
+      current.rentalDays += asNumber(row.rental_days, 0);
+      current.subleaseTotal += asNumber(row.provider_cost, 0);
+      current.realIncome += asNumber(row.billed_amount, 0);
+      current.netRealUtility += asNumber(row.own_profit, 0);
+      if (current.rentalDays > 0) {
+        current.dailyCost = current.subleaseTotal / current.rentalDays;
+      }
+      subleaseByVehicle.set(key, current);
+    }
+
+    const subleaseReport = [...subleaseByVehicle.values()];
     const totalSubleaseCost = subleaseReport.reduce(
       (sum, row) => sum + row.subleaseTotal,
       0,
+    );
+    const typeMovement = summarizeOwnFleetMovement(
+      vehicles.map((vehicle) => ({
+        id: vehicle.id,
+        category: vehicle.category,
+        ownershipType: vehicle.ownership_type,
+      })),
+      reservationRows,
+      filters.from,
+      filters.to,
     );
 
     return actionSuccess({
@@ -296,9 +390,12 @@ export async function fetchReportData(
         reservationCount: reservations.length,
         completedReservations,
         occupancyRate,
+        ownFleetOnly,
         maintenanceCost,
       },
-      profitability,
+      profitability: ownProfitability,
+      movement: [...profitability].sort((a, b) => b.rentalDays - a.rentalDays),
+      typeMovement,
       subleaseReport,
     });
   } catch (error) {
@@ -351,14 +448,14 @@ export async function fetchFinanceSummary(
       maintenanceQuery = maintenanceQuery.lte("maintenance_date", to);
     }
 
-    const [incomeRes, expenseRes, maintenanceRes, vehiclesRes, reservationsRes] =
+    const [incomeRes, expenseRes, maintenanceRes, vehiclesRes, reservationsRes, settlementsRes] =
       await Promise.all([
         incomeQuery,
         expenseQuery,
         maintenanceQuery,
         supabase
           .from("vehicles")
-          .select("id, brand, model, plate")
+          .select("id, brand, model, plate, ownership_type")
           .is("deleted_at", null)
           .eq("is_active", true),
         supabase
@@ -366,6 +463,10 @@ export async function fetchFinanceSummary(
           .select("vehicle_id, start_at, end_at, status")
           .is("deleted_at", null)
           .in("status", ["ACTIVE", "COMPLETED"]),
+        supabase
+          .from("monthly_settlements")
+          .select("provider_cost, period_month, vehicle_id")
+          .is("deleted_at", null),
       ]);
 
     const firstError =
@@ -373,7 +474,8 @@ export async function fetchFinanceSummary(
       expenseRes.error ??
       maintenanceRes.error ??
       vehiclesRes.error ??
-      reservationsRes.error;
+      reservationsRes.error ??
+      settlementsRes.error;
     if (firstError) throw mapPostgresError(firstError);
 
     const incomeRows = (incomeRes.data ?? []) as IncomeRow[];
@@ -392,14 +494,18 @@ export async function fetchFinanceSummary(
     const allExpenseRows = [...expenseRows, ...maintenanceExpenseRows];
     const reservationRows = (reservationsRes.data ?? []) as ProfitabilityReservationRow[];
 
-    const monthIncome = sumRealIncome(incomeRows);
-    const monthExpenses = allExpenseRows.reduce((sum, row) => sum + row.amount, 0);
-
     const vehicles = (vehiclesRes.data ?? []).map((row) => {
-      const v = row as { id: string; brand: string; model: string; plate: string };
+      const v = row as {
+        id: string;
+        brand: string;
+        model: string;
+        plate: string;
+        ownership_type?: string | null;
+      };
       return {
         id: v.id,
         label: formatVehicleLabel(v),
+        ownershipType: v.ownership_type,
       };
     });
 
@@ -411,6 +517,39 @@ export async function fetchFinanceSummary(
       from,
       to,
     );
+
+    const providerRows = (
+      (settlementsRes.data ?? []) as Array<{
+        provider_cost: number;
+        period_month: string;
+        vehicle_id: string | null;
+      }>
+    ).filter((row) => {
+      const period = String(row.period_month).slice(0, 10);
+      if (from && period < from) return false;
+      if (to && period > to) return false;
+      return asNumber(row.provider_cost, 0) > 0;
+    });
+    const providerVehicleIds = new Set(
+      providerRows
+        .map((row) => row.vehicle_id)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const providerCost = providerRows.reduce(
+      (sum, row) => sum + asNumber(row.provider_cost, 0),
+      0,
+    );
+    const ownRanking = ranking.filter((row) => {
+      const vehicle = vehicles.find((item) => item.id === row.vehicleId);
+      return (
+        isOwnFleet(vehicle?.ownershipType) &&
+        !providerVehicleIds.has(row.vehicleId)
+      );
+    });
+
+    const monthIncome = sumRealIncome(incomeRows);
+    const monthExpenses =
+      allExpenseRows.reduce((sum, row) => sum + row.amount, 0) + providerCost;
 
     const chartMap = new Map<string, { income: number; expense: number }>();
     for (const row of incomeRows) {
@@ -425,6 +564,12 @@ export async function fetchFinanceSummary(
       entry.expense += row.amount;
       chartMap.set(key, entry);
     }
+    for (const row of providerRows) {
+      const key = String(row.period_month).slice(0, 10);
+      const entry = chartMap.get(key) ?? { income: 0, expense: 0 };
+      entry.expense += asNumber(row.provider_cost, 0);
+      chartMap.set(key, entry);
+    }
 
     const chartData = [...chartMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -435,7 +580,7 @@ export async function fetchFinanceSummary(
       monthExpenses,
       net: monthIncome - monthExpenses,
       depositMetrics: computeDepositMetrics(incomeRows),
-      topVehicle: ranking[0] ?? null,
+      topVehicle: ownRanking[0] ?? null,
       chartData,
     });
   } catch (error) {

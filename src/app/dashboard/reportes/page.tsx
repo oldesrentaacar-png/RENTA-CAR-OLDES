@@ -28,9 +28,12 @@ export default async function ReportesPage() {
       reservationCount: 0,
       completedReservations: 0,
       occupancyRate: 0,
+      ownFleetOnly: true,
       maintenanceCost: 0,
     },
     profitability: [],
+    movement: [],
+    typeMovement: [],
     subleaseReport: [],
   };
 

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   DollarSign,
-  Handshake,
   Pencil,
   TrendingDown,
   TrendingUp,
@@ -82,12 +81,6 @@ export default async function BalancePage({
               Editar liquidaciones
             </Button>
           </Link>
-          <Link href="/dashboard/socios">
-            <Button variant="secondary" type="button">
-              <Handshake className="mr-2 h-4 w-4" />
-              Editar socios
-            </Button>
-          </Link>
           <Link href="/dashboard/proveedores">
             <Button variant="secondary" type="button">
               <Truck className="mr-2 h-4 w-4" />
@@ -103,9 +96,9 @@ export default async function BalancePage({
         </div>
 
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Los totales de contratos representan facturación bruta. La utilidad neta
-          real descuenta costos de liquidación, pagos a proveedores, gastos
-          operativos y separa las ganancias de socios.
+          Lo facturado es el total de las liquidaciones. El costo a proveedores
+          entra en el mes de la renta, aunque todavía no se les haya pagado. La
+          ganancia neta es la ganancia propia menos los gastos operativos.
         </div>
 
         {summary ? (
@@ -117,18 +110,14 @@ export default async function BalancePage({
                 icon={DollarSign}
               />
               <MetricCard
-                title="Ganancia liquidación"
+                title="Ganancia propia"
                 value={formatMoney(summary.settlementProfit)}
                 icon={TrendingUp}
               />
               <MetricCard
-                title="Ganancia socios"
-                value={formatMoney(summary.partnerProfit)}
-                icon={Handshake}
-              />
-              <MetricCard
-                title="Pagos a proveedores"
-                value={formatMoney(summary.vendorPayments)}
+                title="Costo proveedores"
+                value={formatMoney(summary.providerCost)}
+                subtitle="Aunque no esté pagado"
                 icon={Truck}
               />
               <MetricCard

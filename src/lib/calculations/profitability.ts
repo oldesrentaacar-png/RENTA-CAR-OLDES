@@ -28,7 +28,66 @@ export type VehicleProfitability = {
   expenses: number;
   utility: number;
   rentalDays: number;
+  /** OWN es flota propia. El resto (subarrendo, tercero, consignación) no compite como “mi carro más rentable”. */
+  ownershipType?: string;
 };
+
+export function isOwnFleet(ownershipType: string | null | undefined): boolean {
+  return (ownershipType ?? "OWN").toUpperCase() === "OWN";
+}
+
+export function inclusiveDayCount(from?: string, to?: string): number {
+  if (!from || !to) return 1;
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  const diff = Math.round((end.getTime() - start.getTime()) / 86_400_000);
+  return Math.max(1, diff + 1);
+}
+
+export type FleetTypeMovement = {
+  category: string;
+  vehicles: number;
+  rentalDays: number;
+  occupancyPercent: number;
+};
+
+/** Días rentados de la flota propia, agrupados por categoría, para el periodo del reporte. */
+export function summarizeOwnFleetMovement(
+  vehicles: Array<{
+    id: string;
+    category: string | null;
+    ownershipType?: string | null;
+  }>,
+  reservations: ProfitabilityReservationRow[],
+  from?: string,
+  to?: string,
+): FleetTypeMovement[] {
+  const periodDays = inclusiveDayCount(from, to);
+  const groups = new Map<string, { vehicles: number; rentalDays: number }>();
+
+  for (const vehicle of vehicles) {
+    if (!isOwnFleet(vehicle.ownershipType)) continue;
+    const category = vehicle.category?.trim() || "Sin categoría";
+    const entry = groups.get(category) ?? { vehicles: 0, rentalDays: 0 };
+    entry.vehicles += 1;
+    entry.rentalDays += countRentalDays(reservations, vehicle.id, from, to);
+    groups.set(category, entry);
+  }
+
+  return [...groups.entries()]
+    .map(([category, entry]) => ({
+      category,
+      vehicles: entry.vehicles,
+      rentalDays: entry.rentalDays,
+      occupancyPercent:
+        entry.vehicles === 0
+          ? 0
+          : Math.round(
+              (entry.rentalDays / (entry.vehicles * periodDays)) * 100,
+            ),
+    }))
+    .sort((a, b) => b.rentalDays - a.rentalDays);
+}
 
 export type DepositMetrics = {
   received: number;

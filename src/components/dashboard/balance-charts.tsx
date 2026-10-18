@@ -65,6 +65,10 @@ export function BalanceCharts({ data }: BalanceChartsProps) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Composición del mes</CardTitle>
+          <p className="text-xs text-muted">
+            Reparte la liquidación: su ganancia, lo que debe a proveedores
+            (pagado o no) y los otros costos.
+          </p>
         </CardHeader>
         <CardContent>
           {composition.length ? (
@@ -97,7 +101,7 @@ export function BalanceCharts({ data }: BalanceChartsProps) {
           ) : (
             <EmptyState
               title="Sin composición"
-              description="Registre liquidaciones, socios, pagos o gastos del mes."
+              description="Registre liquidaciones o gastos del mes."
               className="py-10"
             />
           )}

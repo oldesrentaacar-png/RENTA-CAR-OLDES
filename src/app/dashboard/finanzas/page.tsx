@@ -7,7 +7,6 @@ import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchFinanceSummary } from "@/app/dashboard/reportes/actions";
 import { getMonthBounds } from "@/lib/calculations/profitability";
 import { formatMoney } from "@/lib/money";
@@ -43,7 +42,7 @@ export default async function FinanzasPage() {
       <div className="space-y-6">
         <PageHeader
           title="Finanzas"
-          description="Resumen mensual de ingresos, gastos, depósitos y utilidad."
+          description="Resumen mensual de ingresos, gastos y utilidad. El costo a proveedores entra aunque no se haya pagado."
           actions={
             <div className="flex flex-wrap gap-2">
               <Link href="/dashboard/ingresos/nuevo">
@@ -80,6 +79,7 @@ export default async function FinanzasPage() {
           <MetricCard
             title="Gastos del mes"
             value={formatMoney(summary.monthExpenses)}
+            subtitle="Incluye lo que debe a proveedores, pagado o no"
             icon={TrendingDown}
           />
           <MetricCard
@@ -96,54 +96,11 @@ export default async function FinanzasPage() {
             }
             subtitle={
               summary.topVehicle
-                ? formatMoney(summary.topVehicle.utility)
-                : "Sin datos suficientes"
+                ? `${formatMoney(summary.topVehicle.utility)} · solo su flota`
+                : "Sin vehículos propios con movimiento"
             }
             icon={Car}
           />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Depósitos recibidos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xl font-bold">
-                {formatMoney(summary.depositMetrics.received)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Depósitos devueltos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xl font-bold">
-                {formatMoney(summary.depositMetrics.returned)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Depósitos retenidos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xl font-bold">
-                {formatMoney(summary.depositMetrics.retained)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Depósitos aplicados</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xl font-bold">
-                {formatMoney(summary.depositMetrics.applied)}
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         {configured && !error ? (

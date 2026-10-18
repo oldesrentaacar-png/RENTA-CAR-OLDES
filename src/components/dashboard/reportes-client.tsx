@@ -62,6 +62,7 @@ export function ReportesClient({
   const [to, setTo] = useState(initialTo);
   const [vehicleId, setVehicleId] = useState(initialVehicleId);
   const [category, setCategory] = useState(initialCategory);
+  const [ownFleetOnly, setOwnFleetOnly] = useState(true);
   const [error, setErrorState] = useState<string | null>(null);
   const setError = (value: string | null) => {
     setErrorState(value);
@@ -77,6 +78,7 @@ export function ReportesClient({
         to: to || undefined,
         vehicleId: vehicleId || undefined,
         category: category || undefined,
+        ownFleet: ownFleetOnly ? "1" : "0",
       });
       if (!result.success) {
         setError(result.error);
@@ -135,7 +137,12 @@ export function ReportesClient({
       },
       { title: "Utilidad neta real", value: formatMoney(data.summary.netUtility) },
       { title: "Reservas", value: String(data.summary.reservationCount) },
-      { title: "Ocupación flota", value: `${data.summary.occupancyRate}%` },
+      {
+        title: data.summary.ownFleetOnly
+          ? "Ocupación de mi flota"
+          : "Ocupación de toda la flota",
+        value: `${data.summary.occupancyRate}%`,
+      },
       { title: "Costo mantenimiento", value: formatMoney(data.summary.maintenanceCost) },
     ],
     [data],
@@ -174,6 +181,16 @@ export function ReportesClient({
                 })),
               ]}
             />
+            <div className="flex items-end gap-3 sm:col-span-2 lg:col-span-1">
+              <label className="flex items-center gap-2 pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={ownFleetOnly}
+                  onChange={(event) => setOwnFleetOnly(event.target.checked)}
+                />
+                Solo mi flota
+              </label>
+            </div>
             <div className="flex items-end">
               <Button type="button" onClick={applyFilters} disabled={pending} className="w-full">
                 {pending ? "Aplicando…" : "Aplicar filtros"}
@@ -201,12 +218,37 @@ export function ReportesClient({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            Comparación anual de vehículos
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <VehicleComparisonChart data={data.profitability} />
+            <CardTitle className="text-base">
+              Qué se alquila más en el periodo
+            </CardTitle>
+            <p className="text-xs text-muted">
+              Los días incluyen vehículos de proveedores. La rentabilidad de
+              abajo es solo de su flota.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <VehicleComparisonChart
+              data={data.movement}
+              title="Días rentados"
+            />
+            {data.typeMovement.length > 0 ? (
+              <DataTable
+                data={data.typeMovement}
+                getRowKey={(row) => row.category}
+                emptyTitle="Sin movimiento"
+                emptyDescription="No hay días de renta de su flota en el periodo."
+                columns={[
+                  { key: "type", header: "Tipo (mi flota)", cell: (row) => row.category },
+                  { key: "units", header: "Vehículos", cell: (row) => row.vehicles },
+                  { key: "days", header: "Días rentados", cell: (row) => row.rentalDays },
+                  {
+                    key: "occ",
+                    header: "Ocupación del periodo",
+                    cell: (row) => `${row.occupancyPercent}%`,
+                  },
+                ]}
+              />
+            ) : null}
         </CardContent>
       </Card>
 
@@ -216,6 +258,10 @@ export function ReportesClient({
             <CardTitle className="text-base">
               Subarrendados — ganancia real vs costo a terceros
             </CardTitle>
+            <p className="text-xs text-muted">
+              Sale de la liquidación de cada renta. El costo al proveedor cuenta
+              aunque todavía no se le haya pagado.
+            </p>
           </CardHeader>
           <CardContent>
             <DataTable
@@ -256,9 +302,10 @@ export function ReportesClient({
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <div>
-            <CardTitle className="text-base">Ranking de rentabilidad</CardTitle>
+            <CardTitle className="text-base">Rentabilidad de mi flota</CardTitle>
             <p className="mt-1 text-xs text-muted">
-              Gastos del módulo + mantenimiento del periodo (antes el mant. no bajaba la utilidad).
+              Solo vehículos propios. Un carro de proveedor puede alquilarse
+              mucho y aun así no aparece aquí como el más rentable.
             </p>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={exportProfitability}>

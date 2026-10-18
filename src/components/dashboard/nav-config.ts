@@ -9,7 +9,6 @@ import {
   ClipboardList,
   FileText,
   Gauge,
-  Handshake,
   LayoutDashboard,
   Clipboard,
   Package,
@@ -169,12 +168,6 @@ export const DASHBOARD_NAV: NavGroup[] = [
         label: "Liquidación mensual",
         href: "/dashboard/liquidacion",
         icon: ClipboardList,
-        permission: "finance.view",
-      },
-      {
-        label: "Sub-renta / Socios",
-        href: "/dashboard/socios",
-        icon: Handshake,
         permission: "finance.view",
       },
       {
