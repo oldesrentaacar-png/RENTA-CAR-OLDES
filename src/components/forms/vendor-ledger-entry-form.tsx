@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { appTodayDateString } from "@/lib/dates";
 import { VENDOR_LEDGER_KIND_LABELS } from "@/lib/labels";
 
 type VendorChargeOption = {
@@ -42,7 +43,7 @@ export function VendorLedgerEntryForm({
   const [settlementId, setSettlementId] = useState("");
   const [contractId, setContractId] = useState("");
   const [concept, setConcept] = useState("");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = appTodayDateString();
 
   function conceptForCharge(chargeConcept: string, nextKind: string) {
     const text = nextKind === "PAYMENT" ? `Pago · ${chargeConcept}` : chargeConcept;

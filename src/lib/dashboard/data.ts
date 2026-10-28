@@ -102,6 +102,8 @@ export type OpsOpenContract = {
   href: string;
   /** True when end_at is already past — likely left open by mistake. */
   isOverdue: boolean;
+  /** Real CHECK_IN (with mileage) exists — vehicle is back, Cerrar renta pending. */
+  hasReturn: boolean;
 };
 
 export type OpsPendingSettlement = {
@@ -201,6 +203,7 @@ type ContractJoinRow = {
   status: string;
   start_at: string;
   end_at: string;
+  reservation_id?: string | null;
   customers:
     | { first_name: string | null; last_name: string | null }
     | Array<{ first_name: string | null; last_name: string | null }>
@@ -211,7 +214,15 @@ type ContractJoinRow = {
     | null;
 };
 
-function mapOpenContract(row: ContractJoinRow, nowIso: string): OpsOpenContract {
+function mapOpenContract(
+  row: ContractJoinRow,
+  nowIso: string,
+  returnedReservationIds?: Set<string>,
+): OpsOpenContract {
+  const reservationId = row.reservation_id ?? "";
+  const hasReturn = Boolean(
+    reservationId && returnedReservationIds?.has(reservationId),
+  );
   return {
     id: row.id,
     code: row.code,
@@ -222,6 +233,7 @@ function mapOpenContract(row: ContractJoinRow, nowIso: string): OpsOpenContract 
     vehicleLabel: vehicleLabel(unwrapRelation(row.vehicles)),
     href: `/dashboard/contratos/${row.id}`,
     isOverdue: row.end_at < nowIso,
+    hasReturn,
   };
 }
 
@@ -414,7 +426,7 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
     const reservationSelect =
       "id, code, status, start_at, end_at, customers(first_name, last_name), vehicles(brand, model, plate)";
     const contractSelect =
-      "id, code, status, start_at, end_at, customers(first_name, last_name), vehicles(brand, model, plate)";
+      "id, code, status, start_at, end_at, reservation_id, customers(first_name, last_name), vehicles(brand, model, plate)";
 
     const [
       pendingCountRes,
@@ -423,7 +435,8 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
       tomorrowRes,
       deliveriesRes,
       returnsRes,
-      openContractsRes,
+      currentOpenRes,
+      overdueOpenRes,
       pendingSettlementsRes,
     ] = await Promise.all([
       supabase
@@ -478,10 +491,20 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
         .from("contracts")
         .select(contractSelect)
         .is("deleted_at", null)
-        .neq("status", "COMPLETED")
-        .neq("status", "CANCELLED")
+        .is("closed_at", null)
+        .not("status", "in", '("COMPLETED","CANCELLED")')
+        .gte("end_at", nowIso)
         .order("end_at", { ascending: true })
-        .limit(30),
+        .limit(20),
+      supabase
+        .from("contracts")
+        .select(contractSelect)
+        .is("deleted_at", null)
+        .is("closed_at", null)
+        .not("status", "in", '("COMPLETED","CANCELLED")')
+        .lt("end_at", nowIso)
+        .order("end_at", { ascending: true })
+        .limit(20),
       supabase
         .from("contracts")
         .select(
@@ -501,7 +524,8 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
       tomorrowRes.error ??
       deliveriesRes.error ??
       returnsRes.error ??
-      openContractsRes.error ??
+      currentOpenRes.error ??
+      overdueOpenRes.error ??
       pendingSettlementsRes.error;
 
     if (firstError) {
@@ -540,10 +564,44 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
       mapReservationAgendaItem,
     );
 
-    const openContracts = ((openContractsRes.data ?? []) as ContractJoinRow[]).map(
-      (row) => mapOpenContract(row, nowIso),
+    const currentRows = (currentOpenRes.data ?? []) as ContractJoinRow[];
+    const overdueRows = (overdueOpenRes.data ?? []) as ContractJoinRow[];
+    const reservationIds = [
+      ...new Set(
+        [...currentRows, ...overdueRows]
+          .map((row) => row.reservation_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const returnedReservationIds = new Set<string>();
+    if (reservationIds.length > 0) {
+      const { data: checkIns, error: checkInError } = await supabase
+        .from("inspections")
+        .select("reservation_id")
+        .in("reservation_id", reservationIds)
+        .eq("type", "CHECK_IN")
+        .not("mileage", "is", null);
+      if (checkInError) {
+        return { ...empty, configured: true, error: checkInError.message };
+      }
+      for (const row of checkIns ?? []) {
+        returnedReservationIds.add(
+          (row as { reservation_id: string }).reservation_id,
+        );
+      }
+    }
+
+    const currentMapped = currentRows.map((row) =>
+      mapOpenContract(row, nowIso, returnedReservationIds),
     );
-    const openContractAlerts = openContracts.filter((c) => c.isOverdue);
+    const overdueMapped = overdueRows.map((row) =>
+      mapOpenContract(row, nowIso, returnedReservationIds),
+    );
+    const openContracts = currentMapped.filter((row) => !row.hasReturn);
+    const openContractAlerts = [
+      ...currentMapped.filter((row) => row.hasReturn),
+      ...overdueMapped,
+    ];
 
     const pendingSettlements: OpsPendingSettlement[] = (
       (pendingSettlementsRes.data ?? []) as Array<

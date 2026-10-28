@@ -12,7 +12,7 @@ import {
 } from "@/lib/contracts/amount-owed";
 import { applyContractIvaToAmount } from "@/lib/pdf/contract-billing";
 import { calculateReturnSettlement } from "@/lib/calculations/rental-close";
-import { formatAppDate, rentalDaysBetween } from "@/lib/dates";
+import { appTodayDateString, formatAppDate, rentalDaysBetween } from "@/lib/dates";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
@@ -406,7 +406,7 @@ export async function createPaymentReceipt(
 
     let incomeId: string | null = null;
     if (input.createIncome) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = appTodayDateString();
       const incomePayload: Record<string, unknown> = {
         type: input.incomeType,
         amount: input.amount,

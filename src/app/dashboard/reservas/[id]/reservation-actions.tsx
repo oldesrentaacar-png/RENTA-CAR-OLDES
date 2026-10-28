@@ -9,6 +9,7 @@ import { useState } from "react";
 import { cancelReservation } from "@/app/dashboard/reservas/actions";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { Button } from "@/components/ui/button";
+import { isContractOpen } from "@/lib/contracts/display-phase";
 import type { Reservation } from "@/types/database";
 
 type LinkedContract = {
@@ -34,8 +35,11 @@ export function ReservationDetailActions({
 
   if (reservation.status === "CANCELLED") return null;
 
-  const hasOpenContract =
-    Boolean(linkedContract) && linkedContract!.status !== "COMPLETED";
+  const hasOpenContract = Boolean(linkedContract) &&
+    isContractOpen({
+      status: linkedContract!.status,
+      closedAt: linkedContract!.closed_at,
+    });
 
   return (
     <div className="space-y-4">

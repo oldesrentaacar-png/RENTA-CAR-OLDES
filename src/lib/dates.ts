@@ -8,6 +8,29 @@ import {
 
 export const APP_TIMEZONE = "America/El_Salvador";
 
+/**
+ * Postgres `date` columns come back as `YYYY-MM-DD` (no time).
+ * parseISO treats that as UTC midnight, which is the previous afternoon
+ * in El Salvador and shifts the calendar day back by one.
+ */
+function calendarDateYmd(value: Date | string): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (/[zZ]|[+-]\d{2}:\d{2}$/.test(trimmed)) return null;
+  const match = trimmed.match(
+    /^(\d{4}-\d{2}-\d{2})(?:[T ]00:00(?::00(?:\.\d+)?)?)?$/,
+  );
+  return match?.[1] ?? null;
+}
+
+function formatCalendarYmd(ymd: string, pattern: string): string {
+  const [year, month, day] = ymd.split("-");
+  if (pattern === "dd/MM/yyyy") return `${day}/${month}/${year}`;
+  if (pattern === "yyyy-MM-dd") return ymd;
+  const noon = fromZonedTime(`${ymd}T12:00:00`, APP_TIMEZONE);
+  return formatInTimeZone(noon, APP_TIMEZONE, pattern, { locale: es });
+}
+
 export function nowUtc(): Date {
   return new Date();
 }
@@ -21,12 +44,22 @@ export function formatInAppTimezone(
   date: Date | string,
   pattern: string = "dd/MM/yyyy HH:mm",
 ): string {
+  const ymd = calendarDateYmd(date);
+  if (ymd) return formatCalendarYmd(ymd, pattern);
   const value = typeof date === "string" ? parseISO(date) : date;
   return formatInTimeZone(value, APP_TIMEZONE, pattern, { locale: es });
 }
 
 export function formatAppDate(date: Date | string): string {
   return formatInAppTimezone(date, "dd/MM/yyyy");
+}
+
+/** YYYY-MM-DD for `<input type="date" />`, in El Salvador when the value has a time. */
+export function toDateInputValue(date?: Date | string | null): string {
+  if (!date) return appTodayDateString();
+  const ymd = calendarDateYmd(date);
+  if (ymd) return ymd;
+  return utcToAppLocalParts(date).date;
 }
 
 export function formatAppDateTime(date: Date | string): string {

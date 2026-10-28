@@ -92,6 +92,9 @@ export function dayActionHint(
   phase: CalendarPhase,
 ): string {
   if (!progress) return "";
+  if (phase === "FALTA_CERRAR") {
+    return "Vehículo recibido — falta pulsar Cerrar renta";
+  }
   if (progress.totalDays === 1) return "Hoy: entregar y recibir el mismo día";
   if (progress.role === "ENTREGAR") return "Hoy toca ENTREGAR el vehículo";
   if (progress.role === "RECIBIR") return "Hoy toca RECIBIR el vehículo";

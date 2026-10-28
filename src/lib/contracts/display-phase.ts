@@ -31,6 +31,26 @@ export const CONTRACT_DISPLAY_PHASE_OPTIONS: Array<{
   { value: "ANULADO", label: "Anulado" },
 ];
 
+/** Closed for operations: Cerrar renta, or cancelled. Saldo is billing, not open. */
+export function isContractClosed(input: {
+  status?: string | null;
+  closedAt?: string | null;
+}): boolean {
+  const status = String(input.status ?? "").toUpperCase();
+  return (
+    status === "COMPLETED" ||
+    status === "CANCELLED" ||
+    Boolean(input.closedAt)
+  );
+}
+
+export function isContractOpen(input: {
+  status?: string | null;
+  closedAt?: string | null;
+}): boolean {
+  return !isContractClosed(input);
+}
+
 export function deriveContractDisplayPhase(input: {
   status: string;
   closedAt?: string | null;
@@ -43,9 +63,10 @@ export function deriveContractDisplayPhase(input: {
   const balanceDue = Number(input.balanceDue ?? 0);
 
   if (status === "CANCELLED") return "ANULADO";
-  // Saldo pendiente tiene prioridad visual: cerrado o abierto sin liquidar.
-  if (balanceDue > 0.009 && status !== "CANCELLED") return "POR_LIQUIDAR";
-  if (status === "COMPLETED" || input.closedAt) return "FINALIZADO";
+  if (isContractClosed({ status, closedAt: input.closedAt })) {
+    return "FINALIZADO";
+  }
+  if (balanceDue > 0.009) return "POR_LIQUIDAR";
 
   const endAt = new Date(input.endAt);
   if (!Number.isNaN(endAt.getTime()) && endAt < now) {

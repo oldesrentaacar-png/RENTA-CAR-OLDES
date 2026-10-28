@@ -701,6 +701,7 @@ export async function archiveVehicle(id: string): Promise<ActionResult<void>> {
       .select("id, code, status")
       .eq("vehicle_id", id)
       .in("status", ["PENDING", "CLIENT_SIGNED", "REPRESENTATIVE_SIGNED"])
+      .is("closed_at", null)
       .is("deleted_at", null)
       .limit(1);
 

@@ -126,6 +126,8 @@ export default async function ContratoDetailPage({
           amountPaid: progress.amountPaid,
           hasClientSignature: progress.hasClientSignature,
           hasRepresentativeSignature: progress.hasRepresentativeSignature,
+          includePagare: progress.includePagare,
+          hasPagareSignature: progress.hasPagareSignature,
           hasPdf: progress.hasPdf,
           updatedAt: contract.updated_at,
         })
@@ -526,6 +528,24 @@ export default async function ContratoDetailPage({
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {contract.includePagare &&
+                  contract.signatures.some((s) => s.signer_type === "CLIENT") &&
+                  !contract.signatures.some((s) => s.signer_type === "PAGARE") ? (
+                    <div className="rounded-lg border-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                      <p className="font-semibold">Falta la firma del pagaré</p>
+                      <p className="mt-1">
+                        El PDF incluye la hoja de pagaré, pero el cliente aún no
+                        la firmó. Vuelva a Firmas, dibuje y pulse Confirmar
+                        firma.
+                      </p>
+                      <Link
+                        href={`/dashboard/contratos/${id}/sign`}
+                        className="mt-2 inline-flex font-semibold text-brand underline"
+                      >
+                        Ir a firmar el pagaré
+                      </Link>
+                    </div>
+                  ) : null}
                   {canEdit ? (
                     <ContractPagareToggle
                       contractId={contract.id}

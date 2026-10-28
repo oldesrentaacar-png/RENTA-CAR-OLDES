@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { appTodayDateString, toDateInputValue } from "@/lib/dates";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/labels";
 import type { ExpenseTransaction } from "@/types/database";
 
@@ -41,7 +42,7 @@ export function ExpenseForm({ expense, vehicles, redirectTo }: ExpenseFormProps)
     setErrorState(value);
     if (value) announceError(value);
   };
-  const today = new Date().toISOString().slice(0, 10);
+  const today = appTodayDateString();
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -92,7 +93,11 @@ export function ExpenseForm({ expense, vehicles, redirectTo }: ExpenseFormProps)
           name="expenseDate"
           label="Fecha *"
           type="date"
-          defaultValue={expense?.expense_date ?? today}
+          defaultValue={
+            expense?.expense_date
+              ? toDateInputValue(expense.expense_date)
+              : today
+          }
           required
         />
         <SearchableSelect

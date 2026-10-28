@@ -6,6 +6,7 @@ export type CalendarPhase =
   | "SIN_CONTRATO"
   | "PENDIENTE_ENTREGA"
   | "EN_CURSO"
+  | "FALTA_CERRAR"
   | "FINALIZADA"
   | "ANULADA";
 
@@ -13,6 +14,7 @@ export const CALENDAR_PHASE_LABELS: Record<CalendarPhase, string> = {
   SIN_CONTRATO: "Sin contrato",
   PENDIENTE_ENTREGA: "Pendiente entrega",
   EN_CURSO: "En curso",
+  FALTA_CERRAR: "Falta cerrar",
   FINALIZADA: "Finalizada",
   ANULADA: "Anulada",
 };
@@ -25,6 +27,8 @@ export type CalendarPhaseInput = {
   contractClosedAt?: string | null;
   /** CHECK_OUT inspection exists → vehicle was delivered. */
   hasCheckOut?: boolean;
+  /** CHECK_IN with mileage → vehicle is back; Cerrar renta still pending. */
+  hasCheckIn?: boolean;
   now?: Date;
 };
 
@@ -32,7 +36,8 @@ export function deriveCalendarPhase(input: CalendarPhaseInput): CalendarPhase {
   const status = String(input.reservationStatus ?? "").toUpperCase();
   const contractStatus = String(input.contractStatus ?? "").toUpperCase();
   const hasContract = Boolean(input.contractStatus);
-  const closed = Boolean(input.contractClosedAt) || contractStatus === "COMPLETED";
+  const closed =
+    Boolean(input.contractClosedAt) || contractStatus === "COMPLETED";
 
   if (status === "CANCELLED" || contractStatus === "CANCELLED") {
     return "ANULADA";
@@ -40,8 +45,15 @@ export function deriveCalendarPhase(input: CalendarPhaseInput): CalendarPhase {
   if (status === "COMPLETED" || closed) {
     return "FINALIZADA";
   }
+  const now = input.now ?? new Date();
+  const endAt = new Date(input.endAt);
+  const overdue =
+    !Number.isNaN(endAt.getTime()) && endAt < now;
+  if (input.hasCheckIn) {
+    return "FALTA_CERRAR";
+  }
   if (status === "ACTIVE" || input.hasCheckOut) {
-    return "EN_CURSO";
+    return overdue ? "FALTA_CERRAR" : "EN_CURSO";
   }
 
   if (hasContract) {
@@ -61,6 +73,8 @@ export function calendarPhaseBarClass(phase: CalendarPhase): string {
       return "bg-amber-100 text-amber-900 hover:bg-amber-200";
     case "EN_CURSO":
       return "bg-emerald-100 text-emerald-900 hover:bg-emerald-200";
+    case "FALTA_CERRAR":
+      return "bg-orange-100 text-orange-950 hover:bg-orange-200";
     case "FINALIZADA":
       return "bg-slate-100 text-slate-700 hover:bg-slate-200";
     case "ANULADA":

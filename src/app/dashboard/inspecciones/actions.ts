@@ -486,7 +486,7 @@ export async function getReservationOptionsForInspection(): Promise<
 
 export async function createInspection(
   formData: FormData,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; closeContractId?: string | null }>> {
   try {
     const { user } = await assertPermission("inspections.create");
     if (!isSupabaseConfigured()) {
@@ -629,6 +629,25 @@ export async function createInspection(
       });
     }
 
+    let closeContractId: string | null = null;
+    if (parsed.data.type === "CHECK_IN" && parsed.data.mileage != null) {
+      await supabase
+        .from("vehicles")
+        .update({ status: "AVAILABLE" })
+        .eq("id", parsed.data.vehicleId);
+      const { data: linked } = await supabase
+        .from("contracts")
+        .select("id")
+        .eq("reservation_id", parsed.data.reservationId)
+        .is("deleted_at", null)
+        .is("closed_at", null)
+        .not("status", "in", '("COMPLETED","CANCELLED")')
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      closeContractId = (linked as { id: string } | null)?.id ?? null;
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "inspection.create",
@@ -641,7 +660,11 @@ export async function createInspection(
     revalidatePath(`/dashboard/vehiculos/${parsed.data.vehicleId}`);
     revalidatePath("/dashboard/vehiculos");
     revalidatePath("/dashboard/alertas");
-    return actionSuccess({ id });
+    revalidatePath("/dashboard");
+    if (closeContractId) {
+      revalidatePath(`/dashboard/contratos/${closeContractId}`);
+    }
+    return actionSuccess({ id, closeContractId });
   } catch (error) {
     return actionError(toUserMessage(error));
   }

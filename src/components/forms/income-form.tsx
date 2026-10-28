@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { appTodayDateString, toDateInputValue } from "@/lib/dates";
 import {
   DEPOSIT_STATUS_LABELS,
   INCOME_TYPE_LABELS,
@@ -61,7 +62,7 @@ export function IncomeForm({ income, options, redirectTo }: IncomeFormProps) {
     if (value) announceError(value);
   };
   const [type, setType] = useState<IncomeType>(income?.type ?? "RENTAL");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = appTodayDateString();
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -106,7 +107,11 @@ export function IncomeForm({ income, options, redirectTo }: IncomeFormProps) {
           name="transactionDate"
           label="Fecha *"
           type="date"
-          defaultValue={income?.transaction_date ?? today}
+          defaultValue={
+            income?.transaction_date
+              ? toDateInputValue(income.transaction_date)
+              : today
+          }
           required
         />
         <Select

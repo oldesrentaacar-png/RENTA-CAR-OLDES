@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { isContractOpen } from "@/lib/contracts/display-phase";
 import { formatAppDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -36,7 +37,10 @@ export default async function ReservaDetailPage({
           actions={
             reservation ? (
               reservation.linkedContract &&
-              reservation.linkedContract.status !== "COMPLETED" ? (
+              isContractOpen({
+                status: reservation.linkedContract.status,
+                closedAt: reservation.linkedContract.closed_at,
+              }) ? (
                 <PermissionGuard permission="contracts.view" fallback={null}>
                   <Link
                     href={`/dashboard/contratos/${reservation.linkedContract.id}`}
@@ -65,7 +69,10 @@ export default async function ReservaDetailPage({
           <>
             {reservation.linkedContract ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                {reservation.linkedContract.status !== "COMPLETED" ? (
+                {isContractOpen({
+                  status: reservation.linkedContract.status,
+                  closedAt: reservation.linkedContract.closed_at,
+                }) ? (
                   <>
                     Operación migrada al contrato{" "}
                     <Link

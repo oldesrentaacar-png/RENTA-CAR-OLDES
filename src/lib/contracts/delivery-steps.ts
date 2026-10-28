@@ -12,6 +12,9 @@ export type DeliveryStepsInput = {
   amountPaid: number;
   hasClientSignature: boolean;
   hasRepresentativeSignature: boolean;
+  /** Pagaré page is included in this contract PDF. */
+  includePagare?: boolean;
+  hasPagareSignature?: boolean;
   hasPdf: boolean;
   updatedAt?: string | null;
 };
@@ -26,8 +29,12 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     checkOutChecklistCount,
     amountPaid,
     hasClientSignature,
+    includePagare = false,
+    hasPagareSignature = false,
     updatedAt,
   } = input;
+  const firmaDone =
+    hasClientSignature && (!includePagare || hasPagareSignature);
 
   return [
     {
@@ -71,12 +78,18 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     {
       id: "firma",
       title: "Términos y firma",
-      description: hasClientSignature
-        ? "Cliente firmado. Puede revisar la firma."
-        : "Pendiente firma del cliente.",
-      status: hasClientSignature ? "done" : "pending",
+      description: !hasClientSignature
+        ? "Pendiente firma del cliente."
+        : includePagare && !hasPagareSignature
+          ? "El cliente ya firmó el contrato. Falta firmar el pagaré mercantil (abajo en esta pantalla)."
+          : "Cliente y pagaré firmados.",
+      status: firmaDone ? "done" : hasClientSignature ? "partial" : "pending",
       href: `/dashboard/contratos/${contractId}/sign`,
-      linkLabel: hasClientSignature ? "Ver / Editar firmas" : "Firmar cliente",
+      linkLabel: firmaDone
+        ? "Ver / Editar firmas"
+        : hasClientSignature
+          ? "Firmar pagaré"
+          : "Firmar cliente",
     },
     {
       id: "facturacion",
@@ -92,14 +105,16 @@ export function buildDeliverySteps(input: DeliveryStepsInput): DeliveryStep[] {
     {
       id: "pdf",
       title: "PDF del contrato",
-      description: hasClientSignature
-        ? "Firmado por el cliente — listo para ver y compartir."
-        : "Vista interna disponible. Comparta solo después de la firma del cliente.",
-      status: hasClientSignature ? "done" : "partial",
+      description: !hasClientSignature
+        ? "Vista interna disponible. Comparta solo después de la firma del cliente."
+        : includePagare && !hasPagareSignature
+          ? "El PDF se puede ver, pero el pagaré todavía no está firmado. Vuelva a Firmas."
+          : "Firmado — listo para ver y compartir.",
+      status: firmaDone ? "done" : "partial",
       // Navegar al paso (pantalla) + abrir el PDF con el botón principal.
       href: `/dashboard/contratos/${contractId}?paso=pdf`,
       actionHref: contractPdfHref(contractId, updatedAt),
-      linkLabel: hasClientSignature
+      linkLabel: firmaDone
         ? "Ver / Compartir PDF"
         : "Ver PDF (vista interna)",
     },

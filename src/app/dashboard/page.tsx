@@ -157,20 +157,30 @@ function OpenContractsList({
             <p className="truncate text-xs text-muted">
               {item.vehicleLabel} · fin {formatAppDateTime(item.end_at)}
             </p>
-            {item.isOverdue ? (
+            {item.hasReturn ? (
               <p className="text-xs font-medium text-amber-800">
-                Fecha de fin vencida — revisar cierre
+                Vehículo recibido — falta Cerrar renta
+              </p>
+            ) : item.isOverdue ? (
+              <p className="text-xs font-medium text-amber-800">
+                Fecha de fin vencida — falta Cerrar renta
               </p>
             ) : null}
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
-            <StatusBadge status={item.status} />
+            <span className="text-xs font-medium text-zinc-700">
+              {item.hasReturn
+                ? "Recibido"
+                : item.isOverdue
+                  ? "Vencido"
+                  : "En renta"}
+            </span>
             {showCloseLink ? (
               <Link
-                href={item.href}
+                href={`${item.href}/cerrar`}
                 className="text-xs font-medium text-brand hover:underline"
               >
-                Cerrar
+                Cerrar renta
               </Link>
             ) : null}
           </div>
@@ -427,10 +437,15 @@ export default async function DashboardPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <FileText className="h-4 w-4 text-muted" />
-                    Contratos abiertos
+                    Contratos en renta
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <p className="mb-3 text-sm text-muted">
+                    Solo rentas vigentes: el vehículo sigue en la calle y aún no
+                    hay inspección de entrada. Si ya lo recibieron, pulse Cerrar
+                    renta.
+                  </p>
                   <OpenContractsList items={agenda.openContracts} showCloseLink />
                 </CardContent>
               </Card>
@@ -442,13 +457,14 @@ export default async function DashboardPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base text-amber-950">
                   <AlertTriangle className="h-4 w-4" />
-                  Alertas de contratos abiertos
+                  Falta cerrar renta
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="mb-3 text-sm text-amber-900">
-                  Contratos cuya fecha de fin ya pasó y siguen sin completar o
-                  cancelar.
+                  Ya se recibió el vehículo o pasó la fecha de fin, y no se
+                  pulsó Cerrar renta. Hasta ese paso el contrato no queda
+                  finalizado (ni en el calendario).
                 </p>
                 <OpenContractsList
                   items={agenda.openContractAlerts}

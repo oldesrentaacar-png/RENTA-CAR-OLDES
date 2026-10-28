@@ -349,6 +349,8 @@ export async function getDeliveryFlowForReservation(
       amountPaid: progress.data.amountPaid,
       hasClientSignature: progress.data.hasClientSignature,
       hasRepresentativeSignature: progress.data.hasRepresentativeSignature,
+      includePagare: progress.data.includePagare,
+      hasPagareSignature: progress.data.hasPagareSignature,
       hasPdf: progress.data.hasPdf,
       updatedAt: raw.updated_at,
     });
@@ -414,7 +416,9 @@ export async function listContracts(
     } else if (phaseFilter === "POR_LIQUIDAR") {
       query = query.neq("status", "CANCELLED").gt("balance_due", 0);
     } else if (phaseFilter === "FINALIZADO") {
-      query = query.eq("status", "COMPLETED");
+      query = query
+        .neq("status", "CANCELLED")
+        .or("status.eq.COMPLETED,closed_at.not.is.null");
     } else if (phaseFilter === "SIN_RESOLVER") {
       query = query
         .not("status", "in", '("COMPLETED","CANCELLED")')
@@ -1758,6 +1762,8 @@ export type ContractDeliveryProgress = {
   checkOutChecklistCount: number;
   hasClientSignature: boolean;
   hasRepresentativeSignature: boolean;
+  hasPagareSignature: boolean;
+  includePagare: boolean;
   amountPaid: number;
   hasPdf: boolean;
 };
@@ -1774,7 +1780,9 @@ export async function getContractDeliveryProgress(
     const supabase = await createClient();
     const { data: contract, error } = await supabase
       .from("contracts")
-      .select("id, reservation_id, amount_paid, pdf_path")
+      .select(
+        "id, reservation_id, amount_paid, pdf_path, include_pagare, customers(country, dui, passport)",
+      )
       .eq("id", contractId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -1786,7 +1794,22 @@ export async function getContractDeliveryProgress(
       reservation_id: string;
       amount_paid?: number | null;
       pdf_path?: string | null;
+      include_pagare?: boolean | null;
+      customers:
+        | {
+            country?: string | null;
+            dui?: string | null;
+            passport?: string | null;
+          }
+        | Array<{
+            country?: string | null;
+            dui?: string | null;
+            passport?: string | null;
+          }>;
     };
+    const customer = Array.isArray(row.customers)
+      ? row.customers[0]
+      : row.customers;
 
     const [{ data: signatures }, { data: inspections }] = await Promise.all([
       supabase
@@ -1821,6 +1844,12 @@ export async function getContractDeliveryProgress(
       checkOutChecklistCount: checkOut?.inspection_checklist_items?.length ?? 0,
       hasClientSignature: signerTypes.has("CLIENT"),
       hasRepresentativeSignature: signerTypes.has("REPRESENTATIVE"),
+      hasPagareSignature: signerTypes.has("PAGARE"),
+      includePagare: resolveIncludePagare(row.include_pagare, {
+        country: customer?.country,
+        dui: customer?.dui,
+        passport: customer?.passport,
+      }),
       amountPaid: Number(row.amount_paid ?? 0),
       hasPdf: Boolean(row.pdf_path),
     });

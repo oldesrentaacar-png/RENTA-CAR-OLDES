@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import {
   resolveContractClauses,
 } from "@/lib/contracts/oldes-terms";
+import { isContractClosed } from "@/lib/contracts/display-phase";
 import { toDatetimeLocalValue } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -107,8 +108,10 @@ export function ContractDetailActions({
 
   const editable =
     canEdit &&
-    contract.status !== "COMPLETED" &&
-    contract.status !== "CANCELLED";
+    !isContractClosed({
+      status: contract.status,
+      closedAt: contract.closed_at,
+    });
   const termsEditable = canEdit && contract.status === "PENDING";
 
   const annulmentBlock =
@@ -292,21 +295,27 @@ export function ContractDetailActions({
     if (result.data.warning) setWarning(result.data.warning);
     setSignatureDataUrl(null);
     setOperatorSignatureDataUrl(null);
-    announceSuccess("Firma del cliente guardada.");
+    announceSuccess(
+      includePagare
+        ? "Firma del contrato guardada. Ahora firme el pagaré, abajo en esta misma pantalla."
+        : "Firma del cliente guardada.",
+    );
     router.refresh();
   }
 
-  async function handlePagareSign() {
-    if (!pagareSignatureDataUrl) {
-      setError("Dibuje la firma del pagaré mercantil.");
+  async function handlePagareSign(dataUrl?: string | null) {
+    const payload = dataUrl ?? pagareSignatureDataUrl;
+    if (!payload) {
+      setError("Dibuje la firma del pagaré mercantil y pulse Confirmar firma.");
       return;
     }
+    setPagareSignatureDataUrl(payload);
     setSigningPagare(true);
     setError(null);
     const fd = new FormData();
     fd.set("signerType", "PAGARE");
     fd.set("signedBy", signedBy.trim() || contract.customerName || "Cliente");
-    fd.set("signatureDataUrl", pagareSignatureDataUrl);
+    fd.set("signatureDataUrl", payload);
     fd.set("acceptedTerms", "false");
     const result = await signContract(contract.id, fd);
     setSigningPagare(false);
@@ -315,7 +324,7 @@ export function ContractDetailActions({
       return;
     }
     setPagareSignatureDataUrl(null);
-    announceSuccess("Pagaré firmado.");
+    announceSuccess("Pagaré firmado y guardado en el PDF.");
     router.refresh();
   }
 
@@ -404,7 +413,11 @@ export function ContractDetailActions({
         </form>
       ) : null}
 
-      {canSign && contract.status !== "CANCELLED" && contract.status !== "COMPLETED" ? (
+      {canSign &&
+      !isContractClosed({
+        status: contract.status,
+        closedAt: contract.closed_at,
+      }) ? (
         <div className="space-y-4 rounded-xl border border-border bg-surface p-6">
           <h3 className="font-semibold">Firma del cliente</h3>
           <p className="text-sm text-muted">
@@ -583,32 +596,24 @@ export function ContractDetailActions({
           ) : null}
 
           {clientSigned && includePagare && !pagareSigned ? (
-            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+            <div className="space-y-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-4">
               <div>
-                <p className="text-sm font-medium text-amber-950">
-                  Pagaré mercantil (documento aparte)
+                <p className="text-sm font-semibold text-amber-950">
+                  Falta firmar el pagaré mercantil
                 </p>
-                <p className="mt-1 text-xs text-amber-900">
-                  Incluido en el PDF. El monto queda en blanco (líneas) para
-                  completar a mano si aplica.
+                <p className="mt-1 text-sm text-amber-900">
+                  El contrato ya está firmado. El PDF no queda completo hasta
+                  que el cliente firme el pagaré aquí. Dibuje y pulse{" "}
+                  <strong>Confirmar firma</strong> — se guarda al confirmar.
                 </p>
               </div>
               <SignaturePad
-                onConfirm={setPagareSignatureDataUrl}
+                onConfirm={(dataUrl) => void handlePagareSign(dataUrl)}
                 disabled={signingPagare}
               />
-              {pagareSignatureDataUrl ? (
-                <p className="text-xs text-success">Firma del pagaré capturada.</p>
+              {signingPagare ? (
+                <p className="text-xs text-amber-900">Guardando pagaré…</p>
               ) : null}
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => void handlePagareSign()}
-                loading={signingPagare}
-                disabled={!pagareSignatureDataUrl}
-              >
-                Registrar firma del pagaré
-              </Button>
             </div>
           ) : null}
 

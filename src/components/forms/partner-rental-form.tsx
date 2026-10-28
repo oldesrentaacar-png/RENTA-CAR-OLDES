@@ -15,6 +15,7 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { toDateInputValue } from "@/lib/dates";
 import { PARTNER_RENTAL_STATUS_LABELS } from "@/lib/labels";
 import type { PartnerRental, PartnerRentalStatus } from "@/types/database";
 
@@ -34,9 +35,7 @@ function money(value: string): number {
 
 function toDateInput(iso: string | null | undefined): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10);
-  return d.toISOString().slice(0, 10);
+  return toDateInputValue(iso);
 }
 
 export function PartnerRentalForm({

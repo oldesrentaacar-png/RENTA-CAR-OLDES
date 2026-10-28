@@ -29,6 +29,7 @@ import {
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { getLinkedOpenContract } from "@/lib/contracts/sync-reservation";
+import { isContractOpen } from "@/lib/contracts/display-phase";
 import { createClient } from "@/lib/supabase/server";
 import {
   deriveCalendarPhase,
@@ -805,7 +806,10 @@ export async function updateReservation(
       await createClient(),
       id,
     );
-    if (linked && linked.status !== "COMPLETED") {
+    if (
+      linked &&
+      isContractOpen({ status: linked.status, closedAt: linked.closed_at })
+    ) {
       const touchesOps =
         parsed.data.startAt !== undefined ||
         parsed.data.endAt !== undefined ||
@@ -1119,9 +1123,10 @@ export async function listReservationsForCalendar(
       { id: string; code: string; status: string; closed_at: string | null }
     >();
     const checkOutReservations = new Set<string>();
+    const checkInReservations = new Set<string>();
 
     if (reservationIds.length > 0) {
-      const [{ data: contracts }, { data: checkOuts }] = await Promise.all([
+      const [{ data: contracts }, { data: inspections }] = await Promise.all([
         supabase
           .from("contracts")
           .select("id, code, status, closed_at, reservation_id")
@@ -1130,9 +1135,9 @@ export async function listReservationsForCalendar(
           .neq("status", "CANCELLED"),
         supabase
           .from("inspections")
-          .select("reservation_id")
+          .select("reservation_id, type, mileage")
           .in("reservation_id", reservationIds)
-          .eq("type", "CHECK_OUT"),
+          .in("type", ["CHECK_OUT", "CHECK_IN"]),
       ]);
 
       for (const row of contracts ?? []) {
@@ -1167,9 +1172,18 @@ export async function listReservationsForCalendar(
           contractByReservation.set(c.reservation_id, next);
         }
       }
-      for (const row of checkOuts ?? []) {
-        const r = row as { reservation_id: string };
-        checkOutReservations.add(r.reservation_id);
+      for (const row of inspections ?? []) {
+        const r = row as {
+          reservation_id: string;
+          type: string;
+          mileage: number | null;
+        };
+        if (r.type === "CHECK_OUT") {
+          checkOutReservations.add(r.reservation_id);
+        }
+        if (r.type === "CHECK_IN" && r.mileage != null) {
+          checkInReservations.add(r.reservation_id);
+        }
       }
     }
 
@@ -1209,6 +1223,7 @@ export async function listReservationsForCalendar(
         "Cliente";
       const contract = contractByReservation.get(r.id) ?? null;
       const hasCheckOut = checkOutReservations.has(r.id);
+      const hasCheckIn = checkInReservations.has(r.id);
       const phase = deriveCalendarPhase({
         reservationStatus: r.status,
         startAt: r.start_at,
@@ -1216,6 +1231,7 @@ export async function listReservationsForCalendar(
         contractStatus: contract?.status ?? null,
         contractClosedAt: contract?.closed_at ?? null,
         hasCheckOut,
+        hasCheckIn,
         now,
       });
 

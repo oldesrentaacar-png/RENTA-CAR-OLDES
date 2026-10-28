@@ -77,6 +77,7 @@ const PHASE_FILTER_OPTIONS: Array<{ value: CalendarPhase | ""; label: string }> 
       label: CALENDAR_PHASE_LABELS.PENDIENTE_ENTREGA,
     },
     { value: "EN_CURSO", label: CALENDAR_PHASE_LABELS.EN_CURSO },
+    { value: "FALTA_CERRAR", label: CALENDAR_PHASE_LABELS.FALTA_CERRAR },
     { value: "FINALIZADA", label: CALENDAR_PHASE_LABELS.FINALIZADA },
     { value: "ANULADA", label: CALENDAR_PHASE_LABELS.ANULADA },
   ];
@@ -109,6 +110,9 @@ function eventLabel(r: CalendarReservation): string {
 
 /** Contract is operational source of truth once it exists. */
 function eventHref(r: CalendarReservation): string {
+  if (r.contractId && r.phase === "FALTA_CERRAR") {
+    return `/dashboard/contratos/${r.contractId}/cerrar`;
+  }
   return r.contractId
     ? `/dashboard/contratos/${r.contractId}`
     : `/dashboard/reservas/${r.id}`;
@@ -344,6 +348,7 @@ export function ReservationCalendar({ reservations, vehicles }: CalendarViewProp
             "SIN_CONTRATO",
             "PENDIENTE_ENTREGA",
             "EN_CURSO",
+            "FALTA_CERRAR",
             "FINALIZADA",
             "ANULADA",
           ] as CalendarPhase[]

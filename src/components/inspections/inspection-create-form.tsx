@@ -68,9 +68,13 @@ export function InspectionCreateForm({
       return;
     }
 
-    router.push(
-      `/dashboard/inspecciones/${result.data.id}?paso=inspeccion-salida`,
-    );
+    if (result.data.closeContractId) {
+      router.push(`/dashboard/contratos/${result.data.closeContractId}/cerrar`);
+    } else {
+      router.push(
+        `/dashboard/inspecciones/${result.data.id}?paso=inspeccion-salida`,
+      );
+    }
     router.refresh();
   }
 

@@ -6,6 +6,7 @@ import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import { loadBillingCatalogItems } from "@/lib/billing/load-catalog";
+import { isContractOpen } from "@/lib/contracts/display-phase";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { vehicleSelectParts } from "@/lib/vehicles/label";
@@ -97,7 +98,10 @@ export default async function EditarReservaPage({
         {!configured ? (
           <SetupBanner />
         ) : reservation?.linkedContract &&
-          reservation.linkedContract.status !== "COMPLETED" ? (
+          isContractOpen({
+            status: reservation.linkedContract.status,
+            closedAt: reservation.linkedContract.closed_at,
+          }) ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
             <p className="font-medium">
               Esta reserva ya migró al contrato{" "}

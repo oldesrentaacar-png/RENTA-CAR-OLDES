@@ -436,7 +436,7 @@ export function ReportesClient({
               {
                 key: "start",
                 header: "Inicio",
-                cell: (row) => formatAppDate(row.start_at.slice(0, 10)),
+                cell: (row) => formatAppDate(row.start_at),
               },
             ]}
           />

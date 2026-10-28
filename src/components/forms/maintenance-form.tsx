@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { appTodayDateString, toDateInputValue } from "@/lib/dates";
 import {
   MAINTENANCE_STATUS_LABELS,
   MAINTENANCE_TYPE_LABELS,
@@ -53,7 +54,7 @@ export function MaintenanceForm({
     if (value) announceError(value);
   };
   const [status, setStatus] = useState(record?.status ?? "SCHEDULED");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = appTodayDateString();
   const isEdit = Boolean(record);
 
   async function handleSubmit(formData: FormData) {
@@ -111,7 +112,11 @@ export function MaintenanceForm({
           name="maintenanceDate"
           label="Fecha *"
           type="date"
-          defaultValue={record?.maintenance_date ?? today}
+          defaultValue={
+            record?.maintenance_date
+              ? toDateInputValue(record.maintenance_date)
+              : today
+          }
           required
         />
         <Select
@@ -152,7 +157,9 @@ export function MaintenanceForm({
           name="nextDate"
           label="Próxima fecha"
           type="date"
-          defaultValue={record?.next_date ?? ""}
+          defaultValue={
+            record?.next_date ? toDateInputValue(record.next_date) : ""
+          }
         />
         <Input
           name="nextMileage"

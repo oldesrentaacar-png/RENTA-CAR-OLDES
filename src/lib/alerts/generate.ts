@@ -272,7 +272,7 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
       const inserted = await upsertAlert(supabase, {
         alert_type: "contract_overdue",
         title: `Contrato sin cerrar — ${when}`,
-        message: `Venció ${formatAppDate(contract.end_at)} · ${vehicleLabel}`,
+        message: `Venció ${formatAppDate(contract.end_at)} · ${vehicleLabel}. Pulse Cerrar renta para finalizarlo.`,
         entity_type: "contract",
         entity_id: contract.id,
         severity: "danger",
