@@ -313,7 +313,7 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
         .eq("is_active", true),
       supabase
         .from("contracts")
-        .select("vehicle_id")
+        .select("vehicle_id, reservation_id")
         .is("deleted_at", null)
         .is("closed_at", null)
         .not("status", "in", '("COMPLETED","CANCELLED")'),
@@ -335,10 +335,42 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
       return { ...empty, configured: true, error: firstError.message };
     }
 
-    const occupiedVehicleIds = new Set(
-      ((openContractsRes.data ?? []) as Array<{ vehicle_id: string }>).map(
-        (row) => row.vehicle_id,
+    const openContractRows = (openContractsRes.data ?? []) as Array<{
+      vehicle_id: string;
+      reservation_id: string | null;
+    }>;
+    const openReservationIds = [
+      ...new Set(
+        openContractRows
+          .map((row) => row.reservation_id)
+          .filter((id): id is string => Boolean(id)),
       ),
+    ];
+    const returnedReservationIds = new Set<string>();
+    if (openReservationIds.length > 0) {
+      const { data: returnedCheckIns, error: returnedError } = await supabase
+        .from("inspections")
+        .select("reservation_id")
+        .in("reservation_id", openReservationIds)
+        .eq("type", "CHECK_IN")
+        .not("mileage", "is", null);
+      if (returnedError) {
+        return { ...empty, configured: true, error: returnedError.message };
+      }
+      for (const row of returnedCheckIns ?? []) {
+        returnedReservationIds.add(
+          (row as { reservation_id: string }).reservation_id,
+        );
+      }
+    }
+    const occupiedVehicleIds = new Set(
+      openContractRows
+        .filter(
+          (row) =>
+            !row.reservation_id ||
+            !returnedReservationIds.has(row.reservation_id),
+        )
+        .map((row) => row.vehicle_id),
     );
     const vehicleRows = (
       (allVehiclesRes.data ?? []) as Array<{ id: string; status: string }>
