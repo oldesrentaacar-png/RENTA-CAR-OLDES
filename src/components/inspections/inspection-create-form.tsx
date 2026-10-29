@@ -68,7 +68,9 @@ export function InspectionCreateForm({
       return;
     }
 
-    if (result.data.closeContractId) {
+    if (result.data.contractCompleted && result.data.closeContractId) {
+      router.push(`/dashboard/contratos/${result.data.closeContractId}`);
+    } else if (result.data.closeContractId) {
       router.push(`/dashboard/contratos/${result.data.closeContractId}/cerrar`);
     } else {
       router.push(

@@ -18,6 +18,7 @@ import {
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
+import { completeOpenContractAfterCheckIn } from "@/lib/contracts/complete-from-checkin";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import { persistVehicleAvailableAfterContractClose } from "@/lib/vehicles/operational-write";
 import { getCustomerDisplayName } from "@/lib/customers";
@@ -487,7 +488,13 @@ export async function getReservationOptionsForInspection(): Promise<
 
 export async function createInspection(
   formData: FormData,
-): Promise<ActionResult<{ id: string; closeContractId?: string | null }>> {
+): Promise<
+  ActionResult<{
+    id: string;
+    closeContractId?: string | null;
+    contractCompleted?: boolean;
+  }>
+> {
   try {
     const { user } = await assertPermission("inspections.create");
     if (!isSupabaseConfigured()) {
@@ -651,6 +658,22 @@ export async function createInspection(
       }
     }
 
+    let contractCompleted = false;
+    if (
+      parsed.data.type === "CHECK_IN" &&
+      closeContractId &&
+      parsed.data.mileage != null &&
+      parsed.data.fuelLevel
+    ) {
+      const done = await completeOpenContractAfterCheckIn({
+        contractId: closeContractId,
+        userId: user.id,
+        actualReturnAt: parsed.data.inspectionDate,
+        checkInId: id,
+      });
+      contractCompleted = done.completed;
+    }
+
     await writeAuditLog({
       userId: user.id,
       action: "inspection.create",
@@ -667,7 +690,7 @@ export async function createInspection(
     if (closeContractId) {
       revalidatePath(`/dashboard/contratos/${closeContractId}`);
     }
-    return actionSuccess({ id, closeContractId });
+    return actionSuccess({ id, closeContractId, contractCompleted });
   } catch (error) {
     return actionError(toUserMessage(error));
   }
@@ -751,7 +774,7 @@ export async function updateInspection(
     const supabase = await createClient();
     const { data: existing, error: existingError } = await supabase
       .from("inspections")
-      .select("id, vehicle_id, type")
+      .select("id, vehicle_id, type, reservation_id, inspection_date")
       .eq("id", id)
       .maybeSingle();
 
@@ -762,6 +785,8 @@ export async function updateInspection(
       id: string;
       vehicle_id: string;
       type: InspectionType;
+      reservation_id: string;
+      inspection_date: string | null;
     };
 
     const { data: saved, error } = await supabase
@@ -786,6 +811,29 @@ export async function updateInspection(
       inspectionId: id,
       notes: `Actualización inspección ${existingRow.type}`,
     });
+
+    if (existingRow.type === "CHECK_IN" && fuel_level) {
+      const { data: linked } = await supabase
+        .from("contracts")
+        .select("id")
+        .eq("reservation_id", existingRow.reservation_id)
+        .is("deleted_at", null)
+        .is("closed_at", null)
+        .not("status", "in", '("COMPLETED","CANCELLED")')
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const linkedId = (linked as { id: string } | null)?.id ?? null;
+      if (linkedId) {
+        await completeOpenContractAfterCheckIn({
+          contractId: linkedId,
+          userId: user.id,
+          actualReturnAt: row.inspection_date ?? existingRow.inspection_date,
+          checkInId: id,
+        });
+        revalidatePath(`/dashboard/contratos/${linkedId}`);
+      }
+    }
 
     await writeAuditLog({
       userId: user.id,
