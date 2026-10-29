@@ -53,6 +53,7 @@ import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
 import {
   bakeDiscountIntoCourtesy,
   calculateReservationTotal,
+  dailyRateAfterCommercialDiscount,
   isMissingDiscountColumnError,
 } from "@/lib/calculations/quote";
 import {
@@ -2594,7 +2595,10 @@ export async function closeContract(
             startAt: contract.start_at,
             scheduledEndAt: contract.end_at,
             actualReturnAt,
-            dailyRate: contract.agreed_rate,
+            dailyRate: dailyRateAfterCommercialDiscount(
+              contract.agreed_rate,
+              contract.discount_percent,
+            ),
             graceHours,
             courtesyHours,
             courtesyDays,

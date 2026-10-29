@@ -6,6 +6,7 @@ import {
   parseRateInput,
   subtract,
   toNumber,
+  toRateNumber,
   type MoneyInput,
 } from "@/lib/money";
 
@@ -190,6 +191,17 @@ export function resolveCommercialDiscount(input: {
       Math.max(0, parseMoneyInput(input.discountAmount)),
     ),
   };
+}
+
+/** Extra/unused days keep the same commercial percent as the agreed rental. */
+export function dailyRateAfterCommercialDiscount(
+  agreedRate: MoneyInput,
+  discountPercent?: MoneyInput,
+): number {
+  const rate = parseRateInput(agreedRate);
+  const percent = Math.max(0, Math.min(100, parseMoneyInput(discountPercent)));
+  if (percent <= 0) return rate;
+  return toRateNumber(multiply(rate, subtract(1, percent / 100)));
 }
 
 /** Quote tax_rate is stored as a fraction (0.13). Values above 1 are percents. */

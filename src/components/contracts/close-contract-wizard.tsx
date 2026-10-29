@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { dailyRateAfterCommercialDiscount } from "@/lib/calculations/quote";
 import {
   calculateReturnSettlement,
   calculateSuggestedExtraDayCharge,
@@ -148,13 +149,18 @@ export function CloseContractWizard({
 
   const amountPaidBase = Number(contract.amount_paid ?? 0);
 
+  const billedDailyRate = dailyRateAfterCommercialDiscount(
+    contract.agreed_rate,
+    contract.discount_percent,
+  );
+
   const extraDayPreview = useMemo(() => {
     if (!actualReturnAt) return null;
     try {
       return calculateSuggestedExtraDayCharge({
         scheduledEndAt: contract.end_at,
         actualReturnAt,
-        dailyRate: contract.agreed_rate,
+        dailyRate: billedDailyRate,
         graceHours: extraDayGraceHours,
         courtesyHours: Number(courtesyHours) || 0,
         courtesyDays: Number(courtesyDays) || 0,
@@ -165,7 +171,7 @@ export function CloseContractWizard({
     }
   }, [
     actualReturnAt,
-    contract.agreed_rate,
+    billedDailyRate,
     contract.end_at,
     courtesyDays,
     courtesyHours,
@@ -180,7 +186,7 @@ export function CloseContractWizard({
         startAt: contract.start_at,
         scheduledEndAt: contract.end_at,
         actualReturnAt,
-        dailyRate: contract.agreed_rate,
+        dailyRate: billedDailyRate,
         graceHours: extraDayGraceHours,
         courtesyHours: Number(courtesyHours) || 0,
         courtesyDays: Number(courtesyDays) || 0,
@@ -191,7 +197,7 @@ export function CloseContractWizard({
     }
   }, [
     actualReturnAt,
-    contract.agreed_rate,
+    billedDailyRate,
     contract.end_at,
     contract.start_at,
     courtesyDays,
