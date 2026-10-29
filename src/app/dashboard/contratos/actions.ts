@@ -416,8 +416,26 @@ export async function listContracts(
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
+    const { data: checkInRows, error: checkInError } = await supabase
+      .from("inspections")
+      .select("reservation_id")
+      .eq("type", "CHECK_IN");
+    if (checkInError) throw mapPostgresError(checkInError);
+    const checkInReservationIds = [
+      ...new Set(
+        ((checkInRows ?? []) as Array<{ reservation_id: string }>).map(
+          (row) => row.reservation_id,
+        ),
+      ),
+    ];
+    const checkInReservationIdSet = new Set(checkInReservationIds);
+
     const phaseFilter = filters.status as ContractDisplayPhase | undefined;
     const nowIso = new Date().toISOString();
+    const openQuery = () =>
+      query
+        .not("status", "in", '("COMPLETED","CANCELLED")')
+        .is("closed_at", null);
     if (phaseFilter === "ANULADO") {
       query = query.eq("status", "CANCELLED");
     } else if (phaseFilter === "POR_LIQUIDAR") {
@@ -426,16 +444,31 @@ export async function listContracts(
       query = query
         .neq("status", "CANCELLED")
         .or("status.eq.COMPLETED,closed_at.not.is.null");
+    } else if (phaseFilter === "FALTA_CERRAR") {
+      query = openQuery();
+      if (checkInReservationIds.length > 0) {
+        query = query.in("reservation_id", checkInReservationIds);
+      } else {
+        query = query.eq("id", "00000000-0000-0000-0000-000000000000");
+      }
     } else if (phaseFilter === "SIN_RESOLVER") {
-      query = query
-        .not("status", "in", '("COMPLETED","CANCELLED")')
-        .is("closed_at", null)
-        .lt("end_at", nowIso);
+      query = openQuery().lt("end_at", nowIso);
+      if (checkInReservationIds.length > 0) {
+        query = query.not(
+          "reservation_id",
+          "in",
+          `(${checkInReservationIds.join(",")})`,
+        );
+      }
     } else if (phaseFilter === "EN_CURSO") {
-      query = query
-        .not("status", "in", '("COMPLETED","CANCELLED")')
-        .is("closed_at", null)
-        .gte("end_at", nowIso);
+      query = openQuery().gte("end_at", nowIso);
+      if (checkInReservationIds.length > 0) {
+        query = query.not(
+          "reservation_id",
+          "in",
+          `(${checkInReservationIds.join(",")})`,
+        );
+      }
     } else if (filters.status) {
       query = query.eq("status", filters.status);
     }
@@ -514,6 +547,7 @@ export async function listContracts(
         closedAt: contract.closed_at,
         endAt: contract.end_at,
         balanceDue: contract.balance_due,
+        hasCheckIn: checkInReservationIdSet.has(contract.reservation_id),
       });
 
       return {

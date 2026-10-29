@@ -29,7 +29,7 @@ export default async function ContratosPage({
   return (
     <ModuleListShell
       title="Contratos"
-      description="Contratos de arrendamiento. Use el filtro «Por liquidar (saldo)» para ver cerrados o abiertos que aún deben abono."
+      description="Contratos de arrendamiento. «Falta cerrar» = ya hay inspección de ingreso; use Cerrar renta para finalizar. «Por liquidar» es saldo, no renta abierta."
       permission="contracts.view"
       configured={configured}
       error={error}
@@ -119,6 +119,21 @@ export default async function ContratosPage({
                 {row.displayPhaseLabel}
               </Badge>
             ),
+          },
+          {
+            key: "close",
+            header: "",
+            cell: (row) =>
+              row.displayPhase === "FALTA_CERRAR" ||
+              row.displayPhase === "SIN_RESOLVER" ||
+              row.displayPhase === "EN_CURSO" ? (
+                <Link
+                  href={`/dashboard/contratos/${row.id}/cerrar`}
+                  className="text-sm font-medium text-brand hover:underline"
+                >
+                  Cerrar renta
+                </Link>
+              ) : null,
           },
         ]}
       />

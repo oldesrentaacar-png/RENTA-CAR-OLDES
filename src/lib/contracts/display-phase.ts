@@ -7,7 +7,8 @@ export type ContractDisplayPhase =
   | "EN_CURSO"
   | "ANULADO"
   | "SIN_RESOLVER"
-  | "POR_LIQUIDAR";
+  | "POR_LIQUIDAR"
+  | "FALTA_CERRAR";
 
 export const CONTRACT_DISPLAY_PHASE_LABELS: Record<
   ContractDisplayPhase,
@@ -18,12 +19,14 @@ export const CONTRACT_DISPLAY_PHASE_LABELS: Record<
   ANULADO: "Anulado",
   SIN_RESOLVER: "Sin resolver",
   POR_LIQUIDAR: "Por liquidar",
+  FALTA_CERRAR: "Falta cerrar",
 };
 
 export const CONTRACT_DISPLAY_PHASE_OPTIONS: Array<{
   value: ContractDisplayPhase;
   label: string;
 }> = [
+  { value: "FALTA_CERRAR", label: "Falta cerrar (ingreso hecho)" },
   { value: "POR_LIQUIDAR", label: "Por liquidar (saldo)" },
   { value: "EN_CURSO", label: "En curso" },
   { value: "SIN_RESOLVER", label: "Sin resolver" },
@@ -57,6 +60,8 @@ export function deriveContractDisplayPhase(input: {
   endAt: string;
   balanceDue?: number | null;
   now?: Date;
+  /** CHECK_IN exists — vehicle return started; Cerrar renta still pending. */
+  hasCheckIn?: boolean;
 }): ContractDisplayPhase {
   const status = String(input.status ?? "").toUpperCase();
   const now = input.now ?? new Date();
@@ -66,6 +71,7 @@ export function deriveContractDisplayPhase(input: {
   if (isContractClosed({ status, closedAt: input.closedAt })) {
     return "FINALIZADO";
   }
+  if (input.hasCheckIn) return "FALTA_CERRAR";
   if (balanceDue > 0.009) return "POR_LIQUIDAR";
 
   const endAt = new Date(input.endAt);
@@ -84,6 +90,7 @@ export function contractDisplayPhaseBadgeVariant(
       return "success";
     case "EN_CURSO":
       return "info";
+    case "FALTA_CERRAR":
     case "SIN_RESOLVER":
       return "warning";
     case "POR_LIQUIDAR":
