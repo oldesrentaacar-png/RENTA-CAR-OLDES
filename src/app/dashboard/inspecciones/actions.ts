@@ -19,6 +19,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { completeOpenContractAfterCheckIn } from "@/lib/contracts/complete-from-checkin";
+import { markReservationActive } from "@/lib/reservations/operational-status";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import { persistVehicleAvailableAfterContractClose } from "@/lib/vehicles/operational-write";
 import { getCustomerDisplayName } from "@/lib/customers";
@@ -618,12 +619,7 @@ export async function createInspection(
     }
 
     if (parsed.data.type === "CHECK_OUT") {
-      await supabase
-        .from("reservations")
-        .update({ status: "ACTIVE" })
-        .eq("id", parsed.data.reservationId)
-        .eq("status", "CONFIRMED")
-        .is("deleted_at", null);
+      await markReservationActive(parsed.data.reservationId);
     }
 
     if (parsed.data.mileage != null) {

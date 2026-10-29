@@ -5,7 +5,9 @@ import {
   sumExtraLineItems,
   type ExtraLineItem,
 } from "@/lib/billing/extra-lines";
+import { isSupabaseAdminConfigured } from "@/lib/env";
 import { isMissingRelationError, mapPostgresError } from "@/lib/errors";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   bakeDiscountIntoCourtesy,
   isMissingDiscountColumnError,
@@ -80,28 +82,39 @@ export async function syncReservationFromContract(
   }
 
   let working = patch;
-  let { error } = await supabase
+  const writer = isSupabaseAdminConfigured() ? createAdminClient() : supabase;
+  let { data: saved, error } = await writer
     .from("reservations")
     .update(working)
     .eq("id", input.reservationId)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error && isMissingDiscountColumnError(error)) {
     working = bakeDiscountIntoCourtesy(working);
-    ({ error } = await supabase
+    const retry = await writer
       .from("reservations")
       .update(working)
       .eq("id", input.reservationId)
-      .is("deleted_at", null));
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    error = retry.error;
+    saved = retry.data;
   }
 
   if (error && isMissingRelationError(error) && "extra_line_items" in working) {
     delete working.extra_line_items;
-    ({ error } = await supabase
+    const retry = await writer
       .from("reservations")
       .update(working)
       .eq("id", input.reservationId)
-      .is("deleted_at", null));
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    error = retry.error;
+    saved = retry.data;
   }
 
   if (error) {
@@ -111,6 +124,11 @@ export async function syncReservationFromContract(
       error.message,
     );
     throw mapPostgresError(error);
+  }
+  if (!saved) {
+    throw new Error(
+      "No se pudo actualizar la reserva vinculada al contrato.",
+    );
   }
 }
 

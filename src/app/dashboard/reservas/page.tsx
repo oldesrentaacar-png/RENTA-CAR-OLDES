@@ -29,7 +29,7 @@ export default async function ReservasPage({
   return (
     <ModuleListShell
       title="Reservas"
-      description="Reservas confirmadas y en curso. Busque por nombre del cliente o código."
+      description="Todos = el listado completo. Confirmada = falta entregar. En renta = el carro ya salió. Completada = ya se cerró. Cancelada = el cliente no usó el carro."
       permission="reservations.view"
       configured={configured}
       error={error}

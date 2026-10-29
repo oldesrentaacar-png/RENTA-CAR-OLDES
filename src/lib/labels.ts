@@ -34,8 +34,8 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
 };
 
 export const RESERVATION_STATUS_LABELS: Record<ReservationStatus, string> = {
-  CONFIRMED: "Confirmada",
-  ACTIVE: "Activa",
+  CONFIRMED: "Confirmada (falta entregar)",
+  ACTIVE: "En renta",
   COMPLETED: "Completada",
   CANCELLED: "Cancelada",
 };
