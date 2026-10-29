@@ -100,6 +100,26 @@ export function fuelLevelIndex(
   return map[raw] ?? -1;
 }
 
+/** Canonical fuel enum (HALF, FULL, …) or null if unrecognized. */
+export function normalizeFuelLevel(
+  levelOrLabel: string | null | undefined,
+): (typeof FUEL_LEVEL_ORDER)[number] | null {
+  const index = fuelLevelIndex(levelOrLabel);
+  if (index < 0) return null;
+  return FUEL_LEVEL_ORDER[index] ?? null;
+}
+
+/** Integer km from form input; strips commas/spaces. */
+export function parseInspectionMileage(raw: unknown): number | null {
+  const digits = String(raw ?? "").trim().replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const mileage = Number(digits);
+  if (!Number.isInteger(mileage) || mileage < 0 || mileage > 9_999_999) {
+    return null;
+  }
+  return mileage;
+}
+
 /** Ordered options for the damage-type select (OLDES codes first). */
 export const DAMAGE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "SCRATCH", label: "Rayón" },

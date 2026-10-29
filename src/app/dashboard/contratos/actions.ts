@@ -37,7 +37,7 @@ import {
   unappliedCourtesyAmount,
 } from "@/lib/contracts/amount-owed";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
 import {
   calculateReturnSettlement,
@@ -80,7 +80,10 @@ import {
   PHOTO_CATEGORY_LABELS,
   DAMAGE_SEVERITY_LABELS,
   DAMAGE_TYPE_LABELS,
+  normalizeFuelLevel,
+  parseInspectionMileage,
 } from "@/lib/inspections/defaults";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
 import {
   applyContractIvaToAmount,
@@ -1933,8 +1936,14 @@ export async function getContractCloseContext(
     };
 
     const bundles = (inspections ?? []) as InspBundle[];
-    const checkOutRow = bundles.find((i) => i.type === "CHECK_OUT");
-    const checkInRow = bundles.find((i) => i.type === "CHECK_IN");
+    const checkOutRow = [...bundles].reverse().find((i) => i.type === "CHECK_OUT");
+    const checkIns = bundles.filter((i) => i.type === "CHECK_IN");
+    const checkInRow =
+      [...checkIns]
+        .reverse()
+        .find((i) => i.mileage != null && Boolean(i.fuel_level)) ??
+      checkIns[checkIns.length - 1] ??
+      null;
 
     const checkOut = checkOutRow
       ? {
@@ -2001,17 +2010,57 @@ export async function getContractCloseContext(
   }
 }
 
-const CLOSE_FUEL_LEVELS = new Set([
-  "EMPTY",
-  "ONE_EIGHTH",
-  "QUARTER",
-  "THREE_EIGHTHS",
-  "HALF",
-  "FIVE_EIGHTHS",
-  "THREE_QUARTERS",
-  "SEVEN_EIGHTHS",
-  "FULL",
-]);
+function inspectionWriter() {
+  return isSupabaseAdminConfigured() ? createAdminClient() : null;
+}
+
+/**
+ * Writes km + fuel on CHECK_IN. Uses the service role so staff who can
+ * close a contract (contracts.edit) are not blocked by inspections.edit RLS.
+ * Always re-reads the row; never treat a 0-row RLS update as success.
+ */
+async function persistCheckInVitals(input: {
+  checkInId: string;
+  mileage: number;
+  fuelLevel: string;
+  inspectionDate?: string | null;
+}): Promise<{ mileage: number; fuelLevel: string }> {
+  const fuelLevel = normalizeFuelLevel(input.fuelLevel);
+  if (!fuelLevel) {
+    throw new Error("Seleccione el nivel de combustible.");
+  }
+  const mileage = parseInspectionMileage(input.mileage) ?? input.mileage;
+  if (!Number.isInteger(mileage) || mileage < 0 || mileage > 9_999_999) {
+    throw new Error("Kilometraje inválido.");
+  }
+
+  const writer = inspectionWriter() ?? (await createClient());
+  const payload: Record<string, unknown> = {
+    mileage,
+    fuel_level: fuelLevel,
+    updated_at: new Date().toISOString(),
+  };
+  if (input.inspectionDate) payload.inspection_date = input.inspectionDate;
+
+  const { data, error } = await writer
+    .from("inspections")
+    .update(payload)
+    .eq("id", input.checkInId)
+    .select("id, mileage, fuel_level")
+    .maybeSingle();
+  if (error) throw mapPostgresError(error);
+
+  const saved = data as {
+    mileage: number | null;
+    fuel_level: string | null;
+  } | null;
+  if (saved?.mileage == null || !saved.fuel_level) {
+    throw new Error(
+      "No se pudo guardar kilometraje y combustible. El perfil necesita permiso para editar la inspección de entrada.",
+    );
+  }
+  return { mileage: Number(saved.mileage), fuelLevel: saved.fuel_level };
+}
 
 async function ensureCheckInChecklist(
   supabase: SupabaseServer,
@@ -2201,12 +2250,12 @@ export async function saveCloseCheckInVitals(
       return actionError("Supabase no está configurado.");
     }
 
-    const mileage = Number(input.mileage);
-    if (!Number.isInteger(mileage) || mileage < 0 || mileage > 9_999_999) {
+    const mileage = parseInspectionMileage(input.mileage);
+    if (mileage == null) {
       return actionError("Kilometraje inválido.");
     }
-    const fuelLevel = String(input.fuelLevel ?? "").trim();
-    if (!CLOSE_FUEL_LEVELS.has(fuelLevel)) {
+    const fuelLevel = normalizeFuelLevel(input.fuelLevel);
+    if (!fuelLevel) {
       return actionError("Seleccione el nivel de combustible.");
     }
 
@@ -2245,25 +2294,25 @@ export async function saveCloseCheckInVitals(
       if (!ensured.success) return actionError(ensured.error);
       checkInId = ensured.data.checkInId;
     }
-    const { error: updateError } = await supabase
-      .from("inspections")
-      .update({
-        mileage,
-        fuel_level: fuelLevel,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", checkInId);
-    if (updateError) throw mapPostgresError(updateError);
-
-    await applyVehicleMileage(supabase, {
-      vehicleId: row.vehicle_id,
+    const saved = await persistCheckInVitals({
+      checkInId,
       mileage,
-      source: "CHECK_IN",
-      userId: user.id,
-      inspectionId: checkInId,
-      contractId,
-      notes: "Vitals de cierre (CHECK_IN)",
+      fuelLevel,
     });
+
+    try {
+      await applyVehicleMileage(supabase, {
+        vehicleId: row.vehicle_id,
+        mileage: saved.mileage,
+        source: "CHECK_IN",
+        userId: user.id,
+        inspectionId: checkInId,
+        contractId,
+        notes: "Vitals de cierre (CHECK_IN)",
+      });
+    } catch {
+      // Km already saved on the inspection; vehicle odometer is secondary.
+    }
 
     await ensureCheckInChecklist(supabase, checkInId);
 
@@ -2277,7 +2326,7 @@ export async function saveCloseCheckInVitals(
       action: "contract.close_checkin_vitals",
       entityType: "inspection",
       entityId: checkInId,
-      metadata: { contractId, mileage, fuelLevel },
+      metadata: { contractId, mileage: saved.mileage, fuelLevel: saved.fuelLevel },
     });
 
     revalidatePath(`/dashboard/contratos/${contractId}`);
@@ -2289,8 +2338,8 @@ export async function saveCloseCheckInVitals(
     revalidatePath("/dashboard/calendario");
 
     return actionSuccess({
-      mileage,
-      fuelLevel,
+      mileage: saved.mileage,
+      fuelLevel: saved.fuelLevel,
       checkInId,
       hasChecklist: (count ?? 0) > 0,
     });
@@ -2376,14 +2425,23 @@ export async function closeContract(
     );
     const actualReturnRaw = formData.get("actualReturnAt");
 
-    const { data: checkInInspection } = await supabase
-      .from("inspections")
-      .select("id, inspection_date")
-      .eq("reservation_id", contract.reservation_id)
-      .eq("type", "CHECK_IN")
-      .order("inspection_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const requestedCheckInId = String(formData.get("checkInId") ?? "").trim();
+    const { data: checkInInspection } = requestedCheckInId
+      ? await supabase
+          .from("inspections")
+          .select("id, inspection_date")
+          .eq("id", requestedCheckInId)
+          .eq("reservation_id", contract.reservation_id)
+          .eq("type", "CHECK_IN")
+          .maybeSingle()
+      : await supabase
+          .from("inspections")
+          .select("id, inspection_date")
+          .eq("reservation_id", contract.reservation_id)
+          .eq("type", "CHECK_IN")
+          .order("inspection_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
     if (!checkInInspection) {
       return actionError(
@@ -2393,58 +2451,28 @@ export async function closeContract(
 
     const checkInId = (checkInInspection as { id: string }).id;
 
-    // Permite completar km/combustible desde el wizard de cierre (mismo envío).
-    const vitalsMileageRaw = formData.get("checkInMileage");
-    const vitalsFuelRaw = formData.get("checkInFuelLevel");
-    if (
-      vitalsMileageRaw != null &&
-      String(vitalsMileageRaw).trim() !== "" &&
-      vitalsFuelRaw != null &&
-      String(vitalsFuelRaw).trim() !== ""
-    ) {
-      const vitalsMileage = Number(vitalsMileageRaw);
-      const vitalsFuel = String(vitalsFuelRaw).trim();
-      if (
-        Number.isInteger(vitalsMileage) &&
-        vitalsMileage >= 0 &&
-        vitalsMileage <= 9_999_999 &&
-        CLOSE_FUEL_LEVELS.has(vitalsFuel)
-      ) {
-        const returnIso =
-          actualReturnRaw && String(actualReturnRaw).trim() !== ""
-            ? normalizeFormDateTimeToIso(actualReturnRaw)
-            : null;
-        const { error: vitalsError } = await supabase
-          .from("inspections")
-          .update({
-            mileage: vitalsMileage,
-            fuel_level: vitalsFuel,
-            ...(returnIso ? { inspection_date: returnIso } : {}),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", checkInId);
-        if (vitalsError) throw mapPostgresError(vitalsError);
-      }
-    }
-
-    await ensureCheckInChecklist(supabase, checkInId);
-
-    const { data: checkInDetail } = await supabase
-      .from("inspections")
-      .select("id, mileage, fuel_level")
-      .eq("id", checkInId)
-      .maybeSingle();
-
-    const checkInInfo = checkInDetail as {
-      mileage: number | null;
-      fuel_level: string | null;
-    } | null;
-
-    if (checkInInfo?.mileage == null || !checkInInfo.fuel_level) {
+    const vitalsMileage = parseInspectionMileage(formData.get("checkInMileage"));
+    const vitalsFuel = normalizeFuelLevel(
+      String(formData.get("checkInFuelLevel") ?? ""),
+    );
+    if (vitalsMileage == null || !vitalsFuel) {
       return actionError(
-        "Kilometraje y combustible son obligatorios. Vuelva al paso del kilometraje, complete los datos y cierre de nuevo.",
+        "Kilometraje y combustible son obligatorios. Vuelva al paso Espejo, indíquelos y pulse Siguiente.",
       );
     }
+
+    const returnIso =
+      actualReturnRaw && String(actualReturnRaw).trim() !== ""
+        ? normalizeFormDateTimeToIso(actualReturnRaw)
+        : null;
+    await persistCheckInVitals({
+      checkInId,
+      mileage: vitalsMileage,
+      fuelLevel: vitalsFuel,
+      inspectionDate: returnIso,
+    });
+
+    await ensureCheckInChecklist(supabase, checkInId);
 
     if (String(formData.get("confirmClose") ?? "") !== "true") {
       return actionError(
@@ -2649,18 +2677,6 @@ export async function closeContract(
 
     if (updateError) throw mapPostgresError(updateError);
 
-    const { data: checkIn } = await supabase
-      .from("inspections")
-      .select("id, mileage")
-      .eq("reservation_id", contract.reservation_id)
-      .eq("type", "CHECK_IN")
-      .order("inspection_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const checkInRow = checkIn as { id: string; mileage: number | null } | null;
-    const mileage = checkInRow?.mileage ?? null;
-
     const { error: vehicleError } = await supabase
       .from("vehicles")
       .update({ status: "AVAILABLE" })
@@ -2670,13 +2686,13 @@ export async function closeContract(
       throw mapPostgresError(vehicleError);
     }
 
-    if (mileage != null && mileage >= 0) {
+    if (vitalsMileage != null && vitalsMileage >= 0) {
       await applyVehicleMileage(supabase, {
         vehicleId: contract.vehicle_id,
-        mileage,
+        mileage: vitalsMileage,
         source: "CHECK_IN",
         userId: user.id,
-        inspectionId: checkInRow?.id ?? null,
+        inspectionId: checkInId,
         contractId,
         notes: "Cierre de contrato",
       });
@@ -2709,7 +2725,7 @@ export async function closeContract(
         finalPayment,
         balanceDue,
         paymentStatus,
-        mileage,
+        mileage: vitalsMileage,
       },
     });
 

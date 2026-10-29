@@ -545,9 +545,15 @@ export function CloseContractWizard({
       formData.set("chargeConcept", chargeConcept);
       formData.set("depositReturned", depositReturned ? "true" : "false");
       formData.set("confirmClose", "true");
+      if (checkIn?.id) {
+        formData.set("checkInId", checkIn.id);
+      }
       if (effectiveMileage != null && effectiveFuel) {
-        formData.set("checkInMileage", String(effectiveMileage));
-        formData.set("checkInFuelLevel", effectiveFuel);
+        formData.set("checkInMileage", String(Math.round(Number(effectiveMileage))));
+        formData.set(
+          "checkInFuelLevel",
+          effectiveFuel,
+        );
       }
       if (conformitySignatureDataUrl) {
         formData.set("conformitySignatureDataUrl", conformitySignatureDataUrl);
