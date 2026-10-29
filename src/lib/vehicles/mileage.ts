@@ -1,5 +1,8 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import type { createClient } from "@/lib/supabase/server";
 import { mapPostgresError } from "@/lib/errors";
+import { resolveVehicleWriter } from "@/lib/vehicles/operational-write";
 
 type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
 
@@ -59,19 +62,29 @@ export async function applyVehicleMileage(
   const shouldUpdateVehicle = previous == null || mileage >= previous;
 
   if (shouldUpdateVehicle) {
-    const { error: updateError } = await supabase
+    const writer = await resolveVehicleWriter(
+      supabase as unknown as SupabaseClient,
+    );
+    const { data: saved, error: updateError } = await writer
       .from("vehicles")
       .update({
         current_mileage: mileage,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", input.vehicleId);
+      .eq("id", input.vehicleId)
+      .select("id, current_mileage")
+      .maybeSingle();
 
     if (updateError) {
       if (isMissingRelationOrColumn(updateError)) {
         return { updated: false, previous };
       }
       throw mapPostgresError(updateError);
+    }
+    if (!saved) {
+      throw new Error(
+        "No se pudo actualizar el kilometraje del vehículo. El perfil necesita permiso para editar el vehículo.",
+      );
     }
   }
 

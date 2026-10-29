@@ -45,6 +45,10 @@ import {
 } from "@/lib/calculations/rental-close";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
+import {
+  persistVehicleAvailableAfterContractClose,
+  releaseVehicleIfOccupied,
+} from "@/lib/vehicles/operational-write";
 import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
 import {
   bakeDiscountIntoCourtesy,
@@ -1682,13 +1686,20 @@ export async function cancelContract(
       );
     }
 
-    const { error } = await supabase
+    const { data: cancelled, error } = await supabase
       .from("contracts")
       .update({ status: "CANCELLED" })
       .eq("id", id)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .select("id, status")
+      .maybeSingle();
 
     if (error) throw mapPostgresError(error);
+    if (!cancelled) {
+      throw new Error(
+        "No se pudo anular el contrato. El perfil necesita permiso para anular.",
+      );
+    }
 
     // Keep the full contract record (terms, amounts, signatures).
     // Free the operational chain so the vehicle can be used again.
@@ -1716,12 +1727,7 @@ export async function cancelContract(
           .is("deleted_at", null);
       }
 
-      await supabase
-        .from("vehicles")
-        .update({ status: "AVAILABLE" })
-        .eq("id", reservationRow.vehicle_id)
-        .in("status", ["RESERVED", "RENTED"])
-        .is("deleted_at", null);
+      await releaseVehicleIfOccupied(reservationRow.vehicle_id);
     }
 
     await writeAuditLog({
@@ -2300,19 +2306,15 @@ export async function saveCloseCheckInVitals(
       fuelLevel,
     });
 
-    try {
-      await applyVehicleMileage(supabase, {
-        vehicleId: row.vehicle_id,
-        mileage: saved.mileage,
-        source: "CHECK_IN",
-        userId: user.id,
-        inspectionId: checkInId,
-        contractId,
-        notes: "Vitals de cierre (CHECK_IN)",
-      });
-    } catch {
-      // Km already saved on the inspection; vehicle odometer is secondary.
-    }
+    await applyVehicleMileage(supabase, {
+      vehicleId: row.vehicle_id,
+      mileage: saved.mileage,
+      source: "CHECK_IN",
+      userId: user.id,
+      inspectionId: checkInId,
+      contractId,
+      notes: "Vitals de cierre (CHECK_IN)",
+    });
 
     await ensureCheckInChecklist(supabase, checkInId);
 
@@ -2656,36 +2658,6 @@ export async function closeContract(
       actual_return_at: actualReturnAt,
     };
 
-    let { error: updateError } = await supabase
-      .from("contracts")
-      .update(updateRow)
-      .eq("id", contractId)
-      .is("deleted_at", null);
-
-    if (updateError && isMissingRelationOrColumn(updateError)) {
-      const fallback = {
-        status: "COMPLETED" as const,
-        notes: mergedNotes,
-      };
-      const retry = await supabase
-        .from("contracts")
-        .update(fallback)
-        .eq("id", contractId)
-        .is("deleted_at", null);
-      updateError = retry.error;
-    }
-
-    if (updateError) throw mapPostgresError(updateError);
-
-    const { error: vehicleError } = await supabase
-      .from("vehicles")
-      .update({ status: "AVAILABLE" })
-      .eq("id", contract.vehicle_id);
-
-    if (vehicleError && !isMissingRelationOrColumn(vehicleError)) {
-      throw mapPostgresError(vehicleError);
-    }
-
     if (vitalsMileage != null && vitalsMileage >= 0) {
       await applyVehicleMileage(supabase, {
         vehicleId: contract.vehicle_id,
@@ -2697,6 +2669,42 @@ export async function closeContract(
         notes: "Cierre de contrato",
       });
     }
+
+    let { data: closedRow, error: updateError } = await supabase
+      .from("contracts")
+      .update(updateRow)
+      .eq("id", contractId)
+      .is("deleted_at", null)
+      .select("id, status, closed_at")
+      .maybeSingle();
+
+    if (updateError && isMissingRelationOrColumn(updateError)) {
+      const fallback = {
+        status: "COMPLETED" as const,
+        notes: mergedNotes,
+      };
+      const retry = await supabase
+        .from("contracts")
+        .update(fallback)
+        .eq("id", contractId)
+        .is("deleted_at", null)
+        .select("id, status, closed_at")
+        .maybeSingle();
+      updateError = retry.error;
+      closedRow = retry.data;
+    }
+
+    if (updateError) throw mapPostgresError(updateError);
+    if (!closedRow) {
+      throw new Error(
+        "No se pudo cerrar el contrato. El perfil necesita permiso para editar contratos.",
+      );
+    }
+
+    await persistVehicleAvailableAfterContractClose(
+      contract.vehicle_id,
+      contractId,
+    );
 
     await syncReservationFromContract(supabase, {
       reservationId: contract.reservation_id,

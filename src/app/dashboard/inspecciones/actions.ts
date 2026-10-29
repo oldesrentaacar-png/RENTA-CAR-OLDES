@@ -19,6 +19,7 @@ import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
+import { persistVehicleAvailableAfterContractClose } from "@/lib/vehicles/operational-write";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getDefaultChecklistFromCatalog } from "@/lib/inspections/accessory-catalog";
@@ -631,10 +632,6 @@ export async function createInspection(
 
     let closeContractId: string | null = null;
     if (parsed.data.type === "CHECK_IN" && parsed.data.mileage != null) {
-      await supabase
-        .from("vehicles")
-        .update({ status: "AVAILABLE" })
-        .eq("id", parsed.data.vehicleId);
       const { data: linked } = await supabase
         .from("contracts")
         .select("id")
@@ -646,6 +643,12 @@ export async function createInspection(
         .limit(1)
         .maybeSingle();
       closeContractId = (linked as { id: string } | null)?.id ?? null;
+      if (closeContractId) {
+        await persistVehicleAvailableAfterContractClose(
+          parsed.data.vehicleId,
+          closeContractId,
+        );
+      }
     }
 
     await writeAuditLog({
@@ -761,9 +764,19 @@ export async function updateInspection(
       type: InspectionType;
     };
 
-    const { error } = await supabase.from("inspections").update(row).eq("id", id);
+    const { data: saved, error } = await supabase
+      .from("inspections")
+      .update(row)
+      .eq("id", id)
+      .select("id, mileage, fuel_level")
+      .maybeSingle();
 
     if (error) throw mapPostgresError(error);
+    if (!saved) {
+      return actionError(
+        "No se pudo guardar la inspección. El perfil necesita permiso para editarla.",
+      );
+    }
 
     await applyVehicleMileage(supabase, {
       vehicleId: existingRow.vehicle_id,

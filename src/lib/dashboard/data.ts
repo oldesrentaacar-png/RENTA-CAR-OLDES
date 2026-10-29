@@ -264,7 +264,6 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
     const [
       requestsRes,
       reservationsRes,
-      vehiclesRes,
       customersRes,
       expenseRes,
       maintenanceRes,
@@ -272,6 +271,7 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
       allVehiclesRes,
       allRequestsRes,
       alertsRes,
+      openContractsRes,
     ] = await Promise.all([
       supabase
         .from("web_requests")
@@ -281,11 +281,6 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
         .from("reservations")
         .select("id", { count: "exact", head: true })
         .in("status", ["CONFIRMED", "ACTIVE"]),
-      supabase
-        .from("vehicles")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "AVAILABLE")
-        .eq("is_active", true),
       supabase
         .from("customers")
         .select("id", { count: "exact", head: true })
@@ -310,31 +305,54 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
         .is("deleted_at", null)
         .gte("period_month", from)
         .lte("period_month", to),
-      supabase.from("vehicles").select("status").eq("is_active", true),
+      supabase.from("vehicles").select("id, status").eq("is_active", true),
       supabase.from("web_requests").select("status"),
       supabase
         .from("alerts")
         .select("id", { count: "exact", head: true })
         .eq("is_active", true),
+      supabase
+        .from("contracts")
+        .select("vehicle_id")
+        .is("deleted_at", null)
+        .is("closed_at", null)
+        .not("status", "in", '("COMPLETED","CANCELLED")'),
     ]);
 
     const firstError =
       requestsRes.error ??
       reservationsRes.error ??
-      vehiclesRes.error ??
       customersRes.error ??
       expenseRes.error ??
       maintenanceRes.error ??
       settlementsRes.error ??
       allVehiclesRes.error ??
       allRequestsRes.error ??
-      alertsRes.error;
+      alertsRes.error ??
+      openContractsRes.error;
 
     if (firstError) {
       return { ...empty, configured: true, error: firstError.message };
     }
 
-    const vehicleRows = (allVehiclesRes.data ?? []) as Array<{ status: string }>;
+    const occupiedVehicleIds = new Set(
+      ((openContractsRes.data ?? []) as Array<{ vehicle_id: string }>).map(
+        (row) => row.vehicle_id,
+      ),
+    );
+    const vehicleRows = (
+      (allVehiclesRes.data ?? []) as Array<{ id: string; status: string }>
+    ).map((row) => ({
+      status:
+        occupiedVehicleIds.has(row.id) && row.status === "AVAILABLE"
+          ? "RENTED"
+          : row.status,
+    }));
+    const availableVehicles = (
+      (allVehiclesRes.data ?? []) as Array<{ id: string; status: string }>
+    ).filter(
+      (row) => row.status === "AVAILABLE" && !occupiedVehicleIds.has(row.id),
+    ).length;
     const requestRows = (allRequestsRes.data ?? []) as Array<{ status: string }>;
 
     const countBy = (rows: Array<{ status: string }>) => {
@@ -376,7 +394,7 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
       error: null,
       pendingRequests: requestsRes.count ?? 0,
       activeReservations: reservationsRes.count ?? 0,
-      availableVehicles: vehiclesRes.count ?? 0,
+      availableVehicles,
       totalCustomers: customersRes.count ?? 0,
       monthlyIncome: monthBalance.billedAmount,
       monthlyExpenses,
