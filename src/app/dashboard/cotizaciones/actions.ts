@@ -24,6 +24,7 @@ import {
 } from "@/lib/email/quote-email-template";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
+import { requireSaved, staffWriter } from "@/lib/db/staff-write";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { resolvePdfBusinessContact } from "@/lib/contracts/oldes-terms";
 import { formatMoney, multiply, toNumber } from "@/lib/money";
@@ -676,13 +677,14 @@ export async function updateQuoteStatus(
     }
 
     const supabase = await createClient();
-    const { error } = await supabase
+    const saved = await staffWriter(supabase)
       .from("quotes")
       .update({ status: parsed.data.status })
       .eq("id", id)
-      .is("deleted_at", null);
-
-    if (error) throw mapPostgresError(error);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    requireSaved(saved, "No se pudo actualizar el estado de la cotización.");
 
     await writeAuditLog({
       userId: user.id,
@@ -711,16 +713,14 @@ export async function acceptQuote(
     }
 
     const supabase = await createClient();
-    const { data, error } = await supabase
+    const saved = await staffWriter(supabase)
       .from("quotes")
       .update({ status: "ACCEPTED" })
       .eq("id", quoteId)
       .is("deleted_at", null)
       .select("id")
       .maybeSingle();
-
-    if (error) throw mapPostgresError(error);
-    if (!data) return actionError("Cotización no encontrada.");
+    requireSaved(saved, "No se pudo aceptar la cotización.");
 
     await writeAuditLog({
       userId: user.id,

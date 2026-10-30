@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
 import { assertPermission } from "@/lib/auth/guards";
+import { requireSaved, staffWriter } from "@/lib/db/staff-write";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -351,13 +352,14 @@ export async function updateMaintenanceRecord(
     if (parsed.data.status !== undefined) row.status = parsed.data.status;
     if (parsed.data.notes !== undefined) row.notes = parsed.data.notes ?? null;
 
-    const { error } = await supabase
+    const saved = await staffWriter(supabase)
       .from("maintenance_records")
       .update(row)
       .eq("id", id)
-      .is("deleted_at", null);
-
-    if (error) throw mapPostgresError(error);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    requireSaved(saved, "No se pudo guardar el mantenimiento.");
 
     const vehicleId =
       parsed.data.vehicleId ??

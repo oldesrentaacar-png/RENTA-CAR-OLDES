@@ -95,6 +95,7 @@ import {
   normalizeFuelLevel,
   parseInspectionMileage,
 } from "@/lib/inspections/defaults";
+import { requireSaved, staffWriter } from "@/lib/db/staff-write";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildDeliverySteps } from "@/lib/contracts/delivery-steps";
 import {
@@ -1393,16 +1394,21 @@ export async function setContractIncludePagare(
       );
     }
 
-    const { error } = await supabase
+    const { data: saved, error } = await staffWriter(supabase)
       .from("contracts")
       .update({
         include_pagare: include,
         updated_at: new Date().toISOString(),
       })
       .eq("id", contractId)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
 
-    if (error) throw mapPostgresError(error);
+    requireSaved(
+      { data: saved, error },
+      "No se pudo actualizar el pagaré del contrato.",
+    );
 
     await writeAuditLog({
       userId: user.id,
@@ -1512,7 +1518,7 @@ export async function setContractApplyIva(
       taxRate,
     });
 
-    const { error } = await supabase
+    const { data: saved, error } = await staffWriter(supabase)
       .from("contracts")
       .update({
         apply_iva: applyIva,
@@ -1523,9 +1529,14 @@ export async function setContractApplyIva(
         updated_at: new Date().toISOString(),
       })
       .eq("id", contractId)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
 
-    if (error) throw mapPostgresError(error);
+    requireSaved(
+      { data: saved, error },
+      "No se pudo actualizar el IVA del contrato.",
+    );
 
     await syncReservationFromContract(supabase, {
       reservationId: row.reservation_id,
@@ -2984,23 +2995,32 @@ export async function signContract(
         ? currentStatus
         : nextStatusAfterSign(hasClient, hasRepresentative);
 
+    const writer = staffWriter(supabase);
     if (newStatus !== currentStatus) {
-      const { error: updateError } = await supabase
+      const saved = await writer
         .from("contracts")
         .update({
           status: newStatus,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", contractId);
-
-      if (updateError) throw mapPostgresError(updateError);
+        .eq("id", contractId)
+        .select("id")
+        .maybeSingle();
+      requireSaved(
+        saved,
+        "No se pudo guardar el estado del contrato después de firmar.",
+      );
     } else {
-      // Always bump updated_at so the PDF URL cache-busts after any signature.
-      const { error: touchError } = await supabase
+      const touched = await writer
         .from("contracts")
         .update({ updated_at: new Date().toISOString() })
-        .eq("id", contractId);
-      if (touchError) throw mapPostgresError(touchError);
+        .eq("id", contractId)
+        .select("id")
+        .maybeSingle();
+      requireSaved(
+        touched,
+        "No se pudo actualizar el contrato después de firmar.",
+      );
     }
 
     await writeAuditLog({

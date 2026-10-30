@@ -18,6 +18,7 @@ import {
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { getCustomerDisplayName } from "@/lib/customers";
+import { requireSaved, staffWriter } from "@/lib/db/staff-write";
 import { isCloudinaryConfigured, isSupabaseConfigured } from "@/lib/env";
 import { uploadImageFromBuffer } from "@/lib/cloudinary/upload";
 import { createClient } from "@/lib/supabase/server";
@@ -472,13 +473,14 @@ export async function updateCustomer(
       return actionError(conflict);
     }
 
-    const { error } = await supabase
+    const saved = await staffWriter(supabase)
       .from("customers")
       .update(updateRow)
       .eq("id", id)
-      .is("deleted_at", null);
-
-    if (error) throw mapPostgresError(error);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    requireSaved(saved, "No se pudo guardar el cliente.");
 
     await writeAuditLog({
       userId: user.id,

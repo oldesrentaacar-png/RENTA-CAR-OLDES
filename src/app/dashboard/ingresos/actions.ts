@@ -6,6 +6,7 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/typ
 import { writeAuditLog } from "@/lib/audit";
 import { assertAnyPermission, assertPermission } from "@/lib/auth/guards";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
+import { requireSaved, staffWriter } from "@/lib/db/staff-write";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -217,13 +218,14 @@ export async function updateIncomeTransaction(
     }
 
     const supabase = await createClient();
-    const { error } = await supabase
+    const saved = await staffWriter(supabase)
       .from("income_transactions")
       .update(row)
       .eq("id", id)
-      .is("deleted_at", null);
-
-    if (error) throw mapPostgresError(error);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    requireSaved(saved, "No se pudo guardar el ingreso.");
 
     await writeAuditLog({
       userId: user.id,
