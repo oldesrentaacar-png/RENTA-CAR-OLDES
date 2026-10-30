@@ -10,6 +10,7 @@ import {
   CONTRACT_DISPLAY_PHASE_OPTIONS,
   contractDisplayPhaseBadgeVariant,
 } from "@/lib/contracts/display-phase";
+import { displayBalanceDue } from "@/lib/contracts/amount-owed";
 import { formatAppDate } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
@@ -102,14 +103,20 @@ export default async function ContratosPage({
           {
             key: "balance",
             header: "Saldo",
-            cell: (row) =>
-              Number(row.balance_due ?? 0) > 0 ? (
+            cell: (row) => {
+              const pending = displayBalanceDue({
+                total: row.total,
+                amountPaid: row.amount_paid,
+                balanceDue: row.balance_due,
+              });
+              return pending > 0 ? (
                 <span className="font-semibold text-red-700">
-                  {formatMoney(row.balance_due ?? 0)}
+                  {formatMoney(pending)}
                 </span>
               ) : (
                 <span className="text-muted">{formatMoney(0)}</span>
-              ),
+              );
+            },
           },
           {
             key: "status",

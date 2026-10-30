@@ -66,3 +66,20 @@ export function owedAfterCourtesy(input: {
 export function balanceAfterPayment(owed: number, paid: number): number {
   return Math.max(0, toNumber(Number(owed) - Number(paid)));
 }
+
+/**
+ * Column default for balance_due is 0, which looks like "paid" on a new
+ * contract that still has no receipts. If nothing was paid, the owed amount
+ * is the contract total.
+ */
+export function displayBalanceDue(input: {
+  total: number;
+  amountPaid?: number | null;
+  balanceDue?: number | null;
+}): number {
+  const paid = toNumber(input.amountPaid ?? 0);
+  const stored = toNumber(input.balanceDue ?? 0);
+  if (Math.abs(stored) > 0.009) return stored;
+  if (paid > 0.009) return 0;
+  return Math.max(0, toNumber(Number(input.total ?? 0) - paid));
+}

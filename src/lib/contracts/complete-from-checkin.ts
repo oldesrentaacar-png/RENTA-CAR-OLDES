@@ -1,5 +1,8 @@
 import { writeAuditLog } from "@/lib/audit";
-import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
+import {
+  isReservationOverlapError,
+  syncReservationFromContract,
+} from "@/lib/contracts/sync-reservation";
 import { isSupabaseAdminConfigured } from "@/lib/env";
 import { mapPostgresError } from "@/lib/errors";
 import { toNumber } from "@/lib/money";
@@ -133,12 +136,7 @@ export async function completeOpenContractAfterCheckIn(input: {
       status: "COMPLETED",
     });
   } catch (error) {
-    const msg = `${error instanceof Error ? error.message : error}`.toLowerCase();
-    if (
-      msg.includes("overlap") ||
-      msg.includes("23p01") ||
-      msg.includes("reservations_no_overlap")
-    ) {
+    if (isReservationOverlapError(error)) {
       await writer
         .from("reservations")
         .update({

@@ -19,6 +19,7 @@ import {
   getCustomerDisplayName,
   getCustomerTypeLabel,
 } from "@/lib/customers";
+import { displayBalanceDue } from "@/lib/contracts/amount-owed";
 import { formatAppDate, formatAppDateTime } from "@/lib/dates";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
@@ -183,7 +184,13 @@ function ContractsTab({ contracts }: { contracts: Contract[] }) {
   return (
     <Card>
       <CardContent className="divide-y divide-border p-0">
-        {contracts.map((contract) => (
+        {contracts.map((contract) => {
+          const pending = displayBalanceDue({
+            total: contract.total,
+            amountPaid: contract.amount_paid,
+            balanceDue: contract.balance_due,
+          });
+          return (
           <Link
             key={contract.id}
             href={`/dashboard/contratos/${contract.id}`}
@@ -193,15 +200,21 @@ function ContractsTab({ contracts }: { contracts: Contract[] }) {
               <p className="font-medium">{contract.code}</p>
               <p className="text-muted">
                 {formatAppDate(contract.start_at)} –{" "}
-                {formatAppDate(contract.end_at)}
+                {formatAppDate(contract.actual_return_at || contract.end_at)}
               </p>
             </div>
             <div className="flex items-center gap-3">
               <span className="font-medium">{formatMoney(contract.total)}</span>
+              {pending > 0 ? (
+                <span className="text-xs font-semibold text-red-700">
+                  Saldo {formatMoney(pending)}
+                </span>
+              ) : null}
               <StatusBadge status={contract.status} />
             </div>
           </Link>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );

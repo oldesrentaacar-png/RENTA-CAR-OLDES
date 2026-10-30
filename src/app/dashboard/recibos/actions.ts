@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
-import { assertPermission } from "@/lib/auth/guards";
+import { assertAnyPermission, assertPermission } from "@/lib/auth/guards";
 import {
   balanceAfterPayment,
   owedAfterCourtesy,
@@ -289,7 +289,7 @@ export async function listPaymentReceipts(
   params: Record<string, string | string[] | undefined> = {},
 ): Promise<ActionResult<PaginatedResult<PaymentReceiptListItem>>> {
   try {
-    await assertPermission("finance.view");
+    await assertAnyPermission(["finance.view", "finance.create"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -378,7 +378,7 @@ export async function getPaymentReceipt(
   id: string,
 ): Promise<ActionResult<PaymentReceipt>> {
   try {
-    await assertPermission("finance.view");
+    await assertAnyPermission(["finance.view", "finance.create"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -416,6 +416,9 @@ export async function createPaymentReceipt(
 
     const input = parsed.data;
     const supabase = await createClient();
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
 
     let customerId = input.customerId ?? null;
     let reservationId = input.reservationId ?? null;
@@ -462,7 +465,7 @@ export async function createPaymentReceipt(
         ? Math.max(0, toNumber(contractTotal - input.amount))
         : 0);
 
-    const { data: receipt, error: receiptError } = await supabase
+    const { data: receipt, error: receiptError } = await writer
       .from("payment_receipts")
       .insert({
         customer_id: customerId,
@@ -506,14 +509,14 @@ export async function createPaymentReceipt(
       };
 
       const withReceipt = { ...incomePayload, receipt_id: receiptRow.id };
-      let incomeRes = await supabase
+      let incomeRes = await writer
         .from("income_transactions")
         .insert(withReceipt)
         .select("id")
         .single();
 
       if (incomeRes.error && isMissingColumnError(incomeRes.error)) {
-        incomeRes = await supabase
+        incomeRes = await writer
           .from("income_transactions")
           .insert(incomePayload)
           .select("id")
@@ -523,7 +526,7 @@ export async function createPaymentReceipt(
       if (incomeRes.error) throw mapPostgresError(incomeRes.error);
       incomeId = (incomeRes.data as { id: string }).id;
 
-      await supabase
+      await writer
         .from("payment_receipts")
         .update({ income_id: incomeId })
         .eq("id", receiptRow.id);
@@ -580,6 +583,9 @@ export async function createPaymentRefund(
     }
 
     const supabase = await createClient();
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
     const { data: contract, error: contractError } = await supabase
       .from("contracts")
       .select("id, customer_id, vehicle_id, reservation_id, total, code, amount_paid")
@@ -626,7 +632,7 @@ export async function createPaymentRefund(
       created_by: user.id,
     };
 
-    let receiptRes = await supabase
+    let receiptRes = await writer
       .from("payment_receipts")
       .insert(insertPayload)
       .select("id, code")
@@ -634,7 +640,7 @@ export async function createPaymentRefund(
 
     if (receiptRes.error && isMissingColumnError(receiptRes.error)) {
       delete insertPayload.receipt_kind;
-      receiptRes = await supabase
+      receiptRes = await writer
         .from("payment_receipts")
         .insert(insertPayload)
         .select("id, code")
@@ -676,7 +682,7 @@ export async function getReceiptWhatsAppLink(
   id: string,
 ): Promise<ActionResult<{ url: string }>> {
   try {
-    await assertPermission("finance.view");
+    await assertAnyPermission(["finance.view", "finance.create"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }

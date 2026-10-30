@@ -18,6 +18,15 @@ import {
  * Keep the linked reservation aligned so the calendar (reservation-backed)
  * stays correct without editing two records.
  */
+export function isReservationOverlapError(error: unknown): boolean {
+  const msg = `${error instanceof Error ? error.message : error}`.toLowerCase();
+  return (
+    msg.includes("overlap") ||
+    msg.includes("23p01") ||
+    msg.includes("reservations_no_overlap")
+  );
+}
+
 export async function syncReservationFromContract(
   supabase: SupabaseClient,
   input: {

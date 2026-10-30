@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getPaymentReceiptPdfData } from "@/app/dashboard/recibos/actions";
 import { getCurrentUser } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions";
+import { hasAnyPermission } from "@/lib/auth/permissions";
 import { isSupabaseConfigured } from "@/lib/env";
 import {
   PDF_NO_STORE_HEADERS,
@@ -36,7 +36,10 @@ export async function GET(
       );
     }
 
-    const allowed = await hasPermission(user.id, "finance.view");
+    const allowed = await hasAnyPermission(user.id, [
+      "finance.view",
+      "finance.create",
+    ]);
     if (!allowed) {
       return NextResponse.json(
         { success: false, error: { message: "Sin permiso." } },

@@ -29,6 +29,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { canAnnulContract, hasPermission } from "@/lib/auth/permissions";
 import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { formatAppDateTime } from "@/lib/dates";
+import { displayBalanceDue } from "@/lib/contracts/amount-owed";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
 import { closeActPdfHref } from "@/lib/pdf/pdf-cache";
@@ -83,8 +84,16 @@ export default async function ContratoDetailPage({
     }
   }
 
+  const canSeeReceipts = canFinanceView || canFinanceCreate;
+  const pendingBalance = contract
+    ? displayBalanceDue({
+        total: contract.total,
+        amountPaid: contract.amount_paid,
+        balanceDue: contract.balance_due,
+      })
+    : 0;
   const receiptsResult =
-    configured && contract && canFinanceView
+    configured && contract && canSeeReceipts
       ? await listPaymentReceipts({
           contractId: id,
           pageSize: "50",
@@ -148,7 +157,7 @@ export default async function ContratoDetailPage({
 
   const showCobros =
     !focusedPaso || focusedPaso === "cliente-vehiculo";
-  const showAbonos = !focusedPaso || focusedPaso === "facturacion";
+  const showAbonos = canSeeReceipts;
   const showPdfStep = focusedPaso === "pdf";
   const showFirmasCard =
     !focusedPaso && contract && contract.signatures.length > 0;
@@ -396,14 +405,14 @@ export default async function ContratoDetailPage({
                 {contract.balance_due !== undefined ? (
                   <p className="rounded-xl border-2 border-border bg-white px-4 py-3 sm:col-span-2">
                     <span className="block text-sm font-medium text-muted">
-                      {Number(contract.balance_due) < -0.009
+                      {pendingBalance < -0.009
                         ? "Saldo a favor de este contrato (no es devolución)"
                         : "Saldo pendiente"}
                     </span>
                     <span className="text-3xl font-semibold tracking-tight text-foreground">
-                      {formatMoney(Math.abs(Number(contract.balance_due)))}
+                      {formatMoney(Math.abs(pendingBalance))}
                     </span>
-                    {Number(contract.balance_due) < -0.009 ? (
+                    {pendingBalance < -0.009 ? (
                       <span className="mt-1 block text-xs text-muted">
                         Quedó anotado aquí por una devolución anticipada. No es
                         un reintegro de dinero hasta que el administrador lo
@@ -522,7 +531,7 @@ export default async function ContratoDetailPage({
               </Card>
             ) : null}
 
-            {showAbonos && canFinanceView ? (
+            {showAbonos ? (
               <div id="abonos">
                 <ContractReceiptsSection
                   contractId={contract.id}
@@ -531,7 +540,7 @@ export default async function ContratoDetailPage({
                   canVoid={canFinanceDelete}
                   receipts={receipts}
                   amountPaid={contract.amount_paid}
-                  balanceDue={contract.balance_due}
+                  balanceDue={pendingBalance}
                   total={contract.total}
                 />
               </div>

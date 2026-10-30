@@ -52,7 +52,7 @@ export default async function CalendarioPage({
   return (
     <ModuleListShell
       title="Calendario"
-      description="Vista mensual, semanal y diaria de reservas."
+      description="La barra usa la fecha real de devolución cuando el vehículo ya se recibió. Si se queda más días o se entrega antes, el calendario se mueve con esa fecha."
       permission={["calendar.view", "reservations.view"]}
       configured={configured}
       error={error}

@@ -52,7 +52,10 @@ import {
   persistVehicleAvailableAfterContractClose,
   releaseVehicleIfOccupied,
 } from "@/lib/vehicles/operational-write";
-import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
+import {
+  isReservationOverlapError,
+  syncReservationFromContract,
+} from "@/lib/contracts/sync-reservation";
 import {
   bakeDiscountIntoCourtesy,
   calculateReservationTotal,
@@ -1101,6 +1104,9 @@ export async function createContract(
       notes: parsed.data.notes ?? null,
       status: parsed.data.status,
       include_pagare: includePagare,
+      amount_paid: 0,
+      balance_due: ivaTotals.total,
+      payment_status: "PENDING",
       created_by: user.id,
     };
 
@@ -2960,19 +2966,34 @@ export async function closeContract(
       contractId,
     );
 
-    await syncReservationFromContract(supabase, {
-      reservationId: contract.reservation_id,
-      startAt: contract.start_at,
-      endAt: actualReturnAt || contract.end_at,
-      agreedRate: contract.agreed_rate,
-      deposit: contract.deposit,
-      insurance: contract.insurance,
-      total: Number(contract.total),
-      courtesyAmount,
-      courtesyDetail,
-      vehicleId: contract.vehicle_id,
-      status: "COMPLETED",
-    });
+    try {
+      await syncReservationFromContract(supabase, {
+        reservationId: contract.reservation_id,
+        startAt: contract.start_at,
+        endAt: actualReturnAt || contract.end_at,
+        agreedRate: contract.agreed_rate,
+        deposit: contract.deposit,
+        insurance: contract.insurance,
+        total: Number(contract.total),
+        courtesyAmount,
+        courtesyDetail,
+        vehicleId: contract.vehicle_id,
+        status: "COMPLETED",
+      });
+    } catch (error) {
+      if (!isReservationOverlapError(error)) throw error;
+      const writer = isSupabaseAdminConfigured()
+        ? createAdminClient()
+        : supabase;
+      await writer
+        .from("reservations")
+        .update({
+          status: "COMPLETED",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", contract.reservation_id)
+        .is("deleted_at", null);
+    }
 
     await writeAuditLog({
       userId: user.id,
