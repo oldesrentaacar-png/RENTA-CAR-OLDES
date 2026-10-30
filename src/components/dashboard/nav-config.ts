@@ -139,19 +139,19 @@ export const DASHBOARD_NAV: NavGroup[] = [
         label: "Ingresos",
         href: "/dashboard/ingresos",
         icon: TrendingUp,
-        permission: "finance.view",
+        permission: ["finance.view", "finance.create"],
       },
       {
         label: "Gastos",
         href: "/dashboard/gastos",
         icon: TrendingDown,
-        permission: "finance.view",
+        permission: ["finance.view", "finance.create"],
       },
       {
         label: "Recibos",
         href: "/dashboard/recibos",
         icon: Receipt,
-        permission: "finance.view",
+        permission: ["finance.view", "finance.create"],
       },
       {
         label: "Reportes",

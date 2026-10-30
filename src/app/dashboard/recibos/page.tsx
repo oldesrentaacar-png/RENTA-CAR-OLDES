@@ -41,7 +41,7 @@ export default async function RecibosPage({
     <ModuleListShell
       title="Recibos y devoluciones"
       description="Comprobantes de abonos y devoluciones (PDF y WhatsApp). Anule para corregir montos."
-      permission="finance.view"
+      permission={["finance.view", "finance.create"]}
       configured={configured}
       error={error}
       count={data.length}

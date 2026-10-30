@@ -17,12 +17,13 @@ import { isSupabaseConfigured } from "@/lib/env";
 export default async function GastosPage() {
   const configured = isSupabaseConfigured();
   const user = configured ? await getCurrentUser() : null;
-  const [canEdit, canDelete] = user
+  const [canCreate, canEdit, canDelete] = user
     ? await Promise.all([
+        hasPermission(user.id, "finance.create"),
         hasPermission(user.id, "finance.edit"),
         hasPermission(user.id, "finance.delete"),
       ])
-    : [false, false];
+    : [false, false, false];
 
   const result = configured
     ? await listExpenseTransactions({ pageSize: "100" })
@@ -35,18 +36,20 @@ export default async function GastosPage() {
     <ModuleListShell
       title="Gastos"
       description="Registro de gastos operativos y administrativos."
-      permission="finance.view"
+      permission={["finance.view", "finance.create"]}
       configured={configured}
       error={error}
       count={data.length}
       countLabel="transacciones mostradas"
       actions={
-        <Link href="/dashboard/gastos/nuevo">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo gasto
-          </Button>
-        </Link>
+        canCreate ? (
+          <Link href="/dashboard/gastos/nuevo">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo gasto
+            </Button>
+          </Link>
+        ) : null
       }
     >
       <DataTable

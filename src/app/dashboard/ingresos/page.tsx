@@ -21,12 +21,13 @@ import { isSupabaseConfigured } from "@/lib/env";
 export default async function IngresosPage() {
   const configured = isSupabaseConfigured();
   const user = configured ? await getCurrentUser() : null;
-  const [canEdit, canDelete] = user
+  const [canCreate, canEdit, canDelete] = user
     ? await Promise.all([
+        hasPermission(user.id, "finance.create"),
         hasPermission(user.id, "finance.edit"),
         hasPermission(user.id, "finance.delete"),
       ])
-    : [false, false];
+    : [false, false, false];
 
   const result = configured
     ? await listIncomeTransactions({ pageSize: "100" })
@@ -39,18 +40,20 @@ export default async function IngresosPage() {
     <ModuleListShell
       title="Ingresos"
       description="Registro de ingresos y cobros del negocio."
-      permission="finance.view"
+      permission={["finance.view", "finance.create"]}
       configured={configured}
       error={error}
       count={data.length}
       countLabel="transacciones mostradas"
       actions={
-        <Link href="/dashboard/ingresos/nuevo">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo ingreso
-          </Button>
-        </Link>
+        canCreate ? (
+          <Link href="/dashboard/ingresos/nuevo">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo ingreso
+            </Button>
+          </Link>
+        ) : null
       }
     >
       <DataTable

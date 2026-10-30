@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
-import { assertPermission } from "@/lib/auth/guards";
+import { assertAnyPermission, assertPermission } from "@/lib/auth/guards";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { vehicleSelectParts } from "@/lib/vehicles/label";
 import {
@@ -53,7 +54,7 @@ export async function listIncomeTransactions(
   params: Record<string, string | string[] | undefined> = {},
 ): Promise<ActionResult<PaginatedResult<IncomeTransaction>>> {
   try {
-    await assertPermission("finance.view");
+    await assertAnyPermission(["finance.view", "finance.create"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -99,7 +100,7 @@ export async function getIncomeTransaction(
   id: string,
 ): Promise<ActionResult<IncomeTransaction>> {
   try {
-    await assertPermission("finance.view");
+    await assertAnyPermission(["finance.view", "finance.create"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -136,7 +137,10 @@ export async function createIncomeTransaction(
     }
 
     const supabase = await createClient();
-    const { data, error } = await supabase
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+    const { data, error } = await writer
       .from("income_transactions")
       .insert({
         ...incomeInputToRow(parsed.data),
@@ -296,7 +300,7 @@ export async function listFinanceOptions(): Promise<
   }>
 > {
   try {
-    await assertPermission("finance.view");
+    await assertAnyPermission(["finance.view", "finance.create"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }

@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/types";
 import { writeAuditLog } from "@/lib/audit";
-import { assertPermission } from "@/lib/auth/guards";
+import { assertAnyPermission, assertPermission } from "@/lib/auth/guards";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   expenseSchema,
@@ -46,7 +47,7 @@ export async function getExpenseTransaction(
   id: string,
 ): Promise<ActionResult<ExpenseTransaction>> {
   try {
-    await assertPermission("finance.view");
+    await assertAnyPermission(["finance.view", "finance.create"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -72,7 +73,7 @@ export async function listExpenseTransactions(
   params: Record<string, string | string[] | undefined> = {},
 ): Promise<ActionResult<PaginatedResult<ExpenseTransaction>>> {
   try {
-    await assertPermission("finance.view");
+    await assertAnyPermission(["finance.view", "finance.create"]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -129,7 +130,10 @@ export async function createExpenseTransaction(
     }
 
     const supabase = await createClient();
-    const { data, error } = await supabase
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+    const { data, error } = await writer
       .from("expense_transactions")
       .insert({
         ...expenseInputToRow(parsed.data),
