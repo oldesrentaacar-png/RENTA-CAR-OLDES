@@ -115,6 +115,42 @@ export function parseRateInput(value: unknown, fallback = 0): number {
   }
 }
 
+/** Texto de tarifa para inputs: hasta 6 decimales, sin ceros basura. */
+export function formatRateInput(value: MoneyInput | null | undefined): string {
+  const amount = toDecimal(value).toDecimalPlaces(
+    RATE_DECIMALS,
+    Decimal.ROUND_HALF_UP,
+  );
+  if (!amount.isFinite() || amount.isNaN()) return "0";
+  return amount.toString();
+}
+
+/** Permite escribir 58,666666 o 58.666666 sin que el navegador bloquee. */
+export function sanitizeRateTyping(raw: string): string {
+  const normalized = String(raw ?? "").replace(/,/g, ".");
+  const cleaned = normalized.replace(/[^\d.]/g, "");
+  const dot = cleaned.indexOf(".");
+  if (dot === -1) return cleaned;
+  const whole = cleaned.slice(0, dot).replace(/\./g, "") || cleaned.slice(0, dot);
+  const fraction = cleaned
+    .slice(dot + 1)
+    .replace(/\./g, "")
+    .slice(0, RATE_DECIMALS);
+  return `${whole}.${fraction}`;
+}
+
+/**
+ * Tarifa diaria que, × días, cierra el total pactado (176 / 3 = 58.666667).
+ */
+export function dailyRateForPactTotal(
+  pactTotal: MoneyInput,
+  rentalDays: number,
+): number {
+  const days = Number(rentalDays);
+  if (!Number.isFinite(days) || days <= 0) return 0;
+  return toRateNumber(divide(parseMoneyInput(pactTotal), days));
+}
+
 /** Muestra tarifa con hasta 6 decimales (sin ceros basura al final). */
 export function formatRate(
   value: MoneyInput | null | undefined,

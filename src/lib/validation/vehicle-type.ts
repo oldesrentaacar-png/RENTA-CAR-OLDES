@@ -1,11 +1,7 @@
 import { z } from "zod";
 
 import { blankText } from "@/lib/validation/form-helpers";
-
-const moneyField = z.coerce
-  .number()
-  .min(0, "El monto no puede ser negativo.")
-  .max(999_999_999.99, "Monto demasiado alto.");
+import { rateField } from "@/lib/validation/money-fields";
 
 const optionalText = blankText;
 
@@ -16,7 +12,7 @@ export const vehicleTypeSchema = z.object({
   descriptionEn: optionalText(2000),
   referenceModels: optionalText(500),
   referenceModelsEn: optionalText(500),
-  dailyRate: moneyField,
+  dailyRate: rateField,
   passengers: z.coerce.number().int().min(1).max(99).default(5),
   luggage: z.coerce.number().int().min(0).max(20).default(2),
   luggageLabel: optionalText(200),

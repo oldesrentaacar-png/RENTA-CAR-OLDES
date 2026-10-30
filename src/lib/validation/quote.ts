@@ -5,11 +5,7 @@ import {
   optionalEnum,
   optionalUuid as optionalUuidField,
 } from "@/lib/validation/form-helpers";
-
-const moneyField = z.coerce
-  .number()
-  .min(0, "El monto no puede ser negativo.")
-  .max(999_999_999.99, "Monto demasiado alto.");
+import { moneyField, rateField } from "@/lib/validation/money-fields";
 
 const optionalText = blankText;
 
@@ -20,7 +16,7 @@ const optionalUuid = z
 export const quoteLineSchema = z.object({
   description: z.string().trim().min(1, "Descripción requerida.").max(500),
   quantity: z.coerce.number().positive("Cantidad inválida."),
-  unit_price: moneyField,
+  unit_price: rateField,
   amount: moneyField.optional(),
   item_type: z
     .enum(["VEHICLE", "SERVICE", "TAX", "DISCOUNT", "CUSTOM"])
@@ -39,7 +35,7 @@ export const quoteFields = z.object({
   webRequestId: z.uuid().optional(),
   startAt: z.iso.datetime({ message: "Fecha de inicio inválida." }),
   endAt: z.iso.datetime({ message: "Fecha de fin inválida." }),
-  dailyRate: moneyField.default(0),
+  dailyRate: rateField.default(0),
   insuranceAmount: moneyField.default(0),
   depositAmount: moneyField.default(0),
   deliveryFee: moneyField.default(0),

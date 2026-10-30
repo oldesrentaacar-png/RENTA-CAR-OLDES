@@ -1,11 +1,7 @@
 import { z } from "zod";
 
 import { emptyToUndefined, optionalText } from "@/lib/validation/form-helpers";
-
-const moneyField = z.coerce
-  .number()
-  .min(0, "El monto no puede ser negativo.")
-  .max(999_999_999.99, "Monto demasiado alto.");
+import { moneyField, rateField } from "@/lib/validation/money-fields";
 
 /** Query-string booleans: z.coerce.boolean() treats "false" as true. */
 function queryBoolean() {
@@ -56,7 +52,7 @@ export const vehicleSchema = z.object({
   ownershipType: z
     .enum(["OWN", "THIRD_PARTY", "SUBLEASED", "CONSIGNMENT"])
     .default("OWN"),
-  dailyRate: moneyField.refine((v) => v >= 0.01, "Tarifa diaria requerida (mínimo $0.01)."),
+  dailyRate: rateField.refine((v) => v >= 0.01, "Tarifa diaria requerida (mínimo $0.01)."),
   weeklyRate: optionalMoneyField,
   deposit: moneyField,
   publicDescription: optionalText(5000),

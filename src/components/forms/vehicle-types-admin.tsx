@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { prepareVehicleTypeImageFormData } from "@/lib/images/upload-vehicle-type-image";
 import { formatMoney, parseMoneyInput } from "@/lib/money";
+import { RateInput } from "@/components/shared/rate-input";
 import type { VehicleType } from "@/types/database";
 
 type VehicleTypesAdminProps = {
@@ -47,12 +48,9 @@ function FleetTypeFields({
         defaultValue={item?.name_en ?? ""}
         placeholder="Sedan"
       />
-      <Input
+      <RateInput
         name="dailyRate"
         label="Tarifa diaria *"
-        type="number"
-        step="any"
-        min="0"
         defaultValue={item?.daily_rate ?? ""}
         required
       />

@@ -11,7 +11,14 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatMoney, parseMoneyInput, toNumber, multiply } from "@/lib/money";
+import {
+  formatMoney,
+  parseMoneyInput,
+  parseRateInput,
+  toNumber,
+  multiply,
+} from "@/lib/money";
+import { RateInput } from "@/components/shared/rate-input";
 import type { Vehicle, VehicleOwnershipType } from "@/types/database";
 import {
   createVehicle,
@@ -70,7 +77,7 @@ export function VehicleForm({ vehicle, vehicleTypes = [] }: VehicleFormProps) {
 
   async function handleSubmit(formData: FormData) {
     setError(null);
-    formData.set("dailyRate", String(parseMoneyInput(dailyRate)));
+    formData.set("dailyRate", String(parseRateInput(dailyRate)));
     if (weeklyRate !== "") {
       formData.set("weeklyRate", String(parseMoneyInput(weeklyRate)));
     }
@@ -176,19 +183,14 @@ export function VehicleForm({ vehicle, vehicleTypes = [] }: VehicleFormProps) {
           type="number"
           defaultValue={vehicle?.luggage ?? 2}
         />
-        <Input
+        <RateInput
           name="dailyRate"
           label="Tarifa diaria (USD) *"
-          type="number"
-          step="any"
-          min="0"
-          inputMode="decimal"
           value={dailyRate}
-          onChange={(e) => {
-            const next = e.target.value;
+          onChange={(next) => {
             setDailyRate(next);
             if (!weeklyTouched) {
-              const daily = parseMoneyInput(next);
+              const daily = parseRateInput(next);
               setWeeklyRate(daily > 0 ? String(toNumber(multiply(daily, 7))) : "");
             }
           }}

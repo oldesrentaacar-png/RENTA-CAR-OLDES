@@ -25,7 +25,8 @@ import {
 } from "@/lib/contracts/oldes-terms";
 import { isContractClosed } from "@/lib/contracts/display-phase";
 import { toDatetimeLocalValue } from "@/lib/dates";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatRateInput } from "@/lib/money";
+import { RateInput } from "@/components/shared/rate-input";
 import { cn } from "@/lib/utils";
 
 type ContractDetailActionsProps = {
@@ -365,20 +366,11 @@ export function ContractDetailActions({
               type="datetime-local"
               defaultValue={toDatetimeLocalValue(contract.end_at)}
             />
-            <div className="space-y-1">
-              <Input
-                name="agreedRate"
-                label="Tarifa diaria"
-                type="number"
-                step="any"
-                min="0"
-                inputMode="decimal"
-                defaultValue={contract.agreed_rate}
-              />
-              <p className="text-xs text-muted">
-                Hasta 6 decimales (ej. 62.142857) para cuadrar el total exacto.
-              </p>
-            </div>
+            <RateInput
+              name="agreedRate"
+              label="Tarifa diaria"
+              defaultValue={formatRateInput(contract.agreed_rate)}
+            />
             <Input
               name="deposit"
               label="Depósito"

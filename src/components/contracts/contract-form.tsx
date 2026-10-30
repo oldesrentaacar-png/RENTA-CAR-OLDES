@@ -24,7 +24,8 @@ import {
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { shouldIncludePagare } from "@/lib/contracts/oldes-terms";
 import { toDatetimeLocalValue } from "@/lib/dates";
-import { formatMoney, parseMoneyInput } from "@/lib/money";
+import { formatMoney, parseMoneyInput, parseRateInput } from "@/lib/money";
+import { RateWithPactTotal } from "@/components/shared/rate-input";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import type { Customer, Reservation, Vehicle } from "@/types/database";
 
@@ -109,7 +110,7 @@ export function ContractForm({
       const base = calculateReservationTotal({
         startAt,
         endAt,
-        agreedRate: parseMoneyInput(agreedRate),
+        agreedRate: parseRateInput(agreedRate),
         insurance: parseMoneyInput(insurance),
         additionalCosts: parseMoneyInput(additionalCosts || 0),
         discountPercent:
@@ -155,7 +156,7 @@ export function ContractForm({
   async function handleSubmit(formData: FormData) {
     setError(null);
     formData.set("reservationId", reservation.id);
-    formData.set("agreedRate", String(parseMoneyInput(agreedRate)));
+    formData.set("agreedRate", String(parseRateInput(agreedRate)));
     formData.set("deposit", String(parseMoneyInput(deposit)));
     formData.set("insurance", String(parseMoneyInput(insurance)));
     formData.set(
@@ -250,15 +251,12 @@ export function ContractForm({
           onChange={(e) => setEndAt(e.target.value)}
           required
         />
-        <Input
+        <RateWithPactTotal
           name="agreedRate"
-          label="Tarifa diaria (USD) *"
-          type="number"
-          step="0.01"
-          min="0"
-          inputMode="decimal"
-          value={agreedRate}
-          onChange={(e) => setAgreedRate(e.target.value)}
+          rate={agreedRate}
+          onRateChange={setAgreedRate}
+          startAt={startAt}
+          endAt={endAt}
           required
         />
         <Input
@@ -381,7 +379,7 @@ export function ContractForm({
           <input type="hidden" name="total" value={preview.totalWithIva} />
           <PricingBreakdown
             rentalDays={preview.rentalDays}
-            dailyRate={parseMoneyInput(agreedRate)}
+            dailyRate={parseRateInput(agreedRate)}
             subtotal={preview.rentalSubtotal}
             insurance={preview.insurance}
             extras={namedExtras.length > 0 ? 0 : preview.additionalCosts}

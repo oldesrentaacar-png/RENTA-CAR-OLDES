@@ -6,11 +6,7 @@ import {
   optionalText as optionalQueryText,
   optionalUuid,
 } from "@/lib/validation/form-helpers";
-
-const moneyField = z.coerce
-  .number()
-  .min(0, "El monto no puede ser negativo.")
-  .max(999_999_999.99, "Monto demasiado alto.");
+import { moneyField, rateField } from "@/lib/validation/money-fields";
 
 const optionalText = blankText;
 
@@ -94,7 +90,7 @@ export const contractSearchSchema = z.object({
 export type ContractSearchInput = z.infer<typeof contractSearchSchema>;
 
 export const contractFinancialSnapshotSchema = z.object({
-  dailyRate: moneyField,
+  dailyRate: rateField,
   deposit: moneyField.default(0),
   insurance: moneyField.default(0),
   total: moneyField,

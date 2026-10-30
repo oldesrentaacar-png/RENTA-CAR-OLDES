@@ -29,6 +29,7 @@ import {
 import { calculateReservationTotal } from "@/lib/calculations/quote";
 import { toDatetimeLocalValue } from "@/lib/dates";
 import { formatMoney, parseMoneyInput, parseRateInput } from "@/lib/money";
+import { RateWithPactTotal } from "@/components/shared/rate-input";
 import type { Reservation } from "@/types/database";
 
 type VehicleOption = {
@@ -454,23 +455,14 @@ export function ReservationForm({
           onChange={(e) => setEndAt(e.target.value)}
           required
         />
-        <div className="space-y-1">
-          <Input
-            name="agreedRate"
-            label="Tarifa diaria (USD) *"
-            type="number"
-            step="any"
-            min="0"
-            inputMode="decimal"
-            value={agreedRate}
-            onChange={(e) => setAgreedRate(e.target.value)}
-            required
-          />
-          <p className="text-xs text-muted">
-            Puede usar hasta 6 decimales (ej. 62.142857) para que días × tarifa
-            llegue exacto al total pactado. El total se redondea a centavos.
-          </p>
-        </div>
+        <RateWithPactTotal
+          name="agreedRate"
+          rate={agreedRate}
+          onRateChange={setAgreedRate}
+          startAt={startAt}
+          endAt={endAt}
+          required
+        />
         <div className="space-y-1">
           <Input
             name="insurance"

@@ -7,11 +7,7 @@ import {
   optionalText,
   optionalUuid,
 } from "@/lib/validation/form-helpers";
-
-const moneyField = z.coerce
-  .number()
-  .min(0, "El monto no puede ser negativo.")
-  .max(999_999_999.99, "Monto demasiado alto.");
+import { moneyField, rateField } from "@/lib/validation/money-fields";
 
 const optionalNote = blankText;
 
@@ -24,7 +20,7 @@ const reservationFields = z.object({
   pickupLocation: optionalNote(255),
   returnLocation: optionalNote(255),
   vehicleType: optionalNote(100),
-  agreedRate: moneyField,
+  agreedRate: rateField,
   deposit: moneyField.default(0),
   insurance: moneyField.default(0),
   total: moneyField,
