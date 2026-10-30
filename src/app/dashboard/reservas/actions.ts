@@ -1040,7 +1040,7 @@ export async function cancelReservation(
     if (activeContract) {
       const code = (activeContract as { code: string }).code;
       return actionError(
-        `No se puede cancelar: existe el contrato ${code}. Cancele el contrato primero.`,
+        `No se puede anular la reserva: existe el contrato ${code}. Si el vehículo está mal, cámbielo en el contrato. No anule una renta ya entregada.`,
       );
     }
 

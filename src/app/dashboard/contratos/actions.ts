@@ -38,7 +38,10 @@ import {
 } from "@/lib/contracts/amount-owed";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
-import { canManageCourtesyDiscount } from "@/lib/auth/permissions";
+import {
+  canAnnulContract,
+  canManageCourtesyDiscount,
+} from "@/lib/auth/permissions";
 import {
   calculateReturnSettlement,
   coerceGraceHours,
@@ -1335,6 +1338,202 @@ export async function updateContract(
   }
 }
 
+function rangesOverlap(
+  startA: string,
+  endA: string,
+  startB: string,
+  endB: string,
+): boolean {
+  return startA < endB && endA > startB;
+}
+
+/**
+ * Reassign the vehicle on an open contract (and its reservation + inspections).
+ * Use this when the wrong plate was saved — do not cancel a delivered rental.
+ */
+export async function changeContractVehicle(
+  id: string,
+  formData: FormData,
+): Promise<ActionResult<{ id: string; plate: string }>> {
+  try {
+    const { user } = await assertPermission("contracts.edit");
+    if (!isSupabaseConfigured()) {
+      return actionError("Supabase no está configurado.");
+    }
+
+    const nextVehicleId = String(formData.get("vehicleId") ?? "").trim();
+    if (!nextVehicleId) {
+      return actionError("Seleccione el vehículo correcto.");
+    }
+
+    const supabase = await createClient();
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+
+    const { data: existing, error: existingError } = await writer
+      .from("contracts")
+      .select("id, code, status, closed_at, reservation_id, vehicle_id, start_at, end_at")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existingError) throw mapPostgresError(existingError);
+    if (!existing) return actionError("Contrato no encontrado.");
+
+    const current = existing as {
+      id: string;
+      code: string;
+      status: ContractStatus;
+      closed_at: string | null;
+      reservation_id: string;
+      vehicle_id: string;
+      start_at: string;
+      end_at: string;
+    };
+
+    if (current.status === "COMPLETED" || current.closed_at) {
+      return actionError(
+        "Este contrato ya está cerrado. No se puede cambiar el vehículo.",
+      );
+    }
+    if (current.status === "CANCELLED") {
+      return actionError("No se puede cambiar el vehículo de un contrato anulado.");
+    }
+    if (current.vehicle_id === nextVehicleId) {
+      return actionError("Ese ya es el vehículo de este contrato.");
+    }
+
+    const { data: nextVehicle, error: vehicleError } = await writer
+      .from("vehicles")
+      .select("id, plate, brand, model, is_active")
+      .eq("id", nextVehicleId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (vehicleError) throw mapPostgresError(vehicleError);
+    if (!nextVehicle) return actionError("Vehículo no encontrado.");
+    const vehicle = nextVehicle as {
+      id: string;
+      plate: string;
+      brand: string;
+      model: string;
+      is_active: boolean | null;
+    };
+    if (vehicle.is_active === false) {
+      return actionError("Ese vehículo está inactivo.");
+    }
+
+    const { data: otherReservations, error: resError } = await writer
+      .from("reservations")
+      .select("id, code, start_at, end_at, status")
+      .eq("vehicle_id", nextVehicleId)
+      .neq("id", current.reservation_id)
+      .neq("status", "CANCELLED")
+      .is("deleted_at", null);
+
+    if (resError) throw mapPostgresError(resError);
+    const blockingRes = ((otherReservations ?? []) as Array<{
+      code: string;
+      start_at: string;
+      end_at: string;
+      status: string;
+    }>).find((row) =>
+      rangesOverlap(current.start_at, current.end_at, row.start_at, row.end_at),
+    );
+    if (blockingRes) {
+      return actionError(
+        `El vehículo ${vehicle.plate} ya tiene la reserva ${blockingRes.code} en esas fechas.`,
+      );
+    }
+
+    const { data: otherContracts, error: ctrError } = await writer
+      .from("contracts")
+      .select("id, code, start_at, end_at, status, closed_at")
+      .eq("vehicle_id", nextVehicleId)
+      .neq("id", current.id)
+      .neq("status", "CANCELLED")
+      .is("deleted_at", null);
+
+    if (ctrError) throw mapPostgresError(ctrError);
+    const blockingCtr = ((otherContracts ?? []) as Array<{
+      code: string;
+      start_at: string;
+      end_at: string;
+      status: string;
+      closed_at: string | null;
+    }>).find(
+      (row) =>
+        !row.closed_at &&
+        row.status !== "COMPLETED" &&
+        rangesOverlap(current.start_at, current.end_at, row.start_at, row.end_at),
+    );
+    if (blockingCtr) {
+      return actionError(
+        `El vehículo ${vehicle.plate} ya está en el contrato ${blockingCtr.code}.`,
+      );
+    }
+
+    const { data: saved, error: updateError } = await writer
+      .from("contracts")
+      .update({
+        vehicle_id: nextVehicleId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (updateError) throw mapPostgresError(updateError);
+    if (!saved) {
+      throw new Error(
+        "No se pudo cambiar el vehículo. El perfil necesita permiso para editar contratos.",
+      );
+    }
+
+    await syncReservationFromContract(writer, {
+      reservationId: current.reservation_id,
+      vehicleId: nextVehicleId,
+    });
+
+    const { error: inspectionError } = await writer
+      .from("inspections")
+      .update({ vehicle_id: nextVehicleId })
+      .eq("reservation_id", current.reservation_id)
+      .is("deleted_at", null);
+
+    if (inspectionError && !isMissingRelationOrColumn(inspectionError)) {
+      throw mapPostgresError(inspectionError);
+    }
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "contract.change_vehicle",
+      entityType: "contract",
+      entityId: id,
+      metadata: {
+        fromVehicleId: current.vehicle_id,
+        toVehicleId: nextVehicleId,
+        toPlate: vehicle.plate,
+      },
+    });
+
+    revalidatePath("/dashboard/contratos");
+    revalidatePath(`/dashboard/contratos/${id}`);
+    revalidatePath(`/dashboard/contratos/${id}/pdf`);
+    revalidatePath("/dashboard/reservas");
+    revalidatePath(`/dashboard/reservas/${current.reservation_id}`);
+    revalidatePath("/dashboard/calendario");
+    revalidatePath("/dashboard/vehiculos");
+    revalidatePath(`/dashboard/vehiculos/${current.vehicle_id}`);
+    revalidatePath(`/dashboard/vehiculos/${nextVehicleId}`);
+    return actionSuccess({ id, plate: vehicle.plate });
+  } catch (error) {
+    return actionError(toUserMessage(error));
+  }
+}
+
 /** Operator override: include or exclude pagaré page in the contract PDF. */
 export async function setContractIncludePagare(
   contractId: string,
@@ -1674,12 +1873,20 @@ export async function cancelContract(
 ): Promise<ActionResult<void>> {
   try {
     const { user } = await assertPermission("contracts.cancel");
+    if (!(await canAnnulContract(user.id))) {
+      return actionError(
+        "Solo el administrador puede anular un contrato. Si se equivocó, pídale que lo anule. No use Cerrar renta: eso sí dejaría esta renta en costos.",
+      );
+    }
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
 
     const supabase = await createClient();
-    const { data: existing, error: existingError } = await supabase
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+    const { data: existing, error: existingError } = await writer
       .from("contracts")
       .select("id, status, closed_at, reservation_id")
       .eq("id", id)
@@ -1698,16 +1905,14 @@ export async function cancelContract(
 
     if (row.status === "COMPLETED" || row.closed_at) {
       return actionError(
-        "Este contrato ya está cerrado. No se puede anular; use el acta de cierre.",
+        "Este contrato ya está cerrado y contabilizado. No se puede anular.",
       );
     }
     if (row.status === "CANCELLED") {
       return actionError("Este contrato ya está anulado.");
     }
 
-    // If the vehicle was already delivered (CHECK_OUT), do not allow cancel.
-    // Staff must use "Cerrar renta" (check-in + close) instead.
-    const { data: checkOut } = await supabase
+    const { data: checkOut } = await writer
       .from("inspections")
       .select("id")
       .eq("reservation_id", row.reservation_id)
@@ -1715,15 +1920,12 @@ export async function cancelContract(
       .limit(1)
       .maybeSingle();
 
-    if (checkOut) {
-      return actionError(
-        "Este contrato ya tiene entrega (CHECK_OUT). No lo anule: use «Cerrar renta» para devolver el vehículo, completar el contrato y generar el acta. Anular cancela el documento y bloquea el cierre.",
-      );
-    }
-
-    const { data: cancelled, error } = await supabase
+    const { data: cancelled, error } = await writer
       .from("contracts")
-      .update({ status: "CANCELLED" })
+      .update({
+        status: "CANCELLED",
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", id)
       .is("deleted_at", null)
       .select("id, status")
@@ -1732,13 +1934,14 @@ export async function cancelContract(
     if (error) throw mapPostgresError(error);
     if (!cancelled) {
       throw new Error(
-        "No se pudo anular el contrato. El perfil necesita permiso para anular.",
+        "No se pudo anular el contrato. Solo el administrador puede anular.",
       );
     }
 
     // Keep the full contract record (terms, amounts, signatures).
     // Free the operational chain so the vehicle can be used again.
-    const { data: reservation } = await supabase
+    // Anulado does not enter liquidación / costos / contabilidad.
+    const { data: reservation } = await writer
       .from("reservations")
       .select("id, vehicle_id, status")
       .eq("id", row.reservation_id)
@@ -1755,11 +1958,20 @@ export async function cancelContract(
         reservationRow.status === "CONFIRMED" ||
         reservationRow.status === "ACTIVE"
       ) {
-        await supabase
+        const { data: cancelledRes, error: resError } = await writer
           .from("reservations")
-          .update({ status: "CANCELLED" })
+          .update({
+            status: "CANCELLED",
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", reservationRow.id)
-          .is("deleted_at", null);
+          .is("deleted_at", null)
+          .select("id")
+          .maybeSingle();
+        if (resError) throw mapPostgresError(resError);
+        if (!cancelledRes) {
+          throw new Error("Se anuló el contrato, pero no se pudo cancelar la reserva.");
+        }
       }
 
       await releaseVehicleIfOccupied(reservationRow.vehicle_id);
@@ -1770,7 +1982,11 @@ export async function cancelContract(
       action: "contract.cancel",
       entityType: "contract",
       entityId: id,
-      metadata: { preservedRecord: true },
+      metadata: {
+        preservedRecord: true,
+        hadCheckOut: Boolean(checkOut),
+        excludedFromAccounting: true,
+      },
     });
 
     revalidatePath("/dashboard/contratos");

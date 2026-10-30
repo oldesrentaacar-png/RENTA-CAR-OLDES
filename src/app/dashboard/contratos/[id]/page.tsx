@@ -13,7 +13,10 @@ import { ContractPagareToggle } from "@/components/contracts/contract-pagare-tog
 import { ContractPdfLink } from "@/components/contracts/contract-pdf-link";
 import { ContractReceiptsSection } from "@/components/contracts/contract-receipts";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
+import { ContractVehicleChanger } from "@/components/contracts/contract-vehicle-changer";
 import { ScrollHint } from "@/components/contracts/flow-coach";
+import { mapVehicleRow, type VehicleRow } from "@/lib/db/mappers";
+import { vehicleSelectParts } from "@/lib/vehicles/label";
 import {
   buildDeliverySteps,
   firstIncompleteDeliveryStepId,
@@ -26,7 +29,7 @@ import { SetupBanner } from "@/components/dashboard/setup-banner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { getCurrentUser } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions";
+import { canAnnulContract, hasPermission } from "@/lib/auth/permissions";
 import { mergeObservationTexts } from "@/lib/contracts/observations";
 import { formatAppDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
@@ -55,7 +58,7 @@ export default async function ContratoDetailPage({
       ? await Promise.all([
           hasPermission(user.id, "contracts.edit"),
           hasPermission(user.id, "contracts.sign"),
-          hasPermission(user.id, "contracts.cancel"),
+          canAnnulContract(user.id),
           hasPermission(user.id, "finance.create"),
           hasPermission(user.id, "finance.view"),
           hasPermission(user.id, "finance.delete"),
@@ -162,6 +165,43 @@ export default async function ContratoDetailPage({
     contract &&
     contract.status !== "CANCELLED" &&
     !contract.closed_at;
+  const canChangeVehicle =
+    Boolean(canEdit) &&
+    Boolean(canDeliver) &&
+    contract?.status !== "COMPLETED";
+
+  let vehicleOptions: Array<{
+    id: string;
+    label: string;
+    primary?: string;
+    secondary?: string;
+    searchText?: string;
+  }> = [];
+  if (configured && canChangeVehicle) {
+    const supabase = await createClient();
+    const { data: vehicleRows } = await supabase
+      .from("vehicles")
+      .select("*")
+      .is("deleted_at", null)
+      .order("plate");
+    vehicleOptions = ((vehicleRows ?? []) as VehicleRow[]).map((row) => {
+      const v = mapVehicleRow(row);
+      const parts = vehicleSelectParts({
+        plate: v.plate,
+        brand: v.brand,
+        model: v.model,
+        year: v.year,
+        daily_rate: v.daily_rate,
+      });
+      return {
+        id: v.id,
+        label: parts.label,
+        primary: parts.primary,
+        secondary: parts.secondary,
+        searchText: parts.searchText,
+      };
+    });
+  }
 
   return (
     <PermissionGuard permission="contracts.view">
@@ -263,6 +303,15 @@ export default async function ContratoDetailPage({
           }
         />
 
+        {contract && canChangeVehicle ? (
+          <ContractVehicleChanger
+            contractId={contract.id}
+            currentVehicleId={contract.vehicle_id}
+            currentLabel={contract.vehicleLabel}
+            vehicles={vehicleOptions}
+          />
+        ) : null}
+
         {contract &&
         canCancel &&
         contract.status !== "CANCELLED" &&
@@ -277,6 +326,19 @@ export default async function ContratoDetailPage({
             operatorName={operatorName}
             operatorHasSignature={operatorHasSignature}
           />
+        ) : null}
+
+        {contract &&
+        !canCancel &&
+        contract.status !== "CANCELLED" &&
+        contract.status !== "COMPLETED" &&
+        !contract.closed_at ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3 text-sm text-amber-950">
+            Si este contrato está equivocado, no lo cierre. Pídale al
+            administrador que lo <strong>anule</strong>: así se libera el
+            vehículo y la renta no entra en costos. Cerrar renta sí la dejaría
+            en contabilidad.
+          </div>
         ) : null}
 
         {!configured ? (

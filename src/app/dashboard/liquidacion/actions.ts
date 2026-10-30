@@ -233,6 +233,7 @@ export async function lookupContractByCode(
         "id, code, customer_id, vehicle_id, start_at, end_at, total, amount_paid, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate, ownership_type, sublease_payee_name)",
       )
       .ilike("code", normalizedCode)
+      .neq("status", "CANCELLED")
       .is("deleted_at", null)
       .maybeSingle();
 
@@ -264,6 +265,7 @@ export async function lookupContractById(
         "id, code, customer_id, vehicle_id, start_at, end_at, total, amount_paid, customers(first_name, last_name, company_name, customer_type), vehicles(brand, model, year, plate, ownership_type, sublease_payee_name)",
       )
       .eq("id", id)
+      .neq("status", "CANCELLED")
       .is("deleted_at", null)
       .maybeSingle();
 
@@ -362,6 +364,20 @@ export async function createMonthlySettlement(
     }
 
     const supabase = await createClient();
+    if (parsed.data.contractId) {
+      const { data: linkedContract, error: linkedError } = await supabase
+        .from("contracts")
+        .select("id, status")
+        .eq("id", parsed.data.contractId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (linkedError) throw mapPostgresError(linkedError);
+      if ((linkedContract as { status?: string } | null)?.status === "CANCELLED") {
+        return actionError(
+          "Ese contrato está anulado. No entra en costos ni liquidación.",
+        );
+      }
+    }
     const row = settlementInputToRow(parsed.data);
     let vendorName: string | null = null;
 

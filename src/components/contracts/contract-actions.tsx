@@ -128,21 +128,21 @@ export function ContractDetailActions({
         </summary>
         <div className="mt-3 space-y-3">
           <p className="text-sm text-amber-950">
-            <strong>Anular</strong> marca el contrato como{" "}
-            <strong>Anulado</strong> y conserva lo llenado. No borra el
-            registro. Si el vehículo ya salió, el sistema pide usar Cerrar
-            renta.
+            <strong>Anular</strong> es para un contrato equivocado. El archivo
+            se conserva como <strong>Anulado</strong>, se libera el vehículo y{" "}
+            <strong>no entra en costos ni liquidación</strong>. No use Cerrar
+            renta para un error: eso sí dejaría la renta en contabilidad.
           </p>
           <Button
             type="button"
             variant="danger"
             onClick={async () => {
               const ok = confirm(
-                "¿Anular este contrato?\n\nQuedará marcado como ANULADO (no se borra).\n\nSi el vehículo ya salió, cancele y use «Cerrar renta».",
+                "¿Anular este contrato?\n\nEsto SÍ hará:\n• Lo marcará ANULADO (no se borra el archivo)\n• Liberará el vehículo y cancelará la reserva\n• NO lo meterá en costos, liquidación ni contabilidad\n\nEsto NO hará:\n• No es «Cerrar renta». Cerrar SÍ dejaría esta renta en costos.\n\nSi está seguro, acepte y luego escriba ANULAR.",
               );
               if (!ok) return;
               const typed = window.prompt(
-                "Para confirmar, escriba exactamente: ANULAR",
+                "Para confirmar que entiende lo anterior, escriba exactamente: ANULAR",
               );
               if (typed?.trim().toUpperCase() !== "ANULAR") {
                 setError(
@@ -155,7 +155,7 @@ export function ContractDetailActions({
               else router.refresh();
             }}
           >
-            Anular contrato (conserva el registro)
+            Anular contrato (no entra en costos)
           </Button>
         </div>
       </details>

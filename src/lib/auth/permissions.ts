@@ -201,6 +201,11 @@ export async function canManageCourtesyDiscount(
   return hasPermission(userId, "roles.manage");
 }
 
+/** Anular contrato: solo Administrador. El vendedor debe pedírselo. */
+export async function canAnnulContract(userId: string): Promise<boolean> {
+  return hasPermission(userId, "roles.manage");
+}
+
 export async function requirePermission(
   userId: string,
   permission: PermissionKey,
