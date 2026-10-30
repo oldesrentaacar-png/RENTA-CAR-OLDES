@@ -1184,7 +1184,7 @@ export async function updateContract(
 
     const supabase = await createClient();
     const columnsWithDiscount =
-      "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, discount_percent, discount_amount, vehicle_id, extra_line_items, apply_iva, tax_rate";
+      "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, amount_paid, payment_status, courtesy_amount, courtesy_detail, discount_percent, discount_amount, vehicle_id, extra_line_items, apply_iva, tax_rate";
     let existingResult = await supabase
       .from("contracts")
       .select(columnsWithDiscount)
@@ -1198,7 +1198,7 @@ export async function updateContract(
       existingResult = await supabase
         .from("contracts")
         .select(
-          "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, vehicle_id, extra_line_items, apply_iva, tax_rate",
+          "status, reservation_id, start_at, end_at, agreed_rate, deposit, insurance, total, amount_paid, payment_status, courtesy_amount, courtesy_detail, vehicle_id, extra_line_items, apply_iva, tax_rate",
         )
         .eq("id", id)
         .is("deleted_at", null)
@@ -1218,6 +1218,8 @@ export async function updateContract(
       deposit: number;
       insurance: number;
       total: number;
+      amount_paid?: number | null;
+      payment_status?: string | null;
       courtesy_amount?: number | null;
       courtesy_detail?: string | null;
       discount_percent?: number | null;
@@ -1292,6 +1294,11 @@ export async function updateContract(
       row.subtotal = ivaTotals.pretaxTotal;
       row.tax_amount = ivaTotals.taxAmount;
       row.total = ivaTotals.total;
+      const paid = Number(current.amount_paid ?? 0);
+      const balanceDue = Math.max(0, ivaTotals.total - paid);
+      row.balance_due = balanceDue;
+      row.payment_status =
+        balanceDue > 0.009 ? (paid > 0.009 ? "PARTIAL" : "PENDING") : "PAID";
     } else {
       const total = formData.get("total");
       if (total) row.total = Number(total);
@@ -1303,13 +1310,23 @@ export async function updateContract(
 
     row.updated_at = new Date().toISOString();
 
-    const { error } = await supabase
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+    const { data: saved, error } = await writer
       .from("contracts")
       .update(row)
       .eq("id", id)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
 
     if (error) throw mapPostgresError(error);
+    if (!saved) {
+      return actionError(
+        "No se pudo guardar el contrato. El perfil necesita permiso para editarlo.",
+      );
+    }
 
     await syncReservationFromContract(supabase, {
       reservationId: current.reservation_id,
@@ -2737,7 +2754,10 @@ export async function closeContract(
       });
     }
 
-    let { data: closedRow, error: updateError } = await supabase
+    const closeWriter = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+    let { data: closedRow, error: updateError } = await closeWriter
       .from("contracts")
       .update(updateRow)
       .eq("id", contractId)
@@ -2750,7 +2770,7 @@ export async function closeContract(
         status: "COMPLETED" as const,
         notes: mergedNotes,
       };
-      const retry = await supabase
+      const retry = await closeWriter
         .from("contracts")
         .update(fallback)
         .eq("id", contractId)

@@ -11,6 +11,10 @@ import { createClient } from "@/lib/supabase/server";
 import { vehicleSelectParts } from "@/lib/vehicles/label";
 import { applyVehicleMileage } from "@/lib/vehicles/mileage";
 import {
+  persistVehicleAvailable,
+  resolveVehicleWriter,
+} from "@/lib/vehicles/operational-write";
+import {
   maintenanceSchema,
   maintenanceSearchSchema,
   maintenanceUpdateSchema,
@@ -87,13 +91,22 @@ async function syncVehicleStatusAfterMaintenance(
   if (!vehicle) return;
 
   const currentStatus = (vehicle as { status: string }).status;
+  const writer = await resolveVehicleWriter(supabase);
 
   if (newStatus === "IN_PROGRESS" && setVehicleMaintenance) {
     if (currentStatus !== "RENTED" && currentStatus !== "RESERVED") {
-      await supabase
+      const { data: saved, error: writeError } = await writer
         .from("vehicles")
         .update({ status: "MAINTENANCE" })
-        .eq("id", vehicleId);
+        .eq("id", vehicleId)
+        .select("id")
+        .maybeSingle();
+      if (writeError) throw mapPostgresError(writeError);
+      if (!saved) {
+        throw new Error(
+          "No se pudo marcar el vehículo en mantenimiento.",
+        );
+      }
     }
     return;
   }
@@ -101,10 +114,7 @@ async function syncVehicleStatusAfterMaintenance(
   if (newStatus === "COMPLETED" && currentStatus === "MAINTENANCE") {
     const hasReservation = await vehicleHasActiveReservation(supabase, vehicleId);
     if (!hasReservation) {
-      await supabase
-        .from("vehicles")
-        .update({ status: "AVAILABLE" })
-        .eq("id", vehicleId);
+      await persistVehicleAvailable(vehicleId);
     }
   }
 }

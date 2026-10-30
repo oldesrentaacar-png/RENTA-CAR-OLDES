@@ -225,7 +225,7 @@ async function tryUpdateContractBilling(
     const dbClient = isSupabaseAdminConfigured()
       ? createAdminClient()
       : supabase;
-    const { error: updateError } = await dbClient
+    const { data: saved, error: updateError } = await dbClient
       .from("contracts")
       .update({
         amount_paid: snapshot.newPaid,
@@ -233,11 +233,18 @@ async function tryUpdateContractBilling(
         payment_status: snapshot.paymentStatus,
       })
       .eq("id", contractId)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
       if (isMissingColumnError(updateError)) return false;
       throw mapPostgresError(updateError);
+    }
+    if (!saved) {
+      throw new Error(
+        "No se pudo actualizar el saldo del contrato al registrar el recibo.",
+      );
     }
     return true;
   } catch (error) {

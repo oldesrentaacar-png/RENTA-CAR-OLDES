@@ -12,7 +12,8 @@ import {
   type ReservationRow,
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage, isMissingRelationError } from "@/lib/errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateReservationTotal, deriveReservationPricingFromQuote, quoteTaxFraction, isMissingDiscountColumnError, bakeDiscountIntoCourtesy } from "@/lib/calculations/quote";
 import { normalizeFormDateTimeToIso } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
@@ -970,32 +971,50 @@ export async function updateReservation(
     }
 
     const supabase = await createClient();
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
     let updateRow = row;
-    let { error } = await supabase
+    let { data: saved, error } = await writer
       .from("reservations")
       .update(updateRow)
       .eq("id", id)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
 
     if (error && isMissingDiscountColumnError(error)) {
       updateRow = bakeDiscountIntoCourtesy(updateRow);
-      ({ error } = await supabase
+      const retry = await writer
         .from("reservations")
         .update(updateRow)
         .eq("id", id)
-        .is("deleted_at", null));
+        .is("deleted_at", null)
+        .select("id")
+        .maybeSingle();
+      error = retry.error;
+      saved = retry.data;
     }
 
     if (error && isMissingRelationError(error) && "extra_line_items" in updateRow) {
       delete updateRow.extra_line_items;
-      ({ error } = await supabase
+      const retry = await writer
         .from("reservations")
         .update(updateRow)
         .eq("id", id)
-        .is("deleted_at", null));
+        .is("deleted_at", null)
+        .select("id")
+        .maybeSingle();
+      error = retry.error;
+      saved = retry.data;
     }
 
     if (error) throw mapPostgresError(error);
+    if (!saved) {
+      return actionError(
+        "No se pudo guardar la reserva. El perfil necesita permiso para editarla.",
+      );
+    }
 
     await writeAuditLog({
       userId: user.id,
@@ -1040,17 +1059,27 @@ export async function cancelReservation(
     if (activeContract) {
       const code = (activeContract as { code: string }).code;
       return actionError(
-        `No se puede anular la reserva: existe el contrato ${code}. Si el vehículo está mal, cámbielo en el contrato. No anule una renta ya entregada.`,
+        `No se puede anular la reserva: existe el contrato ${code}. Pídale al administrador que anule ese contrato. No use Cerrar renta si la entrega fue un error.`,
       );
     }
 
-    const { error } = await supabase
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
+    const { data: cancelled, error } = await writer
       .from("reservations")
       .update({ status: "CANCELLED" })
       .eq("id", id)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
 
     if (error) throw mapPostgresError(error);
+    if (!cancelled) {
+      return actionError(
+        "No se pudo anular la reserva. El perfil necesita permiso para anularla.",
+      );
+    }
 
     await writeAuditLog({
       userId: user.id,
