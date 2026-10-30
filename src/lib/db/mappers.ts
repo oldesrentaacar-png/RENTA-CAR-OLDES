@@ -14,6 +14,7 @@ import type {
 } from "@/types/database";
 import type { CustomerInput } from "@/lib/validation/customer";
 import type { VehicleInput } from "@/lib/validation/vehicle";
+import { displayBalanceDue } from "@/lib/contracts/amount-owed";
 import { asNumber } from "@/lib/safe-number";
 
 type CustomerRow = {
@@ -634,7 +635,13 @@ export function mapContractRow(row: ContractRow): Contract {
     damage_charges: asNumber(row.damage_charges, 0),
     fuel_charges: asNumber(row.fuel_charges, 0),
     amount_paid: asNumber(row.amount_paid, 0),
-    balance_due: asNumber(row.balance_due, 0),
+    balance_due: displayBalanceDue({
+      total: asNumber(row.total, 0),
+      amountPaid: asNumber(row.amount_paid, 0),
+      balanceDue: row.balance_due,
+      paymentStatus: row.payment_status,
+      courtesyAmount: row.courtesy_amount,
+    }),
     complementary_amount: asNumber(row.complementary_amount, 0),
     payment_status: row.payment_status ?? "PENDING",
     closed_at: row.closed_at ?? null,

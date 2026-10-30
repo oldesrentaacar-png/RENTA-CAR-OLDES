@@ -34,7 +34,8 @@ export function InspectionDetailHeaderActions({
   };
   const [pending, startTransition] = useTransition();
 
-  const canEdit = has("inspections.edit");
+  const canEdit = has("inspections.edit") || has("inspections.create");
+  const canDelete = has("inspections.edit");
 
   function handleDelete() {
     const ok = window.confirm(
@@ -81,22 +82,22 @@ export function InspectionDetailHeaderActions({
           </>
         )}
         {canEdit ? (
-          <>
-            <Link
-              href={`/dashboard/inspecciones/${inspectionId}/edit`}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
-            >
-              Editar
-            </Link>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={pending}
-              onClick={handleDelete}
-            >
-              {pending ? "Eliminando…" : "Eliminar"}
-            </Button>
-          </>
+          <Link
+            href={`/dashboard/inspecciones/${inspectionId}/edit`}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+          >
+            Editar
+          </Link>
+        ) : null}
+        {canDelete ? (
+          <Button
+            type="button"
+            variant="danger"
+            disabled={pending}
+            onClick={handleDelete}
+          >
+            {pending ? "Eliminando…" : "Eliminar"}
+          </Button>
         ) : null}
       </div>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}

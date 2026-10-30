@@ -15,12 +15,13 @@ import { formatMoney } from "@/lib/money";
 export default async function ProveedoresPage() {
   const configured = isSupabaseConfigured();
   const user = configured ? await getCurrentUser() : null;
-  const [canEdit, canDelete] = user
+  const [canCreate, canEdit, canDelete] = user
     ? await Promise.all([
+        hasPermission(user.id, "finance.create"),
         hasPermission(user.id, "finance.edit"),
         hasPermission(user.id, "finance.delete"),
       ])
-    : [false, false];
+    : [false, false, false];
   const result = configured ? await listVendors() : null;
   const data = result?.success ? result.data : [];
   const error = result && !result.success ? result.error : null;
@@ -35,12 +36,14 @@ export default async function ProveedoresPage() {
       count={data.length}
       countLabel="proveedores mostrados"
       actions={
-        <Link href="/dashboard/proveedores/nuevo">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo proveedor
-          </Button>
-        </Link>
+        canCreate ? (
+          <Link href="/dashboard/proveedores/nuevo">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo proveedor
+            </Button>
+          </Link>
+        ) : null
       }
     >
       <DataTable

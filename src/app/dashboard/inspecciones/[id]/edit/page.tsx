@@ -21,7 +21,7 @@ export default async function EditarInspeccionPage({
   const inspection = result?.success ? result.data : null;
 
   return (
-    <PermissionGuard permission="inspections.edit">
+    <PermissionGuard permission={["inspections.edit", "inspections.create"]}>
       <div className="space-y-6">
         <ScrollHint message="Deslice hacia abajo para kilometraje, combustible y notas." />
         <PageHeader

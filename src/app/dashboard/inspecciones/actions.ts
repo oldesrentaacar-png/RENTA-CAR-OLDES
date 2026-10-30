@@ -16,7 +16,8 @@ import {
   type ReservationRow,
 } from "@/lib/db/mappers";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
 import { completeOpenContractAfterCheckIn } from "@/lib/contracts/complete-from-checkin";
 import { markReservationActive } from "@/lib/reservations/operational-status";
@@ -697,7 +698,10 @@ export async function updateInspection(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { user } = await assertPermission("inspections.edit");
+    const { user } = await assertAnyPermission([
+      "inspections.edit",
+      "inspections.create",
+    ]);
     if (!isSupabaseConfigured()) {
       return actionError("Supabase no está configurado.");
     }
@@ -768,6 +772,9 @@ export async function updateInspection(
     };
 
     const supabase = await createClient();
+    const writer = isSupabaseAdminConfigured()
+      ? createAdminClient()
+      : supabase;
     const { data: existing, error: existingError } = await supabase
       .from("inspections")
       .select("id, vehicle_id, type, reservation_id, inspection_date")
@@ -785,7 +792,7 @@ export async function updateInspection(
       inspection_date: string | null;
     };
 
-    const { data: saved, error } = await supabase
+    const { data: saved, error } = await writer
       .from("inspections")
       .update(row)
       .eq("id", id)

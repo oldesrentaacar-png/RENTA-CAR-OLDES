@@ -16,12 +16,13 @@ import { formatMoney } from "@/lib/money";
 export default async function SociosPage() {
   const configured = isSupabaseConfigured();
   const user = configured ? await getCurrentUser() : null;
-  const [canEdit, canDelete] = user
+  const [canCreate, canEdit, canDelete] = user
     ? await Promise.all([
+        hasPermission(user.id, "finance.create"),
         hasPermission(user.id, "finance.edit"),
         hasPermission(user.id, "finance.delete"),
       ])
-    : [false, false];
+    : [false, false, false];
   const result = configured ? await listPartnerRentals() : null;
   const data = result?.success ? result.data.items : [];
   const error = result && !result.success ? result.error : null;
@@ -36,12 +37,14 @@ export default async function SociosPage() {
       count={data.length}
       countLabel="rentas mostradas"
       actions={
-        <Link href="/dashboard/socios/nuevo">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva sub-renta
-          </Button>
-        </Link>
+        canCreate ? (
+          <Link href="/dashboard/socios/nuevo">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva sub-renta
+            </Button>
+          </Link>
+        ) : null
       }
     >
       <DataTable

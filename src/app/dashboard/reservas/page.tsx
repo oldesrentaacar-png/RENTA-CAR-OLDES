@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listReservations } from "@/app/dashboard/reservas/actions";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ReservationListActions } from "@/components/dashboard/reservation-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
@@ -36,12 +37,14 @@ export default async function ReservasPage({
       count={data.length}
       countLabel="reservas mostradas"
       actions={
-        <Link
-          href="/dashboard/reservas/nuevo"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-        >
-          Nueva reserva
-        </Link>
+        <PermissionGuard permission="reservations.create" fallback={null}>
+          <Link
+            href="/dashboard/reservas/nuevo"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          >
+            Nueva reserva
+          </Link>
+        </PermissionGuard>
       }
     >
       <form method="get" className="mb-4">

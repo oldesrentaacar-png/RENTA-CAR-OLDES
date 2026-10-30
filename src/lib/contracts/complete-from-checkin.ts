@@ -1,4 +1,5 @@
 import { writeAuditLog } from "@/lib/audit";
+import { displayBalanceDue } from "@/lib/contracts/amount-owed";
 import {
   isReservationOverlapError,
   syncReservationFromContract,
@@ -32,7 +33,7 @@ export async function completeOpenContractAfterCheckIn(input: {
   const { data: existing, error: readError } = await writer
     .from("contracts")
     .select(
-      "id, status, closed_at, reservation_id, vehicle_id, start_at, end_at, agreed_rate, deposit, insurance, total, amount_paid, courtesy_amount, courtesy_detail, notes, balance_due",
+      "id, status, closed_at, reservation_id, vehicle_id, start_at, end_at, agreed_rate, deposit, insurance, total, amount_paid, courtesy_amount, courtesy_detail, notes, balance_due, payment_status",
     )
     .eq("id", input.contractId)
     .is("deleted_at", null)
@@ -57,6 +58,7 @@ export async function completeOpenContractAfterCheckIn(input: {
     courtesy_detail: string | null;
     notes: string | null;
     balance_due: number | null;
+    payment_status: string | null;
   };
 
   if (row.status === "CANCELLED" || row.status === "COMPLETED" || row.closed_at) {
@@ -72,7 +74,13 @@ export async function completeOpenContractAfterCheckIn(input: {
         ? `${row.notes}\n\n${CLOSE_NOTE}`
         : CLOSE_NOTE;
   const amountPaid = toNumber(row.amount_paid ?? 0);
-  const balanceDue = Math.max(0, toNumber(Number(row.total ?? 0) - amountPaid));
+  const balanceDue = displayBalanceDue({
+    total: Number(row.total ?? 0),
+    amountPaid,
+    balanceDue: row.balance_due,
+    paymentStatus: row.payment_status,
+    courtesyAmount: row.courtesy_amount,
+  });
   const paymentStatus =
     balanceDue > 0.009 ? (amountPaid > 0.009 ? "PARTIAL" : "PENDING") : "PAID";
 

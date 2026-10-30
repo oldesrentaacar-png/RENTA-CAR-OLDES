@@ -85,6 +85,23 @@ function vehicleTypeLabelFromJoin(
   return vehicleType.name;
 }
 
+async function markQuoteSent(
+  supabase: SupabaseClient,
+  quoteId: string,
+): Promise<void> {
+  const writer = isSupabaseAdminConfigured() ? createAdminClient() : supabase;
+  const { data, error } = await writer
+    .from("quotes")
+    .update({ status: "SENT" })
+    .eq("id", quoteId)
+    .select("id")
+    .maybeSingle();
+  if (error) throw mapPostgresError(error);
+  if (!data) {
+    throw new Error("No se pudo marcar la cotización como enviada.");
+  }
+}
+
 function parseQuoteFormPayload(formData: FormData) {
   const vehicleTypeRaw = formData.get("vehicleTypeId");
   const vehicleRaw = formData.get("vehicleId");
@@ -844,7 +861,7 @@ export async function sendQuoteEmail(
       return actionError(emailResult.message);
     }
 
-    await supabase.from("quotes").update({ status: "SENT" }).eq("id", quoteId);
+    await markQuoteSent(supabase, quoteId);
 
     await writeAuditLog({
       userId: user.id,
@@ -1010,7 +1027,7 @@ export async function getQuoteWhatsAppLink(
       totalLabel: formatMoney(q.total),
     });
 
-    await supabase.from("quotes").update({ status: "SENT" }).eq("id", quoteId);
+    await markQuoteSent(supabase, quoteId);
 
     await writeAuditLog({
       userId: user.id,

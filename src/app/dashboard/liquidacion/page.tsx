@@ -22,12 +22,13 @@ export default async function LiquidacionPage({
   const params = await searchParams;
   const configured = isSupabaseConfigured();
   const user = configured ? await getCurrentUser() : null;
-  const [canEdit, canDelete] = user
+  const [canCreate, canEdit, canDelete] = user
     ? await Promise.all([
+        hasPermission(user.id, "finance.create"),
         hasPermission(user.id, "finance.edit"),
         hasPermission(user.id, "finance.delete"),
       ])
-    : [false, false];
+    : [false, false, false];
   const result = configured ? await listMonthlySettlements(params) : null;
   const data = result?.success ? result.data.items : [];
   const totals = result?.success
@@ -48,12 +49,14 @@ export default async function LiquidacionPage({
       count={data.length}
       countLabel="liquidaciones mostradas"
       actions={
-        <Link href="/dashboard/liquidacion/nuevo">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva liquidación
-          </Button>
-        </Link>
+        canCreate ? (
+          <Link href="/dashboard/liquidacion/nuevo">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva liquidación
+            </Button>
+          </Link>
+        ) : null
       }
     >
       <form method="get" className="mb-4 flex flex-wrap items-end gap-3">

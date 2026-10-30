@@ -189,6 +189,8 @@ function ContractsTab({ contracts }: { contracts: Contract[] }) {
             total: contract.total,
             amountPaid: contract.amount_paid,
             balanceDue: contract.balance_due,
+            paymentStatus: contract.payment_status,
+            courtesyAmount: contract.courtesy_amount,
           });
           return (
           <Link

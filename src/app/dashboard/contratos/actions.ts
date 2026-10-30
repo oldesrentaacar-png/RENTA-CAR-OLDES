@@ -35,6 +35,7 @@ import { mergeObservationTexts } from "@/lib/contracts/observations";
 import {
   owedAfterCourtesy,
   unappliedCourtesyAmount,
+  UNPAID_BALANCE_OR_FILTER,
 } from "@/lib/contracts/amount-owed";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
@@ -446,7 +447,9 @@ export async function listContracts(
     if (phaseFilter === "ANULADO") {
       query = query.eq("status", "CANCELLED");
     } else if (phaseFilter === "POR_LIQUIDAR") {
-      query = query.neq("status", "CANCELLED").gt("balance_due", 0);
+      query = query
+        .neq("status", "CANCELLED")
+        .or(UNPAID_BALANCE_OR_FILTER);
     } else if (phaseFilter === "FINALIZADO") {
       query = query
         .neq("status", "CANCELLED")

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listContracts } from "@/app/dashboard/contratos/actions";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { DataTable } from "@/components/shared/data-table";
@@ -37,12 +38,14 @@ export default async function ContratosPage({
       count={pageData?.total ?? data.length}
       countLabel="contratos"
       actions={
-        <Link
-          href="/dashboard/contratos/nuevo"
-          className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          Nuevo contrato
-        </Link>
+        <PermissionGuard permission="contracts.create" fallback={null}>
+          <Link
+            href="/dashboard/contratos/nuevo"
+            className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            Nuevo contrato
+          </Link>
+        </PermissionGuard>
       }
     >
       <form method="get" className="mb-4">
@@ -108,6 +111,8 @@ export default async function ContratosPage({
                 total: row.total,
                 amountPaid: row.amount_paid,
                 balanceDue: row.balance_due,
+                paymentStatus: row.payment_status,
+                courtesyAmount: row.courtesy_amount,
               });
               return pending > 0 ? (
                 <span className="font-semibold text-red-700">

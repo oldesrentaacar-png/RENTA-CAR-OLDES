@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listQuotes } from "@/app/dashboard/cotizaciones/actions";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { QuoteListActions } from "@/components/dashboard/quote-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
@@ -37,12 +38,14 @@ export default async function CotizacionesPage({
       count={data.length}
       countLabel="cotizaciones mostradas"
       actions={
-        <Link
-          href="/dashboard/cotizaciones/nuevo"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-        >
-          Nueva cotización
-        </Link>
+        <PermissionGuard permission="quotes.create" fallback={null}>
+          <Link
+            href="/dashboard/cotizaciones/nuevo"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          >
+            Nueva cotización
+          </Link>
+        </PermissionGuard>
       }
     >
       <form method="get" className="mb-4">

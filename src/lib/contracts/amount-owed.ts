@@ -76,10 +76,20 @@ export function displayBalanceDue(input: {
   total: number;
   amountPaid?: number | null;
   balanceDue?: number | null;
+  paymentStatus?: string | null;
+  courtesyAmount?: number | null;
 }): number {
   const paid = toNumber(input.amountPaid ?? 0);
   const stored = toNumber(input.balanceDue ?? 0);
   if (Math.abs(stored) > 0.009) return stored;
-  if (paid > 0.009) return 0;
-  return Math.max(0, toNumber(Number(input.total ?? 0) - paid));
+  const total = toNumber(input.total ?? 0);
+  if (paid < 0.009) return Math.max(0, total);
+  const status = String(input.paymentStatus ?? "").toUpperCase();
+  if (status === "PAID") return 0;
+  const courtesy = toNumber(input.courtesyAmount ?? 0);
+  return Math.max(0, toNumber(total - paid - courtesy));
 }
+
+/** PostgREST filter: stored saldo or unpaid rows whose DEFAULT 0 hid the debt. */
+export const UNPAID_BALANCE_OR_FILTER =
+  "balance_due.gt.0,and(amount_paid.eq.0,total.gt.0)";

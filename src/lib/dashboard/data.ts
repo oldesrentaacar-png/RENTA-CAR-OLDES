@@ -8,6 +8,10 @@ import {
   netAfterOperatingCosts,
   summarizeSettlementParts,
 } from "@/lib/calculations/settlement-balance";
+import {
+  displayBalanceDue,
+  UNPAID_BALANCE_OR_FILTER,
+} from "@/lib/contracts/amount-owed";
 import { formatAppTime, getAppDayBounds } from "@/lib/dates";
 
 export type FetchListResult<T> = {
@@ -558,13 +562,13 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
       supabase
         .from("contracts")
         .select(
-          "id, code, status, start_at, end_at, balance_due, customers(first_name, last_name), vehicles(brand, model, plate)",
+          "id, code, status, start_at, end_at, total, amount_paid, balance_due, payment_status, courtesy_amount, customers(first_name, last_name), vehicles(brand, model, plate)",
         )
         .is("deleted_at", null)
         .neq("status", "CANCELLED")
-        .gt("balance_due", 0)
-        .order("balance_due", { ascending: false })
-        .limit(20),
+        .or(UNPAID_BALANCE_OR_FILTER)
+        .order("created_at", { ascending: false })
+        .limit(40),
     ]);
 
     const firstError =
@@ -655,20 +659,36 @@ export async function fetchDashboardOpsAgenda(): Promise<DashboardOpsAgenda> {
 
     const pendingSettlements: OpsPendingSettlement[] = (
       (pendingSettlementsRes.data ?? []) as Array<
-        ContractJoinRow & { balance_due?: number | null }
+        ContractJoinRow & {
+          total?: number | null;
+          amount_paid?: number | null;
+          balance_due?: number | null;
+          payment_status?: string | null;
+          courtesy_amount?: number | null;
+        }
       >
-    ).map((row) => {
-      const base = mapOpenContract(row, nowIso);
-      return {
-        id: base.id,
-        code: base.code,
-        status: base.status,
-        customerName: base.customerName,
-        vehicleLabel: base.vehicleLabel,
-        balanceDue: Number(row.balance_due ?? 0),
-        href: `/dashboard/contratos/${row.id}#abonos`,
-      };
-    });
+    )
+      .map((row) => {
+        const base = mapOpenContract(row, nowIso);
+        return {
+          id: base.id,
+          code: base.code,
+          status: base.status,
+          customerName: base.customerName,
+          vehicleLabel: base.vehicleLabel,
+          balanceDue: displayBalanceDue({
+            total: Number(row.total ?? 0),
+            amountPaid: Number(row.amount_paid ?? 0),
+            balanceDue: row.balance_due,
+            paymentStatus: row.payment_status,
+            courtesyAmount: row.courtesy_amount,
+          }),
+          href: `/dashboard/contratos/${row.id}#abonos`,
+        };
+      })
+      .filter((row) => row.balanceDue > 0.009)
+      .sort((a, b) => b.balanceDue - a.balanceDue)
+      .slice(0, 20);
 
     return {
       configured: true,

@@ -7,6 +7,10 @@ import {
   webRequestAlertWindowStart,
   type RecentWebRequestRef,
 } from "@/lib/alerts/web-request-window";
+import {
+  displayBalanceDue,
+  UNPAID_BALANCE_OR_FILTER,
+} from "@/lib/contracts/amount-owed";
 import { getCustomerDisplayName } from "@/lib/customers";
 import { formatAppDate, formatAppTime12h } from "@/lib/dates";
 import { formatVehicleLabel } from "@/lib/vehicles/label";
@@ -417,23 +421,33 @@ export async function generateAlerts(): Promise<GenerateAlertsResult> {
     const { data: unpaidContracts } = await supabase
       .from("contracts")
       .select(
-        "id, code, balance_due, status, customers(first_name, last_name, company_name, customer_type)",
+        "id, code, total, amount_paid, balance_due, payment_status, courtesy_amount, status, customers(first_name, last_name, company_name, customer_type)",
       )
       .is("deleted_at", null)
       .neq("status", "CANCELLED")
-      .gt("balance_due", 0)
+      .or(UNPAID_BALANCE_OR_FILTER)
       .limit(80);
 
     for (const row of unpaidContracts ?? []) {
       const contract = row as {
         id: string;
         code: string;
+        total: number | null;
+        amount_paid: number | null;
         balance_due: number | null;
+        payment_status: string | null;
+        courtesy_amount: number | null;
         status: string;
         customers: CustomerJoin | CustomerJoin[] | null;
       };
-      const balance = Number(contract.balance_due ?? 0);
-      if (!(balance > 0)) continue;
+      const balance = displayBalanceDue({
+        total: Number(contract.total ?? 0),
+        amountPaid: Number(contract.amount_paid ?? 0),
+        balanceDue: contract.balance_due,
+        paymentStatus: contract.payment_status,
+        courtesyAmount: contract.courtesy_amount,
+      });
+      if (!(balance > 0.009)) continue;
       const customer = unwrapRelation(contract.customers);
       const name = customerLabelFrom(customer);
       const dedupeKey = `contract:unpaid:${contract.id}`;

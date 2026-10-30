@@ -4,6 +4,7 @@ import {
   listInspections,
   listVehiclesForInspectionFilter,
 } from "@/app/dashboard/inspecciones/actions";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { InspectionListActions } from "@/components/dashboard/inspection-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { FilterBar, FilterField } from "@/components/shared/filter-bar";
@@ -50,12 +51,14 @@ export default async function InspeccionesPage({
       count={pageData?.total ?? data.length}
       countLabel="inspecciones"
       actions={
-        <Link
-          href="/dashboard/inspecciones/nuevo"
-          className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          Nueva inspección
-        </Link>
+        <PermissionGuard permission="inspections.create" fallback={null}>
+          <Link
+            href="/dashboard/inspecciones/nuevo"
+            className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            Nueva inspección
+          </Link>
+        </PermissionGuard>
       }
     >
       <form method="get" className="mb-4">

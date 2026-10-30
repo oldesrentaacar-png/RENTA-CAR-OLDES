@@ -17,7 +17,12 @@ export default async function UsuariosPage({
   const params = await searchParams;
   const configured = isSupabaseConfigured();
   const user = configured ? await getCurrentUser() : null;
-  const canEdit = user ? await hasPermission(user.id, "users.edit") : false;
+  const [canCreate, canEdit] = user
+    ? await Promise.all([
+        hasPermission(user.id, "users.create"),
+        hasPermission(user.id, "users.edit"),
+      ])
+    : [false, false];
 
   const result = configured ? await listUsers(params) : null;
   const data = result?.success ? result.data.items : [];
@@ -33,12 +38,14 @@ export default async function UsuariosPage({
       count={data.length}
       countLabel="usuarios mostrados"
       actions={
-        <Link
-          href="/dashboard/usuarios/nuevo"
-          className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          Nuevo usuario
-        </Link>
+        canCreate ? (
+          <Link
+            href="/dashboard/usuarios/nuevo"
+            className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            Nuevo usuario
+          </Link>
+        ) : null
       }
     >
       <DataTable

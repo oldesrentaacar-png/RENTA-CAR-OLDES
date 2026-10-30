@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listVehicles } from "@/app/dashboard/vehiculos/actions";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { ListFilters } from "@/components/dashboard/list-filters";
 import { VehicleListActions } from "@/components/dashboard/vehicle-list-actions";
@@ -41,12 +42,14 @@ export default async function VehiculosPage({
       count={pageData?.total ?? data.length}
       countLabel="vehículos"
       actions={
-        <Link
-          href="/dashboard/vehiculos/nuevo"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-        >
-          Nuevo vehículo
-        </Link>
+        <PermissionGuard permission="vehicles.create" fallback={null}>
+          <Link
+            href="/dashboard/vehiculos/nuevo"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          >
+            Nuevo vehículo
+          </Link>
+        </PermissionGuard>
       }
     >
       <form method="get" className="mb-4">

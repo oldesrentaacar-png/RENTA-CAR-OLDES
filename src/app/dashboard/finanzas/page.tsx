@@ -45,12 +45,16 @@ export default async function FinanzasPage() {
           description="El facturado, los gastos y la ganancia neta salen de las liquidaciones del mes. La gráfica de abajo es el movimiento de caja, aparte de esa ganancia."
           actions={
             <div className="flex flex-wrap gap-2">
-              <Link href="/dashboard/ingresos/nuevo">
-                <Button>Nuevo ingreso</Button>
-              </Link>
-              <Link href="/dashboard/gastos/nuevo">
-                <Button variant="secondary">Nuevo gasto</Button>
-              </Link>
+              <PermissionGuard permission="finance.create" fallback={null}>
+                <Link href="/dashboard/ingresos/nuevo">
+                  <Button>Nuevo ingreso</Button>
+                </Link>
+              </PermissionGuard>
+              <PermissionGuard permission="finance.create" fallback={null}>
+                <Link href="/dashboard/gastos/nuevo">
+                  <Button variant="secondary">Nuevo gasto</Button>
+                </Link>
+              </PermissionGuard>
               <Link href="/dashboard/ingresos">
                 <Button variant="outline">Ver ingresos</Button>
               </Link>

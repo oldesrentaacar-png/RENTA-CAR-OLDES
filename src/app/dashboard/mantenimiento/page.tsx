@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { listMaintenanceRecords } from "@/app/dashboard/mantenimiento/actions";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { MaintenanceListActions } from "@/components/dashboard/maintenance-list-actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
 import { DataTable } from "@/components/shared/data-table";
@@ -31,12 +32,14 @@ export default async function MantenimientoPage() {
       count={data.length}
       countLabel="registros mostrados"
       actions={
-        <Link href="/dashboard/mantenimiento/nuevo">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo registro
-          </Button>
-        </Link>
+        <PermissionGuard permission="maintenance.create" fallback={null}>
+          <Link href="/dashboard/mantenimiento/nuevo">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo registro
+            </Button>
+          </Link>
+        </PermissionGuard>
       }
     >
       <DataTable
