@@ -2,6 +2,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { syncReservationFromContract } from "@/lib/contracts/sync-reservation";
 import { isSupabaseAdminConfigured } from "@/lib/env";
 import { mapPostgresError } from "@/lib/errors";
+import { toNumber } from "@/lib/money";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { persistVehicleAvailableAfterContractClose } from "@/lib/vehicles/operational-write";
 
@@ -28,7 +29,7 @@ export async function completeOpenContractAfterCheckIn(input: {
   const { data: existing, error: readError } = await writer
     .from("contracts")
     .select(
-      "id, status, closed_at, reservation_id, vehicle_id, start_at, end_at, agreed_rate, deposit, insurance, total, courtesy_amount, courtesy_detail, notes, balance_due",
+      "id, status, closed_at, reservation_id, vehicle_id, start_at, end_at, agreed_rate, deposit, insurance, total, amount_paid, courtesy_amount, courtesy_detail, notes, balance_due",
     )
     .eq("id", input.contractId)
     .is("deleted_at", null)
@@ -48,6 +49,7 @@ export async function completeOpenContractAfterCheckIn(input: {
     deposit: number | null;
     insurance: number | null;
     total: number;
+    amount_paid: number | null;
     courtesy_amount: number | null;
     courtesy_detail: string | null;
     notes: string | null;
@@ -66,9 +68,10 @@ export async function completeOpenContractAfterCheckIn(input: {
       : row.notes
         ? `${row.notes}\n\n${CLOSE_NOTE}`
         : CLOSE_NOTE;
-  const balanceDue = Number(row.balance_due ?? 0);
+  const amountPaid = toNumber(row.amount_paid ?? 0);
+  const balanceDue = Math.max(0, toNumber(Number(row.total ?? 0) - amountPaid));
   const paymentStatus =
-    balanceDue > 0.009 ? "PARTIAL" : "PAID";
+    balanceDue > 0.009 ? (amountPaid > 0.009 ? "PARTIAL" : "PENDING") : "PAID";
 
   let { data: closedRow, error: updateError } = await writer
     .from("contracts")
@@ -76,6 +79,7 @@ export async function completeOpenContractAfterCheckIn(input: {
       status: "COMPLETED",
       closed_at: closedAt,
       actual_return_at: actualReturnAt,
+      balance_due: balanceDue,
       payment_status: paymentStatus,
       notes: mergedNotes,
     })
@@ -114,19 +118,39 @@ export async function completeOpenContractAfterCheckIn(input: {
 
   await persistVehicleAvailableAfterContractClose(row.vehicle_id, row.id);
 
-  await syncReservationFromContract(writer, {
-    reservationId: row.reservation_id,
-    startAt: row.start_at,
-    endAt: actualReturnAt,
-    agreedRate: row.agreed_rate,
-    deposit: row.deposit,
-    insurance: row.insurance,
-    total: Number(row.total),
-    courtesyAmount: row.courtesy_amount,
-    courtesyDetail: row.courtesy_detail,
-    vehicleId: row.vehicle_id,
-    status: "COMPLETED",
-  });
+  try {
+    await syncReservationFromContract(writer, {
+      reservationId: row.reservation_id,
+      startAt: row.start_at,
+      endAt: actualReturnAt,
+      agreedRate: row.agreed_rate,
+      deposit: row.deposit,
+      insurance: row.insurance,
+      total: Number(row.total),
+      courtesyAmount: row.courtesy_amount,
+      courtesyDetail: row.courtesy_detail,
+      vehicleId: row.vehicle_id,
+      status: "COMPLETED",
+    });
+  } catch (error) {
+    const msg = `${error instanceof Error ? error.message : error}`.toLowerCase();
+    if (
+      msg.includes("overlap") ||
+      msg.includes("23p01") ||
+      msg.includes("reservations_no_overlap")
+    ) {
+      await writer
+        .from("reservations")
+        .update({
+          status: "COMPLETED",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.reservation_id)
+        .is("deleted_at", null);
+    } else {
+      throw error;
+    }
+  }
 
   await writeAuditLog({
     userId: input.userId,

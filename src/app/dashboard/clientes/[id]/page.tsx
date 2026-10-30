@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import {
   getCustomer,
   getCustomerRelated,
+  type CustomerReceiptItem,
 } from "@/app/dashboard/clientes/actions";
 import { DeleteCustomerButton } from "@/components/forms/delete-customer-button";
 import { PermissionGuard } from "@/components/auth/permission-guard";
@@ -24,7 +25,6 @@ import { formatMoney } from "@/lib/money";
 import type {
   Contract,
   Customer,
-  PaymentReceipt,
   Quote,
   Reservation,
 } from "@/types/database";
@@ -207,7 +207,7 @@ function ContractsTab({ contracts }: { contracts: Contract[] }) {
   );
 }
 
-function ReceiptsTab({ receipts }: { receipts: PaymentReceipt[] }) {
+function ReceiptsTab({ receipts }: { receipts: CustomerReceiptItem[] }) {
   if (receipts.length === 0) {
     return (
       <EmptyTab message="No hay abonos o recibos registrados para este cliente." />
@@ -229,7 +229,10 @@ function ReceiptsTab({ receipts }: { receipts: PaymentReceipt[] }) {
               <div>
                 <p className="font-medium">{receipt.code}</p>
                 <p className="text-muted">
-                  {receipt.concept} · {formatAppDateTime(receipt.issued_at)}
+                  {receipt.concept}
+                  {receipt.contractCode ? ` · ${receipt.contractCode}` : ""}
+                  {" · "}
+                  {formatAppDateTime(receipt.issued_at)}
                 </p>
               </div>
               <div className="text-right">

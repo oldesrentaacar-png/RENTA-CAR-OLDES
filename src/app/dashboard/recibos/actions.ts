@@ -245,9 +245,49 @@ async function tryUpdateContractBilling(
     throw error;
   }
 }
+
+export type PaymentReceiptListItem = PaymentReceipt & {
+  customerName: string;
+  contractCode: string | null;
+};
+
+function mapReceiptListRow(row: unknown): PaymentReceiptListItem {
+  const raw = row as PaymentReceipt & {
+    customers?:
+      | {
+          first_name: string | null;
+          last_name: string | null;
+          company_name: string | null;
+          customer_type: "PERSON" | "COMPANY" | null;
+        }
+      | Array<{
+          first_name: string | null;
+          last_name: string | null;
+          company_name: string | null;
+          customer_type: "PERSON" | "COMPANY" | null;
+        }>
+      | null;
+    contracts?: { code: string | null } | Array<{ code: string | null }> | null;
+  };
+  const customer = firstRelation(raw.customers);
+  const contract = firstRelation(raw.contracts);
+  return {
+    ...(raw as PaymentReceipt),
+    customerName: customer
+      ? getCustomerDisplayName({
+          customer_type: customer.customer_type === "COMPANY" ? "COMPANY" : "PERSON",
+          first_name: customer.first_name ?? "",
+          last_name: customer.last_name ?? "",
+          company_name: customer.company_name,
+        })
+      : "Cliente",
+    contractCode: contract?.code ?? null,
+  };
+}
+
 export async function listPaymentReceipts(
   params: Record<string, string | string[] | undefined> = {},
-): Promise<ActionResult<PaginatedResult<PaymentReceipt>>> {
+): Promise<ActionResult<PaginatedResult<PaymentReceiptListItem>>> {
   try {
     await assertPermission("finance.view");
     if (!isSupabaseConfigured()) {
@@ -255,6 +295,7 @@ export async function listPaymentReceipts(
     }
 
     const filters = paymentReceiptSearchSchema.parse({
+      query: params.q,
       contractId: params.contractId,
       customerId: params.customerId,
       receiptKind: params.receiptKind,
@@ -263,15 +304,57 @@ export async function listPaymentReceipts(
     });
 
     const supabase = await createClient();
+
+    let matchingCustomerIds: string[] | null = null;
+    let matchingContractIds: string[] | null = null;
+    if (filters.query) {
+      const term = filters.query.trim();
+      const [{ data: matchingCustomers }, { data: matchingContracts }] =
+        await Promise.all([
+          supabase
+            .from("customers")
+            .select("id")
+            .is("deleted_at", null)
+            .or(
+              `first_name.ilike.%${term}%,last_name.ilike.%${term}%,company_name.ilike.%${term}%`,
+            ),
+          supabase
+            .from("contracts")
+            .select("id")
+            .is("deleted_at", null)
+            .ilike("code", `%${term}%`),
+        ]);
+      matchingCustomerIds = (matchingCustomers ?? []).map(
+        (row) => (row as { id: string }).id,
+      );
+      matchingContractIds = (matchingContracts ?? []).map(
+        (row) => (row as { id: string }).id,
+      );
+    }
+
     let query = supabase
       .from("payment_receipts")
-      .select("*", { count: "exact" })
+      .select(
+        "*, customers(first_name, last_name, company_name, customer_type), contracts(code)",
+        { count: "exact" },
+      )
       .is("deleted_at", null)
       .order("issued_at", { ascending: false });
 
     if (filters.contractId) query = query.eq("contract_id", filters.contractId);
     if (filters.customerId) query = query.eq("customer_id", filters.customerId);
     if (filters.receiptKind) query = query.eq("receipt_kind", filters.receiptKind);
+    if (filters.query) {
+      const term = filters.query.trim();
+      const parts = [`code.ilike.%${term}%`, `concept.ilike.%${term}%`];
+      if (matchingCustomerIds && matchingCustomerIds.length > 0) {
+        parts.push(`customer_id.in.(${matchingCustomerIds.join(",")})`);
+      }
+      if (matchingContractIds && matchingContractIds.length > 0) {
+        parts.push(`contract_id.in.(${matchingContractIds.join(",")})`);
+      }
+      query = query.or(parts.join(","));
+    }
 
     const from = (filters.page - 1) * filters.pageSize;
     const to = from + filters.pageSize - 1;
@@ -280,7 +363,7 @@ export async function listPaymentReceipts(
     if (error) throw mapPostgresError(error);
 
     return actionSuccess({
-      items: (data ?? []) as PaymentReceipt[],
+      items: (data ?? []).map(mapReceiptListRow),
       total: count ?? 0,
       page: filters.page,
       pageSize: filters.pageSize,

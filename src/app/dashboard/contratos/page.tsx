@@ -89,7 +89,9 @@ export default async function ContratosPage({
             key: "period",
             header: "Vigencia",
             cell: (row) =>
-              `${formatAppDate(row.start_at)} – ${formatAppDate(row.end_at)}`,
+              `${formatAppDate(row.start_at)} – ${formatAppDate(
+                row.actual_return_at || row.end_at,
+              )}`,
             className: "hidden lg:table-cell",
           },
           {

@@ -247,11 +247,15 @@ export async function getCustomer(id: string): Promise<ActionResult<Customer>> {
   }
 }
 
+export type CustomerReceiptItem = PaymentReceipt & {
+  contractCode: string | null;
+};
+
 export type CustomerProfileRelated = {
   quotes: Quote[];
   reservations: Reservation[];
   contracts: Contract[];
-  receipts: PaymentReceipt[];
+  receipts: CustomerReceiptItem[];
 };
 
 export async function getCustomerRelated(
@@ -290,7 +294,7 @@ export async function getCustomerRelated(
           .limit(50),
         supabase
           .from("payment_receipts")
-          .select("*")
+          .select("*, contracts(code)")
           .eq("customer_id", customerId)
           .is("deleted_at", null)
           .order("issued_at", { ascending: false })
@@ -301,9 +305,21 @@ export async function getCustomerRelated(
     if (reservationsRes.error) throw mapPostgresError(reservationsRes.error);
     if (contractsRes.error) throw mapPostgresError(contractsRes.error);
 
-    const receipts: PaymentReceipt[] = receiptsRes.error
+    const receipts: CustomerReceiptItem[] = receiptsRes.error
       ? []
-      : ((receiptsRes.data ?? []) as PaymentReceipt[]);
+      : ((receiptsRes.data ?? []) as Array<
+          PaymentReceipt & {
+            contracts?: { code: string | null } | Array<{ code: string | null }> | null;
+          }
+        >).map((row) => {
+          const rel = Array.isArray(row.contracts)
+            ? row.contracts[0]
+            : row.contracts;
+          return {
+            ...(row as PaymentReceipt),
+            contractCode: rel?.code ?? null,
+          };
+        });
 
     return actionSuccess({
       quotes: ((quotesRes.data ?? []) as QuoteRow[]).map(mapQuoteRow),

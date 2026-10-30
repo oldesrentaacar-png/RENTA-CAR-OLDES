@@ -1,5 +1,6 @@
 import { listPaymentReceipts } from "@/app/dashboard/recibos/actions";
 import { ModuleListShell } from "@/components/dashboard/module-list-shell";
+import { ListFilters } from "@/components/dashboard/list-filters";
 import { ReceiptListActions } from "@/components/recibos/receipt-list-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,12 @@ import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney } from "@/lib/money";
 import { isSupabaseConfigured } from "@/lib/env";
 
-export default async function RecibosPage() {
+export default async function RecibosPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
   const configured = isSupabaseConfigured();
   const user = configured ? await getCurrentUser() : null;
   const [canEdit, canVoid] = user
@@ -21,7 +27,11 @@ export default async function RecibosPage() {
     : [false, false];
 
   const result = configured
-    ? await listPaymentReceipts({ pageSize: "100" })
+    ? await listPaymentReceipts({
+        q: params.q,
+        pageSize: "100",
+        page: params.page,
+      })
     : null;
 
   const data = result?.success ? result.data.items : [];
@@ -37,6 +47,12 @@ export default async function RecibosPage() {
       count={data.length}
       countLabel="recibos mostrados"
     >
+      <form method="get" className="mb-4">
+        <ListFilters
+          q={String(params.q ?? "")}
+          searchPlaceholder="Nombre, correlativo o contrato…"
+        />
+      </form>
       <DataTable
         data={data}
         getRowKey={(row) => row.id}
@@ -58,6 +74,17 @@ export default async function RecibosPage() {
             cell: (row) => <span className="font-medium">{row.code}</span>,
           },
           {
+            key: "customer",
+            header: "Cliente",
+            cell: (row) => row.customerName,
+          },
+          {
+            key: "contract",
+            header: "Contrato",
+            cell: (row) => row.contractCode ?? "—",
+            className: "hidden md:table-cell",
+          },
+          {
             key: "date",
             header: "Fecha",
             cell: (row) => formatAppDate(row.issued_at),
@@ -66,6 +93,7 @@ export default async function RecibosPage() {
             key: "concept",
             header: "Concepto",
             cell: (row) => row.concept,
+            className: "hidden lg:table-cell",
           },
           {
             key: "amount",
@@ -80,13 +108,13 @@ export default async function RecibosPage() {
                 {PAYMENT_METHOD_LABELS[row.payment_method]}
               </Badge>
             ),
-            className: "hidden md:table-cell",
+            className: "hidden lg:table-cell",
           },
           {
             key: "balance",
             header: "Saldo",
             cell: (row) => formatMoney(row.balance_remaining),
-            className: "hidden lg:table-cell",
+            className: "hidden xl:table-cell",
           },
           {
             key: "actions",

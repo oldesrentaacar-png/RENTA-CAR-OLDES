@@ -1120,7 +1120,13 @@ export async function listReservationsForCalendar(
 
     const contractByReservation = new Map<
       string,
-      { id: string; code: string; status: string; closed_at: string | null }
+      {
+        id: string;
+        code: string;
+        status: string;
+        closed_at: string | null;
+        actual_return_at: string | null;
+      }
     >();
     const checkOutReservations = new Set<string>();
     const checkInReservations = new Set<string>();
@@ -1129,7 +1135,7 @@ export async function listReservationsForCalendar(
       const [{ data: contracts }, { data: inspections }] = await Promise.all([
         supabase
           .from("contracts")
-          .select("id, code, status, closed_at, reservation_id")
+          .select("id, code, status, closed_at, actual_return_at, reservation_id")
           .in("reservation_id", reservationIds)
           .is("deleted_at", null)
           .neq("status", "CANCELLED"),
@@ -1146,6 +1152,7 @@ export async function listReservationsForCalendar(
           code: string;
           status: string;
           closed_at: string | null;
+          actual_return_at: string | null;
           reservation_id: string;
         };
         const next = {
@@ -1153,6 +1160,7 @@ export async function listReservationsForCalendar(
           code: c.code,
           status: c.status,
           closed_at: c.closed_at,
+          actual_return_at: c.actual_return_at,
         };
         const prev = contractByReservation.get(c.reservation_id);
         if (!prev) {
@@ -1224,10 +1232,11 @@ export async function listReservationsForCalendar(
       const contract = contractByReservation.get(r.id) ?? null;
       const hasCheckOut = checkOutReservations.has(r.id);
       const hasCheckIn = checkInReservations.has(r.id);
+      const displayEnd = contract?.actual_return_at || r.end_at;
       const phase = deriveCalendarPhase({
         reservationStatus: r.status,
         startAt: r.start_at,
-        endAt: r.end_at,
+        endAt: displayEnd,
         contractStatus: contract?.status ?? null,
         contractClosedAt: contract?.closed_at ?? null,
         hasCheckOut,
@@ -1240,7 +1249,7 @@ export async function listReservationsForCalendar(
         code: r.code,
         status: r.status,
         start_at: r.start_at,
-        end_at: r.end_at,
+        end_at: displayEnd,
         vehicle_id: r.vehicle_id,
         vehicleLabel,
         customerName,

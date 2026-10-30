@@ -13,10 +13,7 @@ import { ContractPagareToggle } from "@/components/contracts/contract-pagare-tog
 import { ContractPdfLink } from "@/components/contracts/contract-pdf-link";
 import { ContractReceiptsSection } from "@/components/contracts/contract-receipts";
 import { ContractDeliveryNavigator } from "@/components/contracts/contract-delivery-navigator";
-import { ContractVehicleChanger } from "@/components/contracts/contract-vehicle-changer";
 import { ScrollHint } from "@/components/contracts/flow-coach";
-import { mapVehicleRow, type VehicleRow } from "@/lib/db/mappers";
-import { vehicleSelectParts } from "@/lib/vehicles/label";
 import {
   buildDeliverySteps,
   firstIncompleteDeliveryStepId,
@@ -165,43 +162,6 @@ export default async function ContratoDetailPage({
     contract &&
     contract.status !== "CANCELLED" &&
     !contract.closed_at;
-  const canChangeVehicle =
-    Boolean(canEdit) &&
-    Boolean(canDeliver) &&
-    contract?.status !== "COMPLETED";
-
-  let vehicleOptions: Array<{
-    id: string;
-    label: string;
-    primary?: string;
-    secondary?: string;
-    searchText?: string;
-  }> = [];
-  if (configured && canChangeVehicle) {
-    const supabase = await createClient();
-    const { data: vehicleRows } = await supabase
-      .from("vehicles")
-      .select("*")
-      .is("deleted_at", null)
-      .order("plate");
-    vehicleOptions = ((vehicleRows ?? []) as VehicleRow[]).map((row) => {
-      const v = mapVehicleRow(row);
-      const parts = vehicleSelectParts({
-        plate: v.plate,
-        brand: v.brand,
-        model: v.model,
-        year: v.year,
-        daily_rate: v.daily_rate,
-      });
-      return {
-        id: v.id,
-        label: parts.label,
-        primary: parts.primary,
-        secondary: parts.secondary,
-        searchText: parts.searchText,
-      };
-    });
-  }
 
   return (
     <PermissionGuard permission="contracts.view">
@@ -303,15 +263,6 @@ export default async function ContratoDetailPage({
           }
         />
 
-        {contract && canChangeVehicle ? (
-          <ContractVehicleChanger
-            contractId={contract.id}
-            currentVehicleId={contract.vehicle_id}
-            currentLabel={contract.vehicleLabel}
-            vehicles={vehicleOptions}
-          />
-        ) : null}
-
         {contract &&
         canCancel &&
         contract.status !== "CANCELLED" &&
@@ -411,9 +362,15 @@ export default async function ContratoDetailPage({
                   {formatAppDateTime(contract.start_at)}
                 </p>
                 <p>
-                  <span className="text-muted">Fin:</span>{" "}
+                  <span className="text-muted">Fin pactado:</span>{" "}
                   {formatAppDateTime(contract.end_at)}
                 </p>
+                {contract.actual_return_at ? (
+                  <p>
+                    <span className="text-muted">Devuelto:</span>{" "}
+                    {formatAppDateTime(contract.actual_return_at)}
+                  </p>
+                ) : null}
                 <p>
                   <span className="text-muted">Tarifa:</span>{" "}
                   {formatMoney(contract.agreed_rate)}

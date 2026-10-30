@@ -44,6 +44,7 @@ export type PaymentReceiptInput = z.infer<typeof paymentReceiptSchema>;
 export type PaymentRefundInput = z.infer<typeof paymentRefundSchema>;
 
 export const paymentReceiptSearchSchema = z.object({
+  query: optionalText(100),
   contractId: optionalUuid(),
   customerId: optionalUuid(),
   receiptKind: optionalEnum(z.enum(["PAYMENT", "REFUND"])),
