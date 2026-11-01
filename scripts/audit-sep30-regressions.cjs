@@ -238,6 +238,18 @@ function assert(cond, msg) {
       owed.includes("paymentStatus"),
     "displayBalanceDue uses stored saldo or unpaid total, not a fake paid zero",
   );
+  const money = read("src/lib/money.ts");
+  assert(
+    money.includes("CENT_SETTLE_EPS = 0.02") &&
+      money.includes("export function snapCommercialDollars") &&
+      money.includes("export function settleCents"),
+    "2-cent rounding of 58.66×3=175.98 vs $176 is settled, not a credit",
+  );
+  const quoteCalc = read("src/lib/calculations/quote.ts");
+  assert(
+    quoteCalc.includes("snapCommercialDollars"),
+    "Reservation/contract total snaps 2-cent residuals to the pact dollar",
+  );
   const nav = read("src/components/dashboard/nav-config.ts");
   assert(
     nav.includes('["finance.view", "finance.create"]'),

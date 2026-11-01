@@ -4,6 +4,7 @@ import {
   multiply,
   parseMoneyInput,
   parseRateInput,
+  snapCommercialDollars,
   subtract,
   toNumber,
   toRateNumber,
@@ -42,7 +43,7 @@ export function calculateQuoteTotals(
 ): QuoteCalculationResult {
   const rentalDays = rentalDaysBetween(input.startAt, input.endAt);
   const dailyRate = parseRateInput(input.dailyRate);
-  const subtotal = toNumber(multiply(dailyRate, rentalDays));
+  const subtotal = snapCommercialDollars(toNumber(multiply(dailyRate, rentalDays)));
 
   const insuranceAmount = parseMoneyInput(input.insuranceAmount);
   const depositAmount = parseMoneyInput(input.depositAmount);
@@ -65,7 +66,7 @@ export function calculateQuoteTotals(
     taxRate > 0 ? toNumber(multiply(taxableBase, taxRate / 100)) : 0;
 
   // Deposit is held separately and does NOT increase the rental total.
-  const total = toNumber(add(taxableBase, taxAmount));
+  const total = snapCommercialDollars(toNumber(add(taxableBase, taxAmount)));
 
   return {
     rentalDays,
@@ -239,7 +240,9 @@ export function calculateReservationTotal(input: {
   const agreedRate = parseRateInput(input.agreedRate);
   const insurance = parseMoneyInput(input.insurance);
   const additionalCosts = parseMoneyInput(input.additionalCosts);
-  const rentalSubtotal = toNumber(multiply(agreedRate, rentalDays));
+  const rentalSubtotal = snapCommercialDollars(
+    toNumber(multiply(agreedRate, rentalDays)),
+  );
   const beforeDiscount = toNumber(
     add(rentalSubtotal, add(insurance, additionalCosts)),
   );
@@ -259,7 +262,7 @@ export function calculateReservationTotal(input: {
   );
   const total = Math.max(
     0,
-    toNumber(subtract(afterDiscount, courtesyAmount)),
+    snapCommercialDollars(toNumber(subtract(afterDiscount, courtesyAmount))),
   );
   return {
     rentalDays,
@@ -300,7 +303,9 @@ export function deriveReservationPricingFromQuote(input: {
   const agreedRate = parseRateInput(input.dailyRate);
   const rentalDays = Math.max(0, Number(input.rentalDays) || 0);
   const quoteTotal = parseMoneyInput(input.quoteTotal);
-  const rentalSubtotal = toNumber(multiply(agreedRate, rentalDays));
+  const rentalSubtotal = snapCommercialDollars(
+    toNumber(multiply(agreedRate, rentalDays)),
+  );
 
   const extraLines = (input.lines ?? [])
     .filter((line) => String(line.item_type ?? "").toUpperCase() !== "VEHICLE")

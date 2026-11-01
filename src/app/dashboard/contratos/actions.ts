@@ -103,7 +103,7 @@ import {
   buildContractBillingBreakdown,
   computeOptionalIvaTotals,
 } from "@/lib/pdf/contract-billing";
-import { parseMoneyInput, parseRateInput } from "@/lib/money";
+import { parseMoneyInput, parseRateInput, settleCents } from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
@@ -1296,7 +1296,7 @@ export async function updateContract(
       row.tax_amount = ivaTotals.taxAmount;
       row.total = ivaTotals.total;
       const paid = Number(current.amount_paid ?? 0);
-      const balanceDue = Math.max(0, ivaTotals.total - paid);
+      const balanceDue = Math.max(0, settleCents(ivaTotals.total - paid));
       row.balance_due = balanceDue;
       row.payment_status =
         balanceDue > 0.009 ? (paid > 0.009 ? "PARTIAL" : "PENDING") : "PAID";
@@ -2694,7 +2694,7 @@ export async function closeContract(
         additionalCloseCourtesy,
     );
     const amountPaid = Number(contract.amount_paid ?? 0) + finalPayment;
-    const balanceDue = Math.round((owed - amountPaid) * 100) / 100;
+    const balanceDue = settleCents(Math.round((owed - amountPaid) * 100) / 100);
     const paymentStatus =
       balanceDue > 0.009 ? (amountPaid > 0 ? "PARTIAL" : "PENDING") : "PAID";
 

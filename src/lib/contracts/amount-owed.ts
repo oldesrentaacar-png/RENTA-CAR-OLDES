@@ -1,4 +1,4 @@
-import { toNumber } from "@/lib/money";
+import { CENT_SETTLE_EPS, settleCents, toNumber } from "@/lib/money";
 
 export type CourtesyCoverageInput = {
   agreedRate: number;
@@ -64,7 +64,7 @@ export function owedAfterCourtesy(input: {
 }
 
 export function balanceAfterPayment(owed: number, paid: number): number {
-  return Math.max(0, toNumber(Number(owed) - Number(paid)));
+  return Math.max(0, settleCents(toNumber(Number(owed) - Number(paid))));
 }
 
 /**
@@ -81,13 +81,14 @@ export function displayBalanceDue(input: {
 }): number {
   const paid = toNumber(input.amountPaid ?? 0);
   const stored = toNumber(input.balanceDue ?? 0);
-  if (Math.abs(stored) > 0.009) return stored;
+  if (Math.abs(stored) > CENT_SETTLE_EPS) return stored;
+  if (Math.abs(stored) > 0) return 0;
   const total = toNumber(input.total ?? 0);
   if (paid < 0.009) return Math.max(0, total);
   const status = String(input.paymentStatus ?? "").toUpperCase();
   if (status === "PAID") return 0;
   const courtesy = toNumber(input.courtesyAmount ?? 0);
-  return Math.max(0, toNumber(total - paid - courtesy));
+  return settleCents(Math.max(0, toNumber(total - paid - courtesy)));
 }
 
 /** PostgREST filter: stored saldo or unpaid rows whose DEFAULT 0 hid the debt. */

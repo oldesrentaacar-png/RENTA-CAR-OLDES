@@ -9,6 +9,8 @@ export type MoneyInput = string | number | Decimal;
 
 /** Decimales para montos (USD): abonos, totales, depósitos. */
 export const MONEY_DECIMALS = 2;
+/** Residuo de redondeo (2¢): 58.66 × 3 = 175.98 vs trato de 176. */
+export const CENT_SETTLE_EPS = 0.02;
 /** Decimales para tarifas diarias: permite 435/7 = 62.142857… */
 export const RATE_DECIMALS = 6;
 
@@ -83,6 +85,24 @@ export function toNumber(value: MoneyInput | null | undefined): number {
     .toDecimalPlaces(MONEY_DECIMALS, Decimal.ROUND_HALF_UP)
     .toNumber();
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Cero si el residuo cabe en 2 centavos (redondeo, no deuda ni saldo a favor). */
+export function settleCents(amount: MoneyInput | null | undefined): number {
+  const n = toNumber(amount);
+  return Math.abs(n) <= CENT_SETTLE_EPS ? 0 : n;
+}
+
+/**
+ * Si el total calculado cae a 2¢ de un dólar entero (175.98 → 176),
+ * usa el dólar pactado. Jaime cobra en dólares redondos.
+ */
+export function snapCommercialDollars(
+  amount: MoneyInput | null | undefined,
+): number {
+  const n = toNumber(amount);
+  const nearest = Math.round(n);
+  return Math.abs(n - nearest) <= CENT_SETTLE_EPS ? nearest : n;
 }
 
 /** Tarifa diaria con hasta 6 decimales (no redondear a centavos). */
