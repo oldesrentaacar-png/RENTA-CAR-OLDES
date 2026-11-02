@@ -241,8 +241,12 @@ function assert(cond, msg) {
   const money = read("src/lib/money.ts");
   assert(
     money.includes("CENT_SETTLE_EPS = 0.02") &&
+      money.includes("CENT_SETTLE_CENTS = 2") &&
+      money.includes("export function toCents") &&
       money.includes("export function snapCommercialDollars") &&
-      money.includes("export function settleCents"),
+      money.includes("export function settleCents") &&
+      money.includes("export function alignRateToPactTotal") &&
+      money.includes("export function closeBalanceDue"),
     "2-cent rounding of 58.66×3=175.98 vs $176 is settled, not a credit",
   );
   const quoteCalc = read("src/lib/calculations/quote.ts");
@@ -250,6 +254,32 @@ function assert(cond, msg) {
     quoteCalc.includes("snapCommercialDollars"),
     "Reservation/contract total snaps 2-cent residuals to the pact dollar",
   );
+  const close = read("src/app/dashboard/contratos/actions.ts");
+  assert(
+    close.includes("closeBalanceDue") && close.includes("alignRateToPactTotal"),
+    "Contract create/close aligns the daily rate and settles 2-cent close residuals",
+  );
+  const wizard = read("src/components/contracts/close-contract-wizard.tsx");
+  assert(
+    wizard.includes("closeBalanceDue"),
+    "Close wizard uses the same 2-cent settle as the server",
+  );
+  const owedCalc = read("src/lib/contracts/amount-owed.ts");
+  assert(
+    owedCalc.includes("snapCommercialDollars") &&
+      owedCalc.includes("closeBalanceDue"),
+    "Owed and receipt balances snap/settle 2-cent residuals",
+  );
+  assert(
+    fs.existsSync(
+      path.join(
+        root,
+        "supabase/migrations/20261101000001_settle_contract_cent_residuals.sql",
+      ),
+    ),
+    "DB trigger migration settles 2-cent contract residuals",
+  );
+  require("./audit-money-cents.cjs");
   const nav = read("src/components/dashboard/nav-config.ts");
   assert(
     nav.includes('["finance.view", "finance.create"]'),

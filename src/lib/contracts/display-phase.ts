@@ -1,3 +1,5 @@
+import { settleCents } from "@/lib/money";
+
 /**
  * Operational display phase for contracts list (aligned with calendar language).
  * DB status (CLIENT_SIGNED, etc.) stays for signature workflow.
@@ -65,7 +67,7 @@ export function deriveContractDisplayPhase(input: {
 }): ContractDisplayPhase {
   const status = String(input.status ?? "").toUpperCase();
   const now = input.now ?? new Date();
-  const balanceDue = Number(input.balanceDue ?? 0);
+  const balanceDue = settleCents(input.balanceDue ?? 0);
 
   if (status === "CANCELLED") return "ANULADO";
   if (isContractClosed({ status, closedAt: input.closedAt })) {

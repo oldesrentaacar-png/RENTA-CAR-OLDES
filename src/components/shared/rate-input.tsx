@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { rentalDaysBetween } from "@/lib/dates";
 import {
+  alignRateToPactTotal,
   dailyRateForPactTotal,
   formatRateInput,
   parseMoneyInput,
@@ -21,6 +22,8 @@ type RateInputProps = {
   onChange?: (value: string) => void;
   required?: boolean;
   hint?: string;
+  /** Días de renta: al salir del campo, 58.66 × 3 se alinea a 58.666667. */
+  alignDays?: number;
 };
 
 /** Campo de tarifa diaria: texto (no type=number) para que 58.666666 no dé error. */
@@ -32,6 +35,7 @@ export function RateInput({
   onChange,
   required,
   hint = "Hasta 6 decimales (ej. 58.666667). También puede usar coma: 58,666667.",
+  alignDays,
 }: RateInputProps) {
   const isControlled = value !== undefined;
   const [internal, setInternal] = useState(() =>
@@ -59,7 +63,12 @@ export function RateInput({
         onChange={(e) => setNext(sanitizeRateTyping(e.target.value))}
         onBlur={() => {
           if (current.trim() === "") return;
-          setNext(formatRateInput(parseRateInput(current)));
+          const parsed = parseRateInput(current);
+          const aligned =
+            alignDays && alignDays > 0
+              ? alignRateToPactTotal(parsed, alignDays).rate
+              : parsed;
+          setNext(formatRateInput(aligned));
         }}
       />
       {hint ? <p className="text-xs text-muted">{hint}</p> : null}
@@ -112,6 +121,7 @@ export function RateWithPactTotal({
         value={rate}
         onChange={onRateChange}
         required={required}
+        alignDays={days}
       />
       <div className="rounded-lg border border-border bg-surface-muted/40 p-3">
         <p className="text-xs text-muted">

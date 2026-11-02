@@ -1,4 +1,4 @@
-import { add, subtract, toNumber } from "@/lib/money";
+import { add, snapCommercialDollars, subtract, toNumber } from "@/lib/money";
 
 export type ContractBillingLine = {
   label: string;
@@ -81,7 +81,7 @@ export function buildContractBillingBreakdown(input: {
   const dailyRate = money(Number(input.dailyRate) || 0);
   const insurance = money(Math.max(0, Number(input.insurance) || 0));
   const contractTotal = money(Math.max(0, Number(input.contractTotal) || 0));
-  const rentalSubtotal = money(dailyRate * rentalDays);
+  const rentalSubtotal = snapCommercialDollars(money(dailyRate * rentalDays));
   const base = money(toNumber(add(rentalSubtotal, insurance)));
   const applyIva = Boolean(input.applyIva);
   const taxRate = Math.max(0, Number(input.taxRate) || 0.13);
@@ -267,7 +267,9 @@ export function computeOptionalIvaTotals(input: {
   applyIva: boolean;
   taxRate?: number;
 }): { pretaxTotal: number; taxAmount: number; total: number; taxRate: number } {
-  const pretaxTotal = money(Math.max(0, Number(input.pretaxTotal) || 0));
+  const pretaxTotal = snapCommercialDollars(
+    money(Math.max(0, Number(input.pretaxTotal) || 0)),
+  );
   const taxRate = Math.max(0, Number(input.taxRate) || 0.13);
   if (!input.applyIva) {
     return { pretaxTotal, taxAmount: 0, total: pretaxTotal, taxRate };
@@ -276,7 +278,7 @@ export function computeOptionalIvaTotals(input: {
   return {
     pretaxTotal,
     taxAmount,
-    total: money(toNumber(add(pretaxTotal, taxAmount))),
+    total: snapCommercialDollars(money(toNumber(add(pretaxTotal, taxAmount)))),
     taxRate,
   };
 }

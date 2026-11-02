@@ -40,7 +40,7 @@ import {
   FUEL_LEVEL_LABELS,
   FUEL_LEVEL_ORDER,
 } from "@/lib/inspections/defaults";
-import { formatMoney, parseMoneyInput, settleCents } from "@/lib/money";
+import { closeBalanceDue, formatMoney, parseMoneyInput } from "@/lib/money";
 import { closeActPdfHref } from "@/lib/pdf/pdf-cache";
 import { cn } from "@/lib/utils";
 
@@ -275,7 +275,7 @@ export function CloseContractWizard({
         additionalCourtesy,
     );
     const paid = amountPaidBase + payment;
-    const balance = settleCents(Math.round((owed - paid) * 100) / 100);
+    const balance = closeBalanceDue(owed, paid);
     return {
       owed,
       paid,

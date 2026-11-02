@@ -1,4 +1,11 @@
-import { CENT_SETTLE_EPS, settleCents, toNumber } from "@/lib/money";
+import {
+  CENT_SETTLE_CENTS,
+  closeBalanceDue,
+  snapCommercialDollars,
+  settleCents,
+  toCents,
+  toNumber,
+} from "@/lib/money";
 
 export type CourtesyCoverageInput = {
   agreedRate: number;
@@ -21,13 +28,15 @@ export type CourtesyCoverageInput = {
  * still reduce the balance when a later payment is recorded.
  */
 export function unappliedCourtesyAmount(input: CourtesyCoverageInput): number {
-  const pretaxBeforeCourtesy = Math.max(
-    0,
-    toNumber(
-      Number(input.agreedRate) * Number(input.rentalDays) +
-        Number(input.insurance ?? 0) +
-        Number(input.extraLinesTotal ?? 0) -
-        Number(input.discountAmount ?? 0),
+  const pretaxBeforeCourtesy = snapCommercialDollars(
+    Math.max(
+      0,
+      toNumber(
+        Number(input.agreedRate) * Number(input.rentalDays) +
+          Number(input.insurance ?? 0) +
+          Number(input.extraLinesTotal ?? 0) -
+          Number(input.discountAmount ?? 0),
+      ),
     ),
   );
   const storedPretax =
@@ -52,19 +61,21 @@ export function owedAfterCourtesy(input: {
   dayAdjustment?: number;
   unappliedCourtesy: number;
 }): number {
-  return Math.max(
-    0,
-    toNumber(
-      Number(input.total) +
-        Number(input.charges) +
-        Number(input.dayAdjustment ?? 0) -
-        Number(input.unappliedCourtesy),
+  return snapCommercialDollars(
+    Math.max(
+      0,
+      toNumber(
+        Number(input.total) +
+          Number(input.charges) +
+          Number(input.dayAdjustment ?? 0) -
+          Number(input.unappliedCourtesy),
+      ),
     ),
   );
 }
 
 export function balanceAfterPayment(owed: number, paid: number): number {
-  return Math.max(0, settleCents(toNumber(Number(owed) - Number(paid))));
+  return Math.max(0, closeBalanceDue(owed, paid));
 }
 
 /**
@@ -80,11 +91,11 @@ export function displayBalanceDue(input: {
   courtesyAmount?: number | null;
 }): number {
   const paid = toNumber(input.amountPaid ?? 0);
-  const stored = toNumber(input.balanceDue ?? 0);
-  if (Math.abs(stored) > CENT_SETTLE_EPS) return stored;
-  if (Math.abs(stored) > 0) return 0;
+  const storedCents = toCents(input.balanceDue ?? 0);
+  if (Math.abs(storedCents) > CENT_SETTLE_CENTS) return toNumber(input.balanceDue ?? 0);
+  if (storedCents !== 0) return 0;
   const total = toNumber(input.total ?? 0);
-  if (paid < 0.009) return Math.max(0, total);
+  if (toCents(paid) === 0) return Math.max(0, total);
   const status = String(input.paymentStatus ?? "").toUpperCase();
   if (status === "PAID") return 0;
   const courtesy = toNumber(input.courtesyAmount ?? 0);

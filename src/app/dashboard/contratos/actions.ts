@@ -103,7 +103,12 @@ import {
   buildContractBillingBreakdown,
   computeOptionalIvaTotals,
 } from "@/lib/pdf/contract-billing";
-import { parseMoneyInput, parseRateInput, settleCents } from "@/lib/money";
+import {
+  alignRateToPactTotal,
+  closeBalanceDue,
+  parseMoneyInput,
+  parseRateInput,
+} from "@/lib/money";
 import { resolvePrivateFileUrl, uploadSignatureImage } from "@/lib/storage/private-upload";
 import { createClient } from "@/lib/supabase/server";
 import { firstRelation } from "@/lib/validation/form-helpers";
@@ -986,10 +991,10 @@ export async function createContract(
       formData.get("startAt") ?? r.start_at,
     );
     const endAt = normalizeFormDateTimeToIso(formData.get("endAt") ?? r.end_at);
-    const agreedRate = parseRateInput(
-      formData.get("agreedRate"),
-      r.agreed_rate,
-    );
+    const agreedRate = alignRateToPactTotal(
+      parseRateInput(formData.get("agreedRate"), r.agreed_rate),
+      rentalDaysBetween(startAt, endAt),
+    ).rate;
     const deposit = parseMoneyInput(formData.get("deposit"), r.deposit);
     const insurance = parseMoneyInput(formData.get("insurance"), r.insurance);
     const additionalCostsForm = parseMoneyInput(
@@ -1261,18 +1266,22 @@ export async function updateContract(
     const nextStart =
       (row.start_at as string | undefined) ?? current.start_at;
     const nextEnd = (row.end_at as string | undefined) ?? current.end_at;
-    const nextRate =
-      (row.agreed_rate as number | undefined) ?? current.agreed_rate;
-    const nextInsurance =
-      (row.insurance as number | undefined) ?? current.insurance;
-    const nextDeposit =
-      (row.deposit as number | undefined) ?? current.deposit;
-
     const datesOrMoneyChanged =
       Boolean(startAt) ||
       Boolean(endAt) ||
       Boolean(agreedRate) ||
       Boolean(insurance);
+    const nextRate = alignRateToPactTotal(
+      (row.agreed_rate as number | undefined) ?? current.agreed_rate,
+      rentalDaysBetween(nextStart, nextEnd),
+    ).rate;
+    if (datesOrMoneyChanged) {
+      row.agreed_rate = nextRate;
+    }
+    const nextInsurance =
+      (row.insurance as number | undefined) ?? current.insurance;
+    const nextDeposit =
+      (row.deposit as number | undefined) ?? current.deposit;
 
     if (datesOrMoneyChanged) {
       const extras = normalizeExtraLineItems(current.extra_line_items);
@@ -1296,7 +1305,7 @@ export async function updateContract(
       row.tax_amount = ivaTotals.taxAmount;
       row.total = ivaTotals.total;
       const paid = Number(current.amount_paid ?? 0);
-      const balanceDue = Math.max(0, settleCents(ivaTotals.total - paid));
+      const balanceDue = Math.max(0, closeBalanceDue(ivaTotals.total, paid));
       row.balance_due = balanceDue;
       row.payment_status =
         balanceDue > 0.009 ? (paid > 0.009 ? "PARTIAL" : "PENDING") : "PAID";
@@ -2694,7 +2703,7 @@ export async function closeContract(
         additionalCloseCourtesy,
     );
     const amountPaid = Number(contract.amount_paid ?? 0) + finalPayment;
-    const balanceDue = settleCents(Math.round((owed - amountPaid) * 100) / 100);
+    const balanceDue = closeBalanceDue(owed, amountPaid);
     const paymentStatus =
       balanceDue > 0.009 ? (amountPaid > 0 ? "PARTIAL" : "PENDING") : "PAID";
 

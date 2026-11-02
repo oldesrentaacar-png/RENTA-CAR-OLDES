@@ -15,9 +15,9 @@ import { mapPostgresError, toUserMessage, isMissingRelationError } from "@/lib/e
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateReservationTotal, deriveReservationPricingFromQuote, quoteTaxFraction, isMissingDiscountColumnError, bakeDiscountIntoCourtesy } from "@/lib/calculations/quote";
-import { normalizeFormDateTimeToIso } from "@/lib/dates";
+import { normalizeFormDateTimeToIso, rentalDaysBetween } from "@/lib/dates";
 import { getCustomerDisplayName } from "@/lib/customers";
-import { parseMoneyInput, parseRateInput } from "@/lib/money";
+import { alignRateToPactTotal, parseMoneyInput, parseRateInput } from "@/lib/money";
 import { computeOptionalIvaTotals } from "@/lib/pdf/contract-billing";
 import {
   extraLinesFromQuoteItems,
@@ -309,7 +309,10 @@ export async function createReservation(
 
     const startAt = normalizeFormDateTimeToIso(formData.get("startAt"));
     const endAt = normalizeFormDateTimeToIso(formData.get("endAt"));
-    const agreedRate = parseRateInput(formData.get("agreedRate"));
+    const agreedRate = alignRateToPactTotal(
+      parseRateInput(formData.get("agreedRate")),
+      rentalDaysBetween(startAt, endAt),
+    ).rate;
     const deposit = parseMoneyInput(formData.get("deposit"));
     const insurance = parseMoneyInput(formData.get("insurance") || 0);
     const cashAmount = parseMoneyInput(formData.get("cashAmount") || 0);
@@ -591,10 +594,14 @@ export async function createReservationFromQuote(
     });
     const additionalCosts = sumExtraLineItems(extraLineItems);
     const taxFraction = quoteTaxFraction(q.tax_rate);
+    const agreedRate = alignRateToPactTotal(
+      pricing.agreedRate,
+      rentalDaysBetween(q.start_at, q.end_at),
+    ).rate;
     const recomputed = calculateReservationTotal({
       startAt: q.start_at,
       endAt: q.end_at,
-      agreedRate: pricing.agreedRate,
+      agreedRate,
       insurance: insuranceAmount,
       additionalCosts,
       discountPercent: q.discount_percent,
@@ -620,7 +627,7 @@ export async function createReservationFromQuote(
       quote_id: quoteId,
       start_at: q.start_at,
       end_at: q.end_at,
-      agreed_rate: pricing.agreedRate,
+      agreed_rate: agreedRate,
       deposit: q.deposit_amount,
       insurance: insuranceAmount,
       total: savedTotal,
@@ -922,13 +929,19 @@ export async function updateReservation(
         quote_id?: string | null;
       };
 
+      const nextStart = parsed.data.startAt ?? currentRow.start_at;
+      const nextEnd = parsed.data.endAt ?? currentRow.end_at;
+      const nextRate = alignRateToPactTotal(
+        parsed.data.agreedRate !== undefined
+          ? parsed.data.agreedRate
+          : currentRow.agreed_rate,
+        rentalDaysBetween(nextStart, nextEnd),
+      ).rate;
+      row.agreed_rate = nextRate;
       const pretax = calculateReservationTotal({
-        startAt: parsed.data.startAt ?? currentRow.start_at,
-        endAt: parsed.data.endAt ?? currentRow.end_at,
-        agreedRate:
-          parsed.data.agreedRate !== undefined
-            ? parsed.data.agreedRate
-            : currentRow.agreed_rate,
+        startAt: nextStart,
+        endAt: nextEnd,
+        agreedRate: nextRate,
         insurance:
           parsed.data.insurance !== undefined
             ? parsed.data.insurance

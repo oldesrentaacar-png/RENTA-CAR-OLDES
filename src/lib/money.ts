@@ -11,6 +11,8 @@ export type MoneyInput = string | number | Decimal;
 export const MONEY_DECIMALS = 2;
 /** Residuo de redondeo (2¢): 58.66 × 3 = 175.98 vs trato de 176. */
 export const CENT_SETTLE_EPS = 0.02;
+/** Comparar en centavos enteros. 0.02 en IEEE no es exacto (175.98 − 176 > 0.02). */
+export const CENT_SETTLE_CENTS = 2;
 /** Decimales para tarifas diarias: permite 435/7 = 62.142857… */
 export const RATE_DECIMALS = 6;
 
@@ -87,10 +89,24 @@ export function toNumber(value: MoneyInput | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Centavos enteros. Evita que 175.98 − 176 “no quepa” en 2¢ por IEEE. */
+export function toCents(value: MoneyInput | null | undefined): number {
+  const n = toDecimal(value)
+    .toDecimalPlaces(MONEY_DECIMALS, Decimal.ROUND_HALF_UP)
+    .times(100)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toNumber();
+  return Number.isFinite(n) ? n : 0;
+}
+
+function fromCents(cents: number): number {
+  return toNumber(cents / 100);
+}
+
 /** Cero si el residuo cabe en 2 centavos (redondeo, no deuda ni saldo a favor). */
 export function settleCents(amount: MoneyInput | null | undefined): number {
-  const n = toNumber(amount);
-  return Math.abs(n) <= CENT_SETTLE_EPS ? 0 : n;
+  const cents = toCents(amount);
+  return Math.abs(cents) <= CENT_SETTLE_CENTS ? 0 : fromCents(cents);
 }
 
 /**
@@ -100,9 +116,39 @@ export function settleCents(amount: MoneyInput | null | undefined): number {
 export function snapCommercialDollars(
   amount: MoneyInput | null | undefined,
 ): number {
-  const n = toNumber(amount);
-  const nearest = Math.round(n);
-  return Math.abs(n - nearest) <= CENT_SETTLE_EPS ? nearest : n;
+  const cents = toCents(amount);
+  const nearest = Math.round(cents / 100) * 100;
+  return Math.abs(cents - nearest) <= CENT_SETTLE_CENTS
+    ? fromCents(nearest)
+    : fromCents(cents);
+}
+
+/**
+ * Si tarifa × días cae a 2¢ de un dólar (58.66 × 3 = 175.98),
+ * reescribe la tarifa para que cierre el trato (58.666667).
+ */
+export function alignRateToPactTotal(
+  rate: MoneyInput,
+  rentalDays: number,
+): { rate: number; pactTotal: number } {
+  const days = Number(rentalDays);
+  const rawRate = parseRateInput(rate);
+  if (!Number.isFinite(days) || days <= 0) {
+    return { rate: rawRate, pactTotal: 0 };
+  }
+  const rawTotal = toNumber(multiply(rawRate, days));
+  const pactTotal = snapCommercialDollars(rawTotal);
+  if (pactTotal === rawTotal) {
+    return { rate: rawRate, pactTotal };
+  }
+  return { rate: dailyRateForPactTotal(pactTotal, days), pactTotal };
+}
+
+/** Saldo al cerrar o abonar: total pactado menos pagado, sin residuo de 2¢. */
+export function closeBalanceDue(owed: MoneyInput, paid: MoneyInput): number {
+  return settleCents(
+    toNumber(snapCommercialDollars(Math.max(0, toNumber(owed))) - toNumber(paid)),
+  );
 }
 
 /** Tarifa diaria con hasta 6 decimales (no redondear a centavos). */
