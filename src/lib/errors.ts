@@ -51,6 +51,8 @@ const POSTGRES_MESSAGES: Record<string, string> = {
     "No se puede completar la operación porque faltan referencias relacionadas.",
   "23514": "Los datos enviados no cumplen las reglas del negocio.",
   "42501": "No tiene permiso para realizar esta operación.",
+  "42703":
+    "Error interno de base de datos (columna faltante en un disparador). Contacte a soporte.",
 };
 
 /** PostgREST / Postgres when a table or column is not migrated yet. */

@@ -15,6 +15,7 @@ import { calculateReturnSettlement } from "@/lib/calculations/rental-close";
 import { appTodayDateString, formatAppDate, rentalDaysBetween } from "@/lib/dates";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
 import { mapPostgresError, toUserMessage } from "@/lib/errors";
+import { requireSaved } from "@/lib/db/staff-write";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney, toNumber } from "@/lib/money";
 import { formatZodIssues, firstRelation } from "@/lib/validation/form-helpers";
@@ -1037,13 +1038,16 @@ export async function voidPaymentReceipt(
 
     const now = new Date().toISOString();
 
-    const { error: receiptError } = await dbClient
-      .from("payment_receipts")
-      .update({ deleted_at: now })
-      .eq("id", id)
-      .is("deleted_at", null);
-
-    if (receiptError) throw mapPostgresError(receiptError);
+    requireSaved(
+      await dbClient
+        .from("payment_receipts")
+        .update({ deleted_at: now })
+        .eq("id", id)
+        .is("deleted_at", null)
+        .select("id")
+        .maybeSingle(),
+      "No se pudo anular el recibo. Recargue e intente de nuevo.",
+    );
 
     const incomeIds = new Set<string>();
     if (receipt.income_id) incomeIds.add(receipt.income_id);
@@ -1059,12 +1063,18 @@ export async function voidPaymentReceipt(
     }
 
     if (incomeIds.size > 0) {
-      const { error: incomeError } = await dbClient
+      const { data: voidedIncome, error: incomeError } = await dbClient
         .from("income_transactions")
         .update({ deleted_at: now })
         .in("id", [...incomeIds])
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        .select("id");
       if (incomeError) throw mapPostgresError(incomeError);
+      if (!voidedIncome?.length) {
+        throw new Error(
+          "El recibo se anuló, pero no se pudo anular el ingreso ligado. Revise Ingresos.",
+        );
+      }
     }
 
     await writeAuditLog({

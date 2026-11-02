@@ -280,6 +280,21 @@ function assert(cond, msg) {
     "DB trigger migration settles 2-cent contract residuals",
   );
   require("./audit-money-cents.cjs");
+  const archiveFix = read(
+    "supabase/migrations/20261102000001_fix_archive_identity_soft_delete.sql",
+  );
+  assert(
+    archiveFix.includes("to_jsonb(NEW)") &&
+      archiveFix.includes("TG_ARGV[0] = 'code'") &&
+      archiveFix.includes("finance.delete"),
+    "Soft-delete archive trigger does not touch slug on payment_receipts",
+  );
+  const receipts = read("src/app/dashboard/recibos/actions.ts");
+  assert(
+    receipts.includes("requireSaved") &&
+      receipts.includes("voidPaymentReceipt"),
+    "Anular recibo refuses silent 0-row soft-delete",
+  );
   const nav = read("src/components/dashboard/nav-config.ts");
   assert(
     nav.includes('["finance.view", "finance.create"]'),
