@@ -254,6 +254,21 @@ function assert(cond, msg) {
     quoteCalc.includes("snapCommercialDollars"),
     "Reservation/contract total snaps 2-cent residuals to the pact dollar",
   );
+  assert(
+    quoteCalc.includes("export function recoverCommercialDiscountPercent"),
+    "Commercial % discount can be recovered from a fixed USD cut when extending days",
+  );
+  const dateField = read("src/components/shared/date-field.tsx");
+  assert(
+    dateField.includes("Elija año") || dateField.includes("Año"),
+    "Birth/date fields expose year-month-day selects instead of month-by-month native pickers",
+  );
+  assert(
+    fs.existsSync(
+      path.join(root, "apk-android/app/src/main/res/xml/file_paths.xml"),
+    ),
+    "APK FileProvider paths exist for camera capture uploads",
+  );
   const close = read("src/app/dashboard/contratos/actions.ts");
   assert(
     close.includes("closeBalanceDue") && close.includes("alignRateToPactTotal"),

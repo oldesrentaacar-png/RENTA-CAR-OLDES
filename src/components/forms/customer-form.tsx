@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { SubmitButton } from "@/components/forms/submit-button";
 import { ImageCaptureField } from "@/components/forms/image-capture-field";
+import { DateField } from "@/components/shared/date-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -176,11 +177,13 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
               label="Licencia"
               defaultValue={customer?.license_number ?? ""}
             />
-            <Input
+            <DateField
               name="licenseExpiry"
               label="Vencimiento licencia"
-              type="date"
               defaultValue={customer?.license_expiry ?? ""}
+              minYear={new Date().getFullYear() - 5}
+              maxYear={new Date().getFullYear() + 20}
+              hint="Elija año, mes y día sin recorrer el calendario mes a mes."
             />
             <div>
               <Input
@@ -209,11 +212,13 @@ export function CustomerForm({ customer, redirectTo }: CustomerFormProps) {
               label="WhatsApp"
               defaultValue={customer?.whatsapp ?? ""}
             />
-            <Input
+            <DateField
               name="birthDate"
               label="Fecha de nacimiento"
-              type="date"
               defaultValue={customer?.date_of_birth ?? ""}
+              minYear={1930}
+              maxYear={new Date().getFullYear()}
+              hint="Puede saltar al año (ej. 1976) sin pasar mes por mes."
             />
             <Input
               name="identification"

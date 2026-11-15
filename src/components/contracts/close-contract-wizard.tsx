@@ -24,7 +24,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { dailyRateAfterCommercialDiscount } from "@/lib/calculations/quote";
+import {
+  dailyRateAfterCommercialDiscount,
+  recoverCommercialDiscountPercent,
+} from "@/lib/calculations/quote";
 import {
   calculateReturnSettlement,
   calculateSuggestedExtraDayCharge,
@@ -33,6 +36,7 @@ import { applyContractIvaToAmount } from "@/lib/pdf/contract-billing";
 import {
   formatAppDateTime,
   normalizeFormDateTimeToIso,
+  rentalDaysBetween,
   toDatetimeLocalValue,
 } from "@/lib/dates";
 import {
@@ -151,7 +155,12 @@ export function CloseContractWizard({
 
   const billedDailyRate = dailyRateAfterCommercialDiscount(
     contract.agreed_rate,
-    contract.discount_percent,
+    recoverCommercialDiscountPercent({
+      agreedRate: contract.agreed_rate,
+      rentalDays: rentalDaysBetween(contract.start_at, contract.end_at),
+      discountPercent: contract.discount_percent,
+      discountAmount: contract.discount_amount,
+    }),
   );
 
   const extraDayPreview = useMemo(() => {

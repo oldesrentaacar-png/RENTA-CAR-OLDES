@@ -12,9 +12,9 @@ import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
 import android.view.View
 import android.webkit.CookieManager
-import android.webkit.DownloadListener
 import android.webkit.GeolocationPermissions
 import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
@@ -30,8 +30,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var cameraImageUri: Uri? = null
     private var monitorEnabled = false
     private var pendingOpenPath: String? = null
 
@@ -53,11 +56,27 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    private val mediaPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            // Continue into the chooser even if some permissions were denied;
+            // gallery may still work via the system picker.
+            launchFileChooser()
+        }
+
     private val fileChooserLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val callback = filePathCallback ?: return@registerForActivityResult
             filePathCallback = null
-            val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            val cameraUri = cameraImageUri
+            cameraImageUri = null
+
+            val fromPicker =
+                WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            val uris = when {
+                fromPicker != null && fromPicker.isNotEmpty() -> fromPicker
+                result.resultCode == RESULT_OK && cameraUri != null -> arrayOf(cameraUri)
+                else -> null
+            }
             callback.onReceiveValue(uris)
         }
 
@@ -104,6 +123,80 @@ class MainActivity : AppCompatActivity() {
         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
+    private fun mediaPermissionsNeeded(): Array<String> {
+        val needed = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed += Manifest.permission.CAMERA
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.READ_MEDIA_IMAGES
+            }
+        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+        }
+        return needed.toTypedArray()
+    }
+
+    private fun createCameraUri(): Uri? {
+        return try {
+            val photo = File.createTempFile("oldes_capture_", ".jpg", cacheDir)
+            FileProvider.getUriForFile(
+                this,
+                "${packageName}.fileprovider",
+                photo,
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun launchFileChooser() {
+        val callback = filePathCallback
+        if (callback == null) return
+
+        val cameraUri = createCameraUri()
+        cameraImageUri = cameraUri
+
+        val galleryIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+
+        val cameraIntent = cameraUri?.let { uri ->
+            Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
+
+        val chooser = Intent(Intent.ACTION_CHOOSER).apply {
+            putExtra(Intent.EXTRA_INTENT, galleryIntent)
+            putExtra(Intent.EXTRA_TITLE, getString(R.string.choose_image_source))
+            if (cameraIntent != null) {
+                putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
+            }
+        }
+
+        try {
+            fileChooserLauncher.launch(chooser)
+        } catch (_: ActivityNotFoundException) {
+            filePathCallback = null
+            cameraImageUri = null
+            callback.onReceiveValue(null)
+            Toast.makeText(this, getString(R.string.file_chooser_unavailable), Toast.LENGTH_LONG).show()
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView() {
         CookieManager.getInstance().setAcceptCookie(true)
@@ -116,7 +209,7 @@ class MainActivity : AppCompatActivity() {
             loadsImagesAutomatically = true
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
-            userAgentString = "${WebSettings.getDefaultUserAgent(this@MainActivity)} OLDES-Android/1.1"
+            userAgentString = "${WebSettings.getDefaultUserAgent(this@MainActivity)} OLDES-Android/1.1.3"
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
@@ -200,17 +293,14 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 this@MainActivity.filePathCallback?.onReceiveValue(null)
                 this@MainActivity.filePathCallback = filePathCallback
-                val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
+
+                val missing = mediaPermissionsNeeded()
+                if (missing.isNotEmpty()) {
+                    mediaPermissionLauncher.launch(missing)
+                } else {
+                    launchFileChooser()
                 }
-                return try {
-                    fileChooserLauncher.launch(intent)
-                    true
-                } catch (_: ActivityNotFoundException) {
-                    this@MainActivity.filePathCallback = null
-                    false
-                }
+                return true
             }
 
             override fun onGeolocationPermissionsShowPrompt(

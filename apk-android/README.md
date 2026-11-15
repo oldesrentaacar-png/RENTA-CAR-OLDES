@@ -4,7 +4,7 @@ Aplicación Android que abre el sistema web de **OLDES Rent a Car** a pantalla c
 
 - **Paquete:** `com.oldes.rentacar.app`
 - **Nombre:** OLDES Sistema
-- **Versión:** 1.1.0
+- **Versión:** 1.1.3
 - **URL:** https://oldescarrentalelsalvador.com/login
 
 ## Qué hace la v1.1
@@ -12,7 +12,7 @@ Aplicación Android que abre el sistema web de **OLDES Rent a Car** a pantalla c
 | Función | Detalle |
 |---------|---------|
 | WebView completo | Login, dashboard, contratos, inspecciones, PDFs |
-| Subir fotos/archivos | Cámara y galería desde inspecciones |
+| Subir fotos/archivos | Cámara y galería desde inspecciones (pide permiso de cámara/fotos; chooser nativo) |
 | Descargar PDFs | A carpeta Descargas del teléfono |
 | Alertas nativas | Notificación cuando hay alerta nueva (entrega, devolución, contrato vencido, mantenimiento) |
 | Segundo plano | Servicio en primer plano + consulta cada 3 min mientras está logueado |

@@ -13,4 +13,6 @@
     <string name="monitor_notification_body">Monitoreando alertas en segundo plano</string>
     <string name="notification_permission_denied">Sin permiso de notificaciones. Actívelo en Ajustes para recibir alertas.</string>
     <string name="download_started">Descarga iniciada</string>
+    <string name="choose_image_source">Tomar foto o elegir de galería</string>
+    <string name="file_chooser_unavailable">No hay app de cámara o galería disponible en este teléfono.</string>
 </resources>

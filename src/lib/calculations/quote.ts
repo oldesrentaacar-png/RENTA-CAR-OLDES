@@ -205,6 +205,31 @@ export function dailyRateAfterCommercialDiscount(
   return toRateNumber(multiply(rate, subtract(1, percent / 100)));
 }
 
+/**
+ * If staff saved only a fixed USD discount from an earlier day count
+ * (27 → 25 on 4 days = $8) and lost the percent, recover it from that
+ * snapshot so extending or closing keeps $25/day instead of reverting to $27.
+ */
+export function recoverCommercialDiscountPercent(input: {
+  agreedRate: MoneyInput;
+  rentalDays: number;
+  discountPercent?: MoneyInput | null;
+  discountAmount?: MoneyInput | null;
+}): number {
+  const explicit = Math.max(0, Math.min(100, parseMoneyInput(input.discountPercent)));
+  if (explicit > 0) return explicit;
+  const amount = Math.max(0, parseMoneyInput(input.discountAmount));
+  const days = Number(input.rentalDays) || 0;
+  const rate = parseRateInput(input.agreedRate);
+  if (amount <= 0 || days <= 0 || rate <= 0) return 0;
+  const base = toNumber(multiply(rate, days));
+  if (base <= 0 || amount >= base) return 0;
+  const implied = toNumber(multiply(amount / base, 100));
+  if (implied <= 0 || implied > 100) return 0;
+  // Keep enough precision for 2/27 ≈ 7.407407
+  return Math.round(implied * 1e6) / 1e6;
+}
+
 /** Quote tax_rate is stored as a fraction (0.13). Values above 1 are percents. */
 export function quoteTaxFraction(taxRate: MoneyInput | null | undefined): number {
   const raw = parseMoneyInput(taxRate);

@@ -61,6 +61,7 @@ import {
   bakeDiscountIntoCourtesy,
   calculateReservationTotal,
   dailyRateAfterCommercialDiscount,
+  recoverCommercialDiscountPercent,
   isMissingDiscountColumnError,
 } from "@/lib/calculations/quote";
 import {
@@ -1286,13 +1287,20 @@ export async function updateContract(
     if (datesOrMoneyChanged) {
       const extras = normalizeExtraLineItems(current.extra_line_items);
       const additionalCosts = sumExtraLineItems(extras);
+      const priorDays = rentalDaysBetween(current.start_at, current.end_at);
+      const discountPercent = recoverCommercialDiscountPercent({
+        agreedRate: current.agreed_rate,
+        rentalDays: priorDays,
+        discountPercent: current.discount_percent,
+        discountAmount: current.discount_amount,
+      });
       const computed = calculateReservationTotal({
         startAt: nextStart,
         endAt: nextEnd,
         agreedRate: nextRate,
         insurance: nextInsurance,
         additionalCosts,
-        discountPercent: Number(current.discount_percent ?? 0),
+        discountPercent,
         discountAmount: Number(current.discount_amount ?? 0),
         courtesyAmount: Number(current.courtesy_amount ?? 0),
       });
@@ -1304,6 +1312,8 @@ export async function updateContract(
       row.subtotal = ivaTotals.pretaxTotal;
       row.tax_amount = ivaTotals.taxAmount;
       row.total = ivaTotals.total;
+      row.discount_percent = computed.discountPercent;
+      row.discount_amount = computed.discountAmount;
       const paid = Number(current.amount_paid ?? 0);
       const balanceDue = Math.max(0, closeBalanceDue(ivaTotals.total, paid));
       row.balance_due = balanceDue;
@@ -1509,17 +1519,23 @@ export async function setContractApplyIva(
     }, 0);
 
     const days = rentalDaysBetween(row.start_at, row.end_at);
-    const pretax = Math.max(
-      0,
-      Math.round(
-        (Number(row.agreed_rate) * days +
-          Number(row.insurance ?? 0) +
-          manualSum -
-          Number(row.courtesy_amount ?? 0) -
-          Number((row as { discount_amount?: number }).discount_amount ?? 0)) *
-          100,
-      ) / 100,
-    );
+    const discountPercent = recoverCommercialDiscountPercent({
+      agreedRate: row.agreed_rate,
+      rentalDays: days,
+      discountPercent: (row as { discount_percent?: number }).discount_percent,
+      discountAmount: (row as { discount_amount?: number }).discount_amount,
+    });
+    const commercial = calculateReservationTotal({
+      startAt: row.start_at,
+      endAt: row.end_at,
+      agreedRate: row.agreed_rate,
+      insurance: Number(row.insurance ?? 0),
+      additionalCosts: manualSum,
+      discountPercent,
+      discountAmount: Number((row as { discount_amount?: number }).discount_amount ?? 0),
+      courtesyAmount: Number(row.courtesy_amount ?? 0),
+    });
+    const pretax = commercial.total;
 
     const ivaTotals = computeOptionalIvaTotals({
       pretaxTotal: pretax,
@@ -2655,6 +2671,12 @@ export async function closeContract(
       settingsRow as { policies?: Record<string, unknown> } | null
     )?.policies;
     const graceHours = coerceGraceHours(policies?.extraDayGraceHours, 2);
+    const closeDiscountPercent = recoverCommercialDiscountPercent({
+      agreedRate: contract.agreed_rate,
+      rentalDays: rentalDaysBetween(contract.start_at, contract.end_at),
+      discountPercent: contract.discount_percent,
+      discountAmount: contract.discount_amount,
+    });
     const settlement =
       actualReturnAt && contract.start_at
         ? calculateReturnSettlement({
@@ -2663,7 +2685,7 @@ export async function closeContract(
             actualReturnAt,
             dailyRate: dailyRateAfterCommercialDiscount(
               contract.agreed_rate,
-              contract.discount_percent,
+              closeDiscountPercent,
             ),
             graceHours,
             courtesyHours,
@@ -3839,12 +3861,21 @@ export async function getContractCloseActPdfData(contractId: string) {
       ?.policies?.extraDayGraceHours,
     2,
   );
+  const closeDiscountPercent = recoverCommercialDiscountPercent({
+    agreedRate: contract.agreed_rate,
+    rentalDays: rentalDaysBetween(contract.start_at, contract.end_at),
+    discountPercent: contract.discount_percent,
+    discountAmount: contract.discount_amount,
+  });
   const closeSettlement = contract.actual_return_at
     ? calculateReturnSettlement({
         startAt: contract.start_at,
         scheduledEndAt: contract.end_at,
         actualReturnAt: contract.actual_return_at,
-        dailyRate: contract.agreed_rate,
+        dailyRate: dailyRateAfterCommercialDiscount(
+          contract.agreed_rate,
+          closeDiscountPercent,
+        ),
         graceHours: closeGrace,
         courtesyHours: Number(contract.courtesy_hours ?? 0),
         courtesyDays: Number(contract.courtesy_days ?? 0),

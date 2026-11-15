@@ -56,4 +56,27 @@ assert.strictEqual(snapCommercialDollars(175.97), 175.97, "3¢ off a dollar is k
 assert.strictEqual(dailyRateForPactTotal(176, 3), 58.666667, "176 / 3 keeps 6 decimals");
 assert.strictEqual(toCents(58.666667 * 3), 17600, "Aligned rate × days is exactly 17600 cents");
 
+function recoverCommercialDiscountPercent({ agreedRate, rentalDays, discountPercent, discountAmount }) {
+  const explicit = Number(discountPercent) || 0;
+  if (explicit > 0) return explicit;
+  const amount = Number(discountAmount) || 0;
+  const days = Number(rentalDays) || 0;
+  const rate = Number(agreedRate) || 0;
+  const base = rate * days;
+  if (amount <= 0 || days <= 0 || rate <= 0 || amount >= base) return 0;
+  return Math.round((amount / base) * 100 * 1e6) / 1e6;
+}
+
+const recovered = recoverCommercialDiscountPercent({
+  agreedRate: 27,
+  rentalDays: 4,
+  discountPercent: 0,
+  discountAmount: 8,
+});
+assert.ok(Math.abs(recovered - (2 / 27) * 100) < 0.001, "Recover 27→25 as ~7.407% from $8 on 4 days");
+const extendedBase = 27 * 6;
+const extendedDiscount = extendedBase * (recovered / 100);
+assert.strictEqual(Math.round((extendedBase - extendedDiscount) * 100) / 100, 150, "6 days at recovered % is $150 not $162");
+
 console.log("  OK  Money cents: 58.66×3→176 and a $176 receipt closes at $0");
+console.log("  OK  Commercial % recovers 27→25 so +2 days stay at $150");
