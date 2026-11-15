@@ -10,6 +10,7 @@ import {
   mapContractRow,
   mapContractSignatureRow,
   mapCustomerRow,
+  mapInspectionDamageRow,
   mapReservationRow,
   mapVehicleRow,
   type ContractRow,
@@ -1998,6 +1999,7 @@ export type ContractCloseContext = {
     mileage: number | null;
     fuel_level: string | null;
     checklist: Array<{ item_name: string; status: string }>;
+    damageMarks: import("@/types/database").InspectionDamageMark[];
   } | null;
   checkIn: {
     id: string;
@@ -2006,6 +2008,7 @@ export type ContractCloseContext = {
     inspection_date: string | null;
     checklist: Array<{ item_name: string; status: string }>;
     hasDashboardPhoto: boolean;
+    damageMarks: import("@/types/database").InspectionDamageMark[];
   } | null;
   accessoryComparison: Array<{
     itemName: string;
@@ -2013,6 +2016,16 @@ export type ContractCloseContext = {
     checkInStatus: string | null;
     changed: boolean;
   }>;
+  vehicle: {
+    category: string | null;
+    model: string | null;
+    typeSlug: string | null;
+    typeName: string | null;
+    photoUrl: string | null;
+    viewPhotos: Partial<
+      Record<"TOP" | "FRONT" | "REAR" | "LEFT" | "RIGHT", string>
+    >;
+  };
 };
 
 export async function getContractCloseContext(
@@ -2030,26 +2043,26 @@ export async function getContractCloseContext(
     const supabase = await createClient();
     let inspections: unknown[] | null = null;
 
-    const withPhotos = await supabase
+    const withMarks = await supabase
       .from("inspections")
       .select(
-        "id, type, mileage, fuel_level, inspection_date, inspection_checklist_items(item_name, status), inspection_photos(category)",
+        "id, type, mileage, fuel_level, inspection_date, inspection_checklist_items(item_name, status), inspection_photos(category), inspection_damage_marks(id, inspection_id, view, x, y, damage_type, severity, description, photo_id, mark_number, path_points, created_at)",
       )
       .eq("reservation_id", detail.data.reservation_id)
       .order("inspection_date", { ascending: true });
 
-    if (withPhotos.error) {
+    if (withMarks.error) {
       const fallback = await supabase
         .from("inspections")
         .select(
-          "id, type, mileage, fuel_level, inspection_date, inspection_checklist_items(item_name, status)",
+          "id, type, mileage, fuel_level, inspection_date, inspection_checklist_items(item_name, status), inspection_photos(category)",
         )
         .eq("reservation_id", detail.data.reservation_id)
         .order("inspection_date", { ascending: true });
       if (fallback.error) throw mapPostgresError(fallback.error);
       inspections = fallback.data;
     } else {
-      inspections = withPhotos.data;
+      inspections = withMarks.data;
     }
 
     type InspBundle = {
@@ -2062,6 +2075,9 @@ export async function getContractCloseContext(
         | Array<{ item_name: string; status: string }>
         | null;
       inspection_photos: Array<{ category: string }> | null;
+      inspection_damage_marks?: Array<
+        Parameters<typeof mapInspectionDamageRow>[0]
+      > | null;
     };
 
     const bundles = (inspections ?? []) as InspBundle[];
@@ -2074,12 +2090,16 @@ export async function getContractCloseContext(
       checkIns[checkIns.length - 1] ??
       null;
 
+    const mapMarks = (row: InspBundle | null | undefined) =>
+      (row?.inspection_damage_marks ?? []).map(mapInspectionDamageRow);
+
     const checkOut = checkOutRow
       ? {
           id: checkOutRow.id,
           mileage: checkOutRow.mileage,
           fuel_level: checkOutRow.fuel_level,
           checklist: checkOutRow.inspection_checklist_items ?? [],
+          damageMarks: mapMarks(checkOutRow),
         }
       : null;
 
@@ -2093,6 +2113,7 @@ export async function getContractCloseContext(
           hasDashboardPhoto: (checkInRow.inspection_photos ?? []).some(
             (p) => p.category === "DASHBOARD",
           ),
+          damageMarks: mapMarks(checkInRow),
         }
       : null;
 
@@ -2127,12 +2148,59 @@ export async function getContractCloseContext(
       ?.policies;
     const extraDayGraceHours = coerceGraceHours(policies?.extraDayGraceHours, 2);
 
+    const [{ data: vehicleRow }, { data: vehicleImages }] = await Promise.all([
+      supabase
+        .from("vehicles")
+        .select("model, category, vehicle_types(slug, name)")
+        .eq("id", detail.data.vehicle_id)
+        .maybeSingle(),
+      supabase
+        .from("vehicle_images")
+        .select("url, view, is_primary, position")
+        .eq("vehicle_id", detail.data.vehicle_id)
+        .order("position", { ascending: true }),
+    ]);
+    const vehicleRel = vehicleRow as {
+      model?: string | null;
+      category?: string | null;
+      vehicle_types?:
+        | { slug: string; name: string }
+        | Array<{ slug: string; name: string }>
+        | null;
+    } | null;
+    const vehicleTypeRel = Array.isArray(vehicleRel?.vehicle_types)
+      ? vehicleRel?.vehicle_types[0]
+      : vehicleRel?.vehicle_types;
+    const viewPhotos: ContractCloseContext["vehicle"]["viewPhotos"] = {};
+    let photoUrl: string | null = null;
+    for (const image of (vehicleImages ?? []) as Array<{
+      url: string;
+      view: "TOP" | "FRONT" | "REAR" | "LEFT" | "RIGHT" | null;
+      is_primary: boolean;
+    }>) {
+      if (image.is_primary && !photoUrl) photoUrl = image.url;
+      if (image.view && !viewPhotos[image.view]) {
+        viewPhotos[image.view] = image.url;
+      }
+    }
+    if (!photoUrl && vehicleImages?.[0]) {
+      photoUrl = (vehicleImages[0] as { url: string }).url;
+    }
+
     return actionSuccess({
       contract: detail.data,
       extraDayGraceHours,
       checkOut,
       checkIn,
       accessoryComparison,
+      vehicle: {
+        category: vehicleRel?.category ?? null,
+        model: vehicleRel?.model ?? null,
+        typeSlug: vehicleTypeRel?.slug ?? null,
+        typeName: vehicleTypeRel?.name ?? null,
+        photoUrl,
+        viewPhotos,
+      },
     });
   } catch (error) {
     return actionError(toUserMessage(error));

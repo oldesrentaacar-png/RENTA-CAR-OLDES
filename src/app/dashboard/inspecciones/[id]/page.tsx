@@ -53,8 +53,10 @@ export default async function InspeccionDetailPage({
     : false;
   const canUploadPhotos = canEdit || canCreate;
 
+  // CHECK_IN is reception/return — do not show the delivery (CHECK_OUT) navigator.
+  const isCheckIn = inspection?.type === "CHECK_IN";
   const deliveryFlow =
-    configured && inspection
+    configured && inspection && !isCheckIn
       ? await getDeliveryFlowForReservation(inspection.reservation_id, {
           currentStepId: resolveDeliveryStepId({
             inspectionType: inspection.type,
@@ -70,11 +72,12 @@ export default async function InspeccionDetailPage({
       : null;
   const accessoriesOnly = focusPaso === "accesorios";
   const inspectionOnly = focusPaso === "inspeccion-salida";
-  const showAccessories = !focusPaso || accessoriesOnly;
+  // Reception inspections always show accessories + damage map.
+  const showAccessories = isCheckIn || !focusPaso || accessoriesOnly;
   // Fotos siempre visibles: al crear la inspección el checklist ya viene
   // precargado y el flujo cae en "accesorios", ocultando el uploader.
   const showPhotos = true;
-  const showGeneralData = !accessoriesOnly;
+  const showGeneralData = isCheckIn || !accessoriesOnly;
 
   return (
     <PermissionGuard permission="inspections.view">

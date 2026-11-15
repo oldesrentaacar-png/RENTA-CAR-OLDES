@@ -12,18 +12,26 @@ import {
   saveCloseCheckInVitals,
   type ContractCloseContext,
 } from "@/app/dashboard/contratos/actions";
+import { saveDamageMarks } from "@/app/dashboard/inspecciones/actions";
 import {
   FlowToast,
   MissingFieldsBanner,
   ScrollHint,
 } from "@/components/contracts/flow-coach";
 import { SignaturePad } from "@/components/contracts/signature-pad";
+import {
+  damageMarksToDrafts,
+  draftsToDamagePayload,
+  type DamageMarkDraft,
+} from "@/components/inspections/damage-map-2d";
+import { DamageMapView } from "@/components/inspections/damage-map-view";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { announceSuccess } from "@/lib/ui/announce";
 import {
   dailyRateAfterCommercialDiscount,
   recoverCommercialDiscountPercent,
@@ -71,8 +79,14 @@ export function CloseContractWizard({
   canManageCourtesy = false,
 }: CloseContractWizardProps) {
   const router = useRouter();
-  const { contract, checkOut, checkIn, accessoryComparison, extraDayGraceHours } =
-    context;
+  const {
+    contract,
+    checkOut,
+    checkIn,
+    accessoryComparison,
+    extraDayGraceHours,
+    vehicle,
+  } = context;
 
   const [error, setErrorState] = useState<string | null>(null);
   const setError = (value: string | null) => {
@@ -150,6 +164,15 @@ export function CloseContractWizard({
     Boolean(checkIn && checkIn.checklist.length > 0),
   );
   const [showOptionalClose, setShowOptionalClose] = useState(false);
+  const [damageMarks, setDamageMarks] = useState<DamageMarkDraft[]>(() =>
+    damageMarksToDrafts(checkIn?.damageMarks ?? []),
+  );
+  const priorDamageMarks = useMemo(
+    () => damageMarksToDrafts(checkOut?.damageMarks ?? []),
+    [checkOut?.damageMarks],
+  );
+  const [savingDamageMap, setSavingDamageMap] = useState(false);
+  const [damageMapOk, setDamageMapOk] = useState<string | null>(null);
 
   const amountPaidBase = Number(contract.amount_paid ?? 0);
 
@@ -401,6 +424,28 @@ export function CloseContractWizard({
     return missing;
   }
 
+  async function saveDamageMap() {
+    if (!checkIn) {
+      setError("Primero cree la inspección de entrada.");
+      return false;
+    }
+    setSavingDamageMap(true);
+    setError(null);
+    setDamageMapOk(null);
+    const result = await saveDamageMarks(
+      checkIn.id,
+      JSON.stringify(draftsToDamagePayload(damageMarks)),
+    );
+    setSavingDamageMap(false);
+    if (!result.success) {
+      setError(result.error);
+      return false;
+    }
+    setDamageMapOk("Mapa de daños guardado.");
+    announceSuccess("Mapa de daños guardado.");
+    return true;
+  }
+
   async function saveVitals() {
     if (!checkIn) {
       setError("Primero cree la inspección de entrada.");
@@ -479,6 +524,9 @@ export function CloseContractWizard({
         const ok = await saveVitals();
         if (!ok) return;
       }
+      // Persist rayones before leaving the reception step.
+      const damageOk = await saveDamageMap();
+      if (!damageOk) return;
       const closeIndex = steps.findIndex((step) => step.id === "close");
       if (closeIndex >= 0) {
         setStepIndex(closeIndex);
@@ -945,6 +993,61 @@ export function CloseContractWizard({
                           </table>
                         </div>
                       )}
+                    </div>
+
+                    <div
+                      id="mapa-danos-cierre"
+                      className="rounded-xl border-2 border-red-200 bg-white px-3 py-3"
+                    >
+                      <p className="text-sm font-semibold text-red-950">
+                        Mapa de daños (inspección de ingreso)
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        <strong>Gris</strong> = cómo salió · <strong>rojo</strong>{" "}
+                        = rayón o golpe nuevo. Márquelo aquí sin salir del
+                        cierre.
+                      </p>
+                      <div className="mt-3">
+                        <DamageMapView
+                          marks={damageMarks}
+                          onChange={(next) => {
+                            setDamageMarks(next);
+                            setDamageMapOk(null);
+                          }}
+                          referenceMarks={priorDamageMarks}
+                          newMarksInRed
+                          vehiclePhotoUrl={vehicle.photoUrl}
+                          viewPhotos={vehicle.viewPhotos}
+                          vehicleCategory={vehicle.category}
+                          vehicleModel={vehicle.model}
+                          vehicleTypeSlug={vehicle.typeSlug}
+                          vehicleTypeName={vehicle.typeName}
+                        />
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void saveDamageMap()}
+                          loading={savingDamageMap}
+                          disabled={savingDamageMap}
+                        >
+                          Guardar mapa de daños
+                        </Button>
+                        {damageMapOk ? (
+                          <p className="text-sm text-emerald-700">
+                            {damageMapOk}
+                          </p>
+                        ) : null}
+                        {checkIn ? (
+                          <Link
+                            href={`/dashboard/inspecciones/${checkIn.id}#accesorios`}
+                            className="text-sm font-medium text-brand hover:underline"
+                          >
+                            Abrir inspección de ingreso completa
+                          </Link>
+                        ) : null}
+                      </div>
                     </div>
 
                     {vitalsOk ? (

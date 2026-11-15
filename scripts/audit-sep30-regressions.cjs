@@ -278,6 +278,24 @@ function assert(cond, msg) {
       closePersist.includes("!closeActAlreadyClosed && contract.actual_return_at"),
     "Close-act PDF does not re-apply dayAdjustment on already-closed contracts",
   );
+  const closeWizard = read("src/components/contracts/close-contract-wizard.tsx");
+  assert(
+    closeWizard.includes("DamageMapView") &&
+      closeWizard.includes("mapa-danos-cierre") &&
+      closeWizard.includes("saveDamageMarks"),
+    "Close wizard embeds entry damage map so rayones are visible without leaving close",
+  );
+  assert(
+    closePersist.includes("inspection_damage_marks") &&
+      closePersist.includes("damageMarks: mapMarks"),
+    "Close context loads CHECK_OUT/CHECK_IN damage marks for the map",
+  );
+  const inspectionDetail = read("src/app/dashboard/inspecciones/[id]/page.tsx");
+  assert(
+    inspectionDetail.includes('inspection?.type === "CHECK_IN"') &&
+      inspectionDetail.includes("!isCheckIn"),
+    "CHECK_IN detail does not show the delivery navigator that hid return damages",
+  );
   const dateField = read("src/components/shared/date-field.tsx");
   assert(
     dateField.includes("Elija año") || dateField.includes("Año"),
