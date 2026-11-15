@@ -296,6 +296,15 @@ function assert(cond, msg) {
       inspectionDetail.includes("!isCheckIn"),
     "CHECK_IN detail does not show the delivery navigator that hid return damages",
   );
+  assert(
+    closeWizard.includes("const damageOk = await saveDamageMap()") &&
+      closeWizard.includes('id="mapa-danos-cierre"'),
+    "Close wizard saves the damage map when leaving the reception step",
+  );
+  assert(
+    fs.existsSync(path.join(root, "scripts/audit-production-locks.cjs")),
+    "Production locks audit script exists for Jaime-class regressions",
+  );
   const dateField = read("src/components/shared/date-field.tsx");
   assert(
     dateField.includes("Elija año") || dateField.includes("Año"),
