@@ -258,6 +258,26 @@ function assert(cond, msg) {
     quoteCalc.includes("export function recoverCommercialDiscountPercent"),
     "Commercial % discount can be recovered from a fixed USD cut when extending days",
   );
+  const receiptsBilling = read("src/app/dashboard/recibos/actions.ts");
+  assert(
+    receiptsBilling.includes("recoverCommercialDiscountPercent") &&
+      receiptsBilling.includes("alreadyClosed") &&
+      receiptsBilling.includes("billedDailyRate") &&
+      receiptsBilling.includes("balance_due") &&
+      receiptsBilling.includes("Advance the stored saldo"),
+    "Receipt balance recalcs use discounted day rate and do not reinvent extras on closed contracts",
+  );
+  const closePersist = read("src/app/dashboard/contratos/actions.ts");
+  assert(
+    closePersist.includes("finalRentalTotal") &&
+      closePersist.includes("discount_percent: closeDiscountPercent"),
+    "Close persists discounted total so a later abono cannot leave a fake $4 saldo",
+  );
+  assert(
+    closePersist.includes("closeActAlreadyClosed") &&
+      closePersist.includes("!closeActAlreadyClosed && contract.actual_return_at"),
+    "Close-act PDF does not re-apply dayAdjustment on already-closed contracts",
+  );
   const dateField = read("src/components/shared/date-field.tsx");
   assert(
     dateField.includes("Elija año") || dateField.includes("Año"),

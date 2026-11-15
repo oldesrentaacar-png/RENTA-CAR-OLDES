@@ -1665,27 +1665,31 @@ export async function setContractExtraLineItems(
     }
 
     const days = rentalDaysBetween(row.start_at, row.end_at);
-    const rental = Number(row.agreed_rate) * days;
-    const insurance = Number(row.insurance ?? 0);
-    const manualSum = sumExtraLineItems(cleaned);
-    const courtesyAmount = Number(row.courtesy_amount ?? 0);
-    const commercialDiscount = Number(
-      (row as { discount_amount?: number }).discount_amount ?? 0,
-    );
-    const pretaxBase = Math.max(
-      0,
-      Math.round(
-        (rental + insurance + manualSum - courtesyAmount - commercialDiscount) *
-          100,
-      ) / 100,
-    );
-
+    const discountPercent = recoverCommercialDiscountPercent({
+      agreedRate: row.agreed_rate,
+      rentalDays: days,
+      discountPercent: (row as { discount_percent?: number }).discount_percent,
+      discountAmount: (row as { discount_amount?: number }).discount_amount,
+    });
+    const commercial = calculateReservationTotal({
+      startAt: row.start_at,
+      endAt: row.end_at,
+      agreedRate: row.agreed_rate,
+      insurance: Number(row.insurance ?? 0),
+      additionalCosts: sumExtraLineItems(cleaned),
+      discountPercent,
+      discountAmount: Number(
+        (row as { discount_amount?: number }).discount_amount ?? 0,
+      ),
+      courtesyAmount: Number(row.courtesy_amount ?? 0),
+    });
     const ivaTotals = computeOptionalIvaTotals({
-      pretaxTotal: pretaxBase,
+      pretaxTotal: commercial.total,
       applyIva: Boolean(row.apply_iva),
       taxRate: Number(row.tax_rate ?? 0.13),
     });
 
+    const manualSum = sumExtraLineItems(cleaned);
     const { error } = await supabase
       .from("contracts")
       .update({
@@ -1693,6 +1697,8 @@ export async function setContractExtraLineItems(
         subtotal: ivaTotals.pretaxTotal,
         tax_amount: ivaTotals.taxAmount,
         total: ivaTotals.total,
+        discount_percent: commercial.discountPercent,
+        discount_amount: commercial.discountAmount,
         updated_at: new Date().toISOString(),
       })
       .eq("id", contractId)
@@ -2763,6 +2769,15 @@ export async function closeContract(
           ? closeBlock
           : contract.notes;
 
+    // Fold only the day adjustment into total. Charges stay in their columns.
+    // Closed + total-with-days stops receipt recalcs from inventing 2×$2 again.
+    const billedDays =
+      settlement?.actualDays ??
+      rentalDaysBetween(contract.start_at, contract.end_at);
+    const finalRentalTotal = Math.max(
+      0,
+      Number(contract.total) + dayAdjustment,
+    );
     const updateRow: Record<string, unknown> = {
       status: "COMPLETED",
       closed_at: closedAt,
@@ -2770,6 +2785,18 @@ export async function closeContract(
       damage_charges: damageCharges,
       fuel_charges: fuelCharges,
       complementary_amount: complementaryAmount,
+      total: finalRentalTotal,
+      subtotal: finalRentalTotal,
+      discount_percent: closeDiscountPercent,
+      discount_amount:
+        closeDiscountPercent > 0
+          ? Math.round(
+              Number(contract.agreed_rate) *
+                billedDays *
+                (closeDiscountPercent / 100) *
+                100,
+            ) / 100
+          : Number(contract.discount_amount ?? 0),
       amount_paid: amountPaid,
       balance_due: balanceDue,
       payment_status: paymentStatus,
@@ -3867,21 +3894,28 @@ export async function getContractCloseActPdfData(contractId: string) {
     discountPercent: contract.discount_percent,
     discountAmount: contract.discount_amount,
   });
-  const closeSettlement = contract.actual_return_at
-    ? calculateReturnSettlement({
-        startAt: contract.start_at,
-        scheduledEndAt: contract.end_at,
-        actualReturnAt: contract.actual_return_at,
-        dailyRate: dailyRateAfterCommercialDiscount(
-          contract.agreed_rate,
-          closeDiscountPercent,
-        ),
-        graceHours: closeGrace,
-        courtesyHours: Number(contract.courtesy_hours ?? 0),
-        courtesyDays: Number(contract.courtesy_days ?? 0),
-        manualExtraDaysWaived: Number(contract.grace_extra_days_waived ?? 0),
-      })
-    : null;
+  // After close, total already includes dayAdjustment. Re-adding it here would
+  // invent the same fake pending as CTR-052 ($4 = 2 × $2 list vs commercial).
+  const closeActAlreadyClosed =
+    Boolean(contract.closed_at) ||
+    String(contract.status ?? "").toUpperCase() === "COMPLETED" ||
+    String(contract.status ?? "").toUpperCase() === "CANCELLED";
+  const closeSettlement =
+    !closeActAlreadyClosed && contract.actual_return_at
+      ? calculateReturnSettlement({
+          startAt: contract.start_at,
+          scheduledEndAt: contract.end_at,
+          actualReturnAt: contract.actual_return_at,
+          dailyRate: dailyRateAfterCommercialDiscount(
+            contract.agreed_rate,
+            closeDiscountPercent,
+          ),
+          graceHours: closeGrace,
+          courtesyHours: Number(contract.courtesy_hours ?? 0),
+          courtesyDays: Number(contract.courtesy_days ?? 0),
+          manualExtraDaysWaived: Number(contract.grace_extra_days_waived ?? 0),
+        })
+      : null;
   const dayAdjustment = applyContractIvaToAmount(
     closeSettlement?.dayAdjustment ?? 0,
     Boolean(contract.apply_iva),

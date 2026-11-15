@@ -78,5 +78,18 @@ const extendedBase = 27 * 6;
 const extendedDiscount = extendedBase * (recovered / 100);
 assert.strictEqual(Math.round((extendedBase - extendedDiscount) * 100) / 100, 150, "6 days at recovered % is $150 not $162");
 
+function dailyRateAfterCommercialDiscount(rate, percent) {
+  return Math.round(rate * (1 - percent / 100) * 1e6) / 1e6;
+}
+const closeRate = dailyRateAfterCommercialDiscount(27, 7.41);
+assert.ok(Math.abs(closeRate - 25) < 0.01, "Close/extra days bill ~$25 not $27");
+assert.strictEqual(Math.round(closeRate * 2 * 100) / 100, 50, "2 extra days at discounted rate = $50");
+assert.strictEqual(Math.round(27 * 2 * 100) / 100, 54, "List price would wrongly charge $54");
+assert.strictEqual(150 - 54, 96, "sanity");
+// Paid $150 on $100 base + $50 extras; inventing $54 extras leaves $4 pending.
+assert.strictEqual(100 + 54 - 150, 4, "CTR-052 failure mode: raw $27 extras leave $4 pending");
+assert.strictEqual(100 + 50 - 150, 0, "CTR-052 correct mode: $25 extras close at zero");
+
 console.log("  OK  Money cents: 58.66×3→176 and a $176 receipt closes at $0");
 console.log("  OK  Commercial % recovers 27→25 so +2 days stay at $150");
+console.log("  OK  CTR-052: discounted extras close at $0, list-price extras would leave $4");

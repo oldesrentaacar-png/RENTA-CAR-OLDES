@@ -1277,7 +1277,11 @@ export function CloseContractWizard({
                     hasta{" "}
                     <strong>{formatAppDateTime(contract.end_at)}</strong> ·{" "}
                     {formatMoney(contract.total)} a{" "}
-                    {formatMoney(contract.agreed_rate)} por día.
+                    {formatMoney(billedDailyRate)} por día
+                    {billedDailyRate < Number(contract.agreed_rate) - 0.009
+                      ? ` (lista ${formatMoney(contract.agreed_rate)} con descuento)`
+                      : ""}
+                    .
                   </p>
                 </div>
                 <Input

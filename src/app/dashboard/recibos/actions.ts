@@ -11,6 +11,10 @@ import {
   unappliedCourtesyAmount,
 } from "@/lib/contracts/amount-owed";
 import { applyContractIvaToAmount } from "@/lib/pdf/contract-billing";
+import {
+  dailyRateAfterCommercialDiscount,
+  recoverCommercialDiscountPercent,
+} from "@/lib/calculations/quote";
 import { calculateReturnSettlement } from "@/lib/calculations/rental-close";
 import { appTodayDateString, formatAppDate, rentalDaysBetween } from "@/lib/dates";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/env";
@@ -73,15 +77,19 @@ type ContractBillingSnapshot = {
 };
 
 const CONTRACT_BILLING_COLUMNS =
-  "total, subtotal, tax_amount, apply_iva, tax_rate, agreed_rate, insurance, start_at, end_at, actual_return_at, courtesy_amount, courtesy_hours, courtesy_days, grace_extra_days_waived, extra_line_items, amount_paid, extra_charges, damage_charges, fuel_charges, complementary_amount";
+  "status, closed_at, total, subtotal, tax_amount, apply_iva, tax_rate, agreed_rate, discount_percent, discount_amount, insurance, start_at, end_at, actual_return_at, courtesy_amount, courtesy_hours, courtesy_days, grace_extra_days_waived, extra_line_items, amount_paid, balance_due, extra_charges, damage_charges, fuel_charges, complementary_amount";
 
 type ContractBillingRow = {
+  status?: string | null;
+  closed_at?: string | null;
   total: number;
   subtotal?: number | null;
   tax_amount?: number | null;
   apply_iva?: boolean | null;
   tax_rate?: number | null;
   agreed_rate?: number | null;
+  discount_percent?: number | null;
+  discount_amount?: number | null;
   insurance?: number | null;
   start_at?: string | null;
   end_at?: string | null;
@@ -92,6 +100,7 @@ type ContractBillingRow = {
   grace_extra_days_waived?: number | null;
   extra_line_items?: Array<{ label?: string | null; amount?: number | null }> | null;
   amount_paid?: number | null;
+  balance_due?: number | null;
   extra_charges?: number | null;
   damage_charges?: number | null;
   fuel_charges?: number | null;
@@ -102,6 +111,28 @@ function snapshotFromBillingRow(
   row: ContractBillingRow,
   paid: number,
 ): ContractBillingSnapshot {
+  const previousPaid = Number(row.amount_paid ?? 0);
+  const status = String(row.status ?? "").toUpperCase();
+  const alreadyClosed =
+    Boolean(row.closed_at) || status === "COMPLETED" || status === "CANCELLED";
+
+  // Closed contracts: never re-derive days from agreed_rate. That was CTR-052
+  // ($4 = 2 × $2 list vs commercial). Advance the stored saldo by the abono.
+  if (alreadyClosed && row.balance_due != null) {
+    const storedBalance = Number(row.balance_due);
+    const owed = Math.max(0, previousPaid + Math.max(0, storedBalance));
+    const balanceDue = balanceAfterPayment(owed, paid);
+    const paymentStatus =
+      balanceDue <= 0 ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING";
+    return {
+      owed,
+      previousPaid,
+      newPaid: paid,
+      balanceDue,
+      paymentStatus,
+    };
+  }
+
   const charges =
     Number(row.extra_charges ?? 0) +
     Number(row.damage_charges ?? 0) +
@@ -113,13 +144,23 @@ function snapshotFromBillingRow(
   }, 0);
   const rentalDays =
     row.start_at && row.end_at ? rentalDaysBetween(row.start_at, row.end_at) : 1;
+  const discountPercent = recoverCommercialDiscountPercent({
+    agreedRate: Number(row.agreed_rate ?? 0),
+    rentalDays,
+    discountPercent: row.discount_percent,
+    discountAmount: row.discount_amount,
+  });
+  const billedDailyRate = dailyRateAfterCommercialDiscount(
+    Number(row.agreed_rate ?? 0),
+    discountPercent,
+  );
   const settlement =
     row.actual_return_at && row.start_at && row.end_at
       ? calculateReturnSettlement({
           startAt: row.start_at,
           scheduledEndAt: row.end_at,
           actualReturnAt: row.actual_return_at,
-          dailyRate: Number(row.agreed_rate ?? 0),
+          dailyRate: billedDailyRate,
           courtesyHours: Number(row.courtesy_hours ?? 0),
           courtesyDays: Number(row.courtesy_days ?? 0),
           manualExtraDaysWaived: Number(row.grace_extra_days_waived ?? 0),
@@ -152,7 +193,7 @@ function snapshotFromBillingRow(
     balanceDue <= 0 ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING";
   return {
     owed,
-    previousPaid: Number(row.amount_paid ?? 0),
+    previousPaid,
     newPaid: paid,
     balanceDue,
     paymentStatus,
