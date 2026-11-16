@@ -4,7 +4,7 @@ Aplicación Android que abre el sistema web de **OLDES Rent a Car** a pantalla c
 
 - **Paquete:** `com.oldes.rentacar.app`
 - **Nombre:** OLDES Sistema
-- **Versión:** 1.1.3
+- **Versión:** 1.1.4
 - **URL:** https://oldescarrentalelsalvador.com/login
 
 ## Qué hace la v1.1

@@ -282,7 +282,15 @@ lock(
     fs.existsSync(
       path.join(root, "apk-android/app/src/main/res/xml/file_paths.xml"),
     ),
-  "APK 1.1.3 photo path: FileProvider + WebView file chooser + camera URI",
+  "APK photo path: FileProvider + WebView file chooser + camera URI grants",
+);
+lock(
+  read("apk-android/app/build.gradle.kts").includes('versionName = "1.1.4"') &&
+    apkMainKt.includes("grantUriPermission") &&
+    apkMainKt.includes("ACTION_OPEN_DOCUMENT") &&
+    apkMainKt.includes("isCaptureEnabled") &&
+    apkMainKt.includes("OLDES-Android/1.1.4"),
+  "APK 1.1.4 hardens camera URI grants, OPEN_DOCUMENT gallery, and capture=environment",
 );
 
 console.log("");

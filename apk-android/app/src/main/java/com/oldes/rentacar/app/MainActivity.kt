@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var cameraImageUri: Uri? = null
+    private var pendingCaptureOnly = false
     private var monitorEnabled = false
     private var pendingOpenPath: String? = null
 
@@ -159,41 +160,82 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun buildCameraIntent(uri: Uri): Intent {
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+            putExtra(MediaStore.EXTRA_OUTPUT, uri)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = android.content.ClipData.newUri(contentResolver, "OLDES photo", uri)
+        }
+        // Android 7+ requires explicit grants to camera apps for FileProvider URIs.
+        val cameras = packageManager.queryIntentActivities(
+            intent,
+            PackageManager.MATCH_DEFAULT_ONLY,
+        )
+        for (info in cameras) {
+            grantUriPermission(
+                info.activityInfo.packageName,
+                uri,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+        return intent
+    }
+
+    private fun buildGalleryIntent(): Intent {
+        // ACTION_OPEN_DOCUMENT is more reliable on Android 13+ than GET_CONTENT alone.
+        return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    private fun failFileChooser(callback: ValueCallback<Array<Uri>>) {
+        filePathCallback = null
+        cameraImageUri = null
+        pendingCaptureOnly = false
+        callback.onReceiveValue(null)
+        Toast.makeText(this, getString(R.string.file_chooser_unavailable), Toast.LENGTH_LONG).show()
+    }
+
     private fun launchFileChooser() {
         val callback = filePathCallback
         if (callback == null) return
 
         val cameraUri = createCameraUri()
         cameraImageUri = cameraUri
-
-        val galleryIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "image/*"
-            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-        }
-
-        val cameraIntent = cameraUri?.let { uri ->
-            Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-                putExtra(MediaStore.EXTRA_OUTPUT, uri)
-                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-        }
-
-        val chooser = Intent(Intent.ACTION_CHOOSER).apply {
-            putExtra(Intent.EXTRA_INTENT, galleryIntent)
-            putExtra(Intent.EXTRA_TITLE, getString(R.string.choose_image_source))
-            if (cameraIntent != null) {
-                putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
-            }
-        }
+        val captureOnly = pendingCaptureOnly
+        pendingCaptureOnly = false
 
         try {
+            if (captureOnly && cameraUri != null) {
+                fileChooserLauncher.launch(buildCameraIntent(cameraUri))
+                return
+            }
+
+            val galleryIntent = buildGalleryIntent()
+            val cameraIntent = cameraUri?.let { buildCameraIntent(it) }
+            val chooser = Intent(Intent.ACTION_CHOOSER).apply {
+                putExtra(Intent.EXTRA_INTENT, galleryIntent)
+                putExtra(Intent.EXTRA_TITLE, getString(R.string.choose_image_source))
+                if (cameraIntent != null) {
+                    putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
+                }
+            }
             fileChooserLauncher.launch(chooser)
         } catch (_: ActivityNotFoundException) {
-            filePathCallback = null
-            cameraImageUri = null
-            callback.onReceiveValue(null)
-            Toast.makeText(this, getString(R.string.file_chooser_unavailable), Toast.LENGTH_LONG).show()
+            // Fallback: plain GET_CONTENT gallery if OPEN_DOCUMENT/camera missing.
+            try {
+                val fallback = Intent(Intent.ACTION_GET_CONTENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "image/*"
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                }
+                fileChooserLauncher.launch(fallback)
+            } catch (_: ActivityNotFoundException) {
+                failFileChooser(callback)
+            }
         }
     }
 
@@ -209,7 +251,7 @@ class MainActivity : AppCompatActivity() {
             loadsImagesAutomatically = true
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
-            userAgentString = "${WebSettings.getDefaultUserAgent(this@MainActivity)} OLDES-Android/1.1.3"
+            userAgentString = "${WebSettings.getDefaultUserAgent(this@MainActivity)} OLDES-Android/1.1.4"
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
@@ -291,8 +333,11 @@ class MainActivity : AppCompatActivity() {
                 filePathCallback: ValueCallback<Array<Uri>>?,
                 fileChooserParams: FileChooserParams?,
             ): Boolean {
+                // Cancel any previous pending chooser so WebView does not hang.
                 this@MainActivity.filePathCallback?.onReceiveValue(null)
                 this@MainActivity.filePathCallback = filePathCallback
+                // Web "Tomar foto" uses capture=environment → open camera directly.
+                pendingCaptureOnly = fileChooserParams?.isCaptureEnabled == true
 
                 val missing = mediaPermissionsNeeded()
                 if (missing.isNotEmpty()) {
