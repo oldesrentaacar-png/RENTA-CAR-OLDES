@@ -219,6 +219,29 @@ lock(
   "Unpaid display phase / balance helpers remain available",
 );
 
+// --- Rate / "Calcular tarifa" (Jaime once thought it would not calculate) ---
+const rateInput = read("src/components/shared/rate-input.tsx");
+lock(
+  rateInput.includes('type="text"') &&
+    rateInput.includes("sanitizeRateTyping") &&
+    rateInput.includes("Calcular tarifa") &&
+    rateInput.includes("dailyRateForPactTotal") &&
+    rateInput.includes("alignRateToPactTotal") &&
+    !/type=["']number["']/.test(rateInput),
+  "Daily rate field is text (6dp) with Calcular tarifa — browser cannot block 58.666667",
+);
+lock(
+  read("src/components/contracts/contract-form.tsx").includes("RateWithPactTotal") &&
+    read("src/components/forms/reservation-form.tsx").includes("RateWithPactTotal"),
+  "Contract + reservation forms use RateWithPactTotal for daily rate",
+);
+lock(
+  moneySrc.includes("RATE_DECIMALS = 6") &&
+    moneySrc.includes("export function parseRateInput") &&
+    moneySrc.includes("export function dailyRateForPactTotal"),
+  "Money module keeps 6dp rate parse + pact-total helpers",
+);
+
 console.log("");
 if (failed > 0) {
   console.error(`${failed} production lock(s) FAILED — do not ship`);
