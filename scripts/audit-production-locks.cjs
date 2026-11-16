@@ -242,6 +242,49 @@ lock(
   "Money module keeps 6dp rate parse + pact-total helpers",
 );
 
+// --- Photo upload (web + APK) — Jaime said photos would not upload ---
+const photoUploader = read("src/components/inspections/photo-uploader.tsx");
+lock(
+  photoUploader.includes("uploadInspectionPhotoAction") &&
+    photoUploader.includes('accept="image/*"') &&
+    photoUploader.includes("Adjuntar de galería") &&
+    photoUploader.includes("Tomar foto") &&
+    photoUploader.includes("compressImage"),
+  "Web inspection PhotoUploader: gallery + camera + compress + server action",
+);
+const inspActions = read("src/app/dashboard/inspecciones/actions.ts");
+lock(
+  inspActions.includes("export async function uploadInspectionPhotoAction") &&
+    inspActions.includes("inspections.edit") &&
+    inspActions.includes("inspections.create") &&
+    inspActions.includes("12 * 1024 * 1024"),
+  "Photo upload action allows edit/create and caps size at 12MB",
+);
+lock(
+  read("src/app/dashboard/inspecciones/[id]/page.tsx").includes(
+    "showPhotos = true",
+  ) &&
+    read("src/app/dashboard/inspecciones/[id]/page.tsx").includes(
+      "<PhotoUploader",
+    ),
+  "Inspection detail always mounts the photos section",
+);
+const apkMainKt = read(
+  "apk-android/app/src/main/java/com/oldes/rentacar/app/MainActivity.kt",
+);
+const apkManifestXml = read("apk-android/app/src/main/AndroidManifest.xml");
+lock(
+  apkManifestXml.includes("FileProvider") &&
+    apkManifestXml.includes("CAMERA") &&
+    apkManifestXml.includes("READ_MEDIA_IMAGES") &&
+    apkMainKt.includes("onShowFileChooser") &&
+    apkMainKt.includes("FileProvider.getUriForFile") &&
+    fs.existsSync(
+      path.join(root, "apk-android/app/src/main/res/xml/file_paths.xml"),
+    ),
+  "APK 1.1.3 photo path: FileProvider + WebView file chooser + camera URI",
+);
+
 console.log("");
 if (failed > 0) {
   console.error(`${failed} production lock(s) FAILED — do not ship`);
